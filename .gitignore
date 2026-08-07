@@ -11,3 +11,4 @@
 /.mgr/
 /.owi/.work/
 /.owi/plan.json
+__pycache__/

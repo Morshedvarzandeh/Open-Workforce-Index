@@ -1,0 +1,116 @@
+{
+  "_comment": [
+    "Work manifest for the battery-core project. Edit this file -- it is the",
+    "whole interface. Each feature names the skill and tools the work needs;",
+    "the allocator staffs it from the current roster and prices the plan.",
+    "",
+    "This file lives in the OWI repo for now; when you want the automatic",
+    "hook/CI in battery-core itself, copy it to battery-core/.owi/project.json",
+    "unchanged.",
+    "",
+    "No CAD tasks here on purpose: battery-core has no CAD surface, and a",
+    "manifest should describe the project's real work, not the roster's",
+    "capabilities."
+  ],
+  "project_id": "project:battery-core",
+  "snapshot_id": "snapshot:manager-scenario-v1",
+  "at_epoch_ms": 1785110400000,
+  "created_at": "2026-08-07T18:00:00Z",
+  "defaults": {
+    "minimum_success_probability": 0.3,
+    "privacy": "private_metadata",
+    "policy": {
+      "policy_id": "policy:economy-v1",
+      "currency": "USD",
+      "quota_shadow_cash_micros_per_unit": 0,
+      "failure_probability_basis": "mean",
+      "max_attempts": 2
+    },
+    "calibration": {
+      "calibration_id": "calibration:v1",
+      "confidence_tail_probability": 0.05,
+      "prior_alpha": 1.0,
+      "prior_beta": 1.0,
+      "max_public_prior_weight": 8.0,
+      "private_outcome_weight": 1.0
+    },
+    "assumptions": {
+      "default_p95_latency_ms": 30000,
+      "review_cash_micros_per_hour": 0,
+      "opportunity_micros_per_hour": 60000000,
+      "review_minutes_on_accept": 3.0,
+      "review_minutes_on_reject": 25.0,
+      "blocking_fraction": 0.0,
+      "expected_task_volume": 50,
+      "default_onboarding_cash_micros": 1000000,
+      "onboarding_cash_micros": {
+        "worker:gpt-5-mini/text": 143000,
+        "worker:gpt-5-mini/extract": 143000,
+        "worker:haiku-4-5/text": 440000,
+        "worker:haiku-4-5/extract": 440000,
+        "worker:haiku-4-5/code": 440000,
+        "worker:gpt-5/text": 715000,
+        "worker:gpt-5/extract": 715000,
+        "worker:gpt-5/code": 715000,
+        "worker:sonnet-4-5/text": 1320000,
+        "worker:sonnet-4-5/extract": 1320000,
+        "worker:sonnet-4-5/code": 1320000,
+        "worker:sonnet-4-5/cad": 1320000,
+        "worker:opus-4-5/text": 2200000,
+        "worker:opus-4-5/extract": 2200000,
+        "worker:opus-4-5/code": 2200000,
+        "worker:opus-4-5/cad": 2200000
+      }
+    }
+  },
+  "features": [
+    {
+      "id": "task:implement-butler-volmer",
+      "summary": "Implement a Butler-Volmer kinetics helper following the validation conventions, with tests",
+      "skill_id": "skill:python-numerical-implementation",
+      "required_tools": [
+        "shell"
+      ],
+      "minimum_success_probability": 0.24,
+      "risk": "medium",
+      "estimated_input_tokens": 30000,
+      "estimated_output_tokens": 6000,
+      "assumptions": {
+        "expected_fallback_cash_micros": 200000
+      }
+    },
+    {
+      "id": "task:diffusion-tutorial-page",
+      "summary": "Draft a docs page walking through ficks_first_law_flux with a worked example",
+      "skill_id": "skill:text-editing",
+      "estimated_input_tokens": 8000,
+      "estimated_output_tokens": 2500,
+      "assumptions": {
+        "expected_fallback_cash_micros": 12000
+      }
+    },
+    {
+      "id": "task:references-to-json",
+      "summary": "Extract the citation list in REFERENCES.md into structured JSON records",
+      "skill_id": "skill:structured-extraction",
+      "required_tools": [
+        "json-schema-validator"
+      ],
+      "estimated_input_tokens": 6000,
+      "estimated_output_tokens": 2000,
+      "assumptions": {
+        "expected_fallback_cash_micros": 12000
+      }
+    },
+    {
+      "id": "task:notebook-index",
+      "summary": "Summarize each teaching notebook into a one-paragraph index for the README",
+      "skill_id": "skill:text-editing",
+      "estimated_input_tokens": 10000,
+      "estimated_output_tokens": 1500,
+      "assumptions": {
+        "expected_fallback_cash_micros": 10000
+      }
+    }
+  ]
+}
