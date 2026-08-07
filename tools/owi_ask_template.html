@@ -46,7 +46,12 @@
   button:focus-visible { outline:2px solid var(--ink); outline-offset:1px; }
 
   .answer { background:var(--panel); border:1px solid var(--rule);
-    padding:16px 18px; display:none; flex-direction:column; gap:10px; }
+    padding:16px 18px; display:none; flex-direction:column; gap:10px;
+    position:relative; }
+  .close { position:absolute; top:6px; right:6px; background:none; border:none;
+    color:var(--ink-3); font:inherit; font-size:15px; line-height:1;
+    padding:6px 8px; cursor:pointer; }
+  .close:hover { color:var(--ink); }
   .answer.show { display:flex; }
   .line { color:var(--ink-2); font-size:13px; }
   .pick { font-size:18px; font-weight:700; }
@@ -236,9 +241,11 @@
     const box = document.getElementById("answer");
     box.classList.add("show");
 
+    const closeButton = `<button type="button" class="close" id="closeAnswer"
+      aria-label="close">✕</button>`;
     if (!rows.length) {
       last = null;
-      box.innerHTML = `<div class="line">skill:
+      box.innerHTML = closeButton + `<div class="line">skill:
         ${skill.replace("skill:", "")}</div>
         <div class="none">nobody qualified — every capable worker has fallen
         below the quality floor.</div>
@@ -248,7 +255,7 @@
     }
     const top = rows[0];
     last = { skill, id: top.id };
-    box.innerHTML = `
+    box.innerHTML = closeButton + `
       <div class="line">skill: ${skill.replace("skill:", "")}
         &nbsp;·&nbsp; ~${tokensIn} in / 800 out tokens</div>
       <div class="pick">→ ${short(top.id)}
@@ -295,6 +302,7 @@
         <button type="button" class="no" data-cause="task_spec">unclear task</button>
         <button type="button" class="no" data-cause="environment">my setup</button>
       </div>`;
+    wireClose();
     const copyButton = document.getElementById("copybtn");
     if (copyButton) copyButton.onclick = async () => {
       try { await navigator.clipboard.writeText(text);
@@ -363,6 +371,18 @@
     });
   }
 
+  function wireClose() {
+    const btn = document.getElementById("closeAnswer");
+    if (btn) btn.onclick = () => {
+      document.getElementById("answer").classList.remove("show");
+      const q = document.getElementById("q");
+      q.select(); q.focus();
+    };
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape")
+      document.getElementById("answer").classList.remove("show");
+  });
   document.getElementById("form").addEventListener("submit", (e) => {
     e.preventDefault(); render();
   });
