@@ -1,0 +1,107 @@
+{
+  "_comment": [
+    "Harness calibration references, not models. `oracle` restores the",
+    "repository's own code and must score 1.0; `stub` implements nothing and",
+    "must score 0.0. Any real worker's score is only meaningful between them.",
+    "Both are zero-cost because neither calls a provider."
+  ],
+  "snapshot_id": "snapshot:bench-battery-core-v1",
+  "created_at": "2026-08-07T18:00:00Z",
+  "ontology_version": "ontology:v1",
+  "source_revision": "corpus:battery-core-v1",
+  "model_releases": [
+    {
+      "id": "model:bench-oracle",
+      "developer": "open-workforce-index",
+      "model_family": "bench-oracle",
+      "released_at": "unknown",
+      "context_window_tokens": 1000000,
+      "source_url": "https://github.com/Morshedvarzandeh/Open-Workforce-Index/blob/main/tools/run_bench.py",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "model:bench-stub",
+      "developer": "open-workforce-index",
+      "model_family": "bench-stub",
+      "released_at": "unknown",
+      "context_window_tokens": 1000000,
+      "source_url": "https://github.com/Morshedvarzandeh/Open-Workforce-Index/blob/main/tools/run_bench.py",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    }
+  ],
+  "provider_offerings": [
+    {
+      "id": "offering:bench/oracle",
+      "model_release_id": "model:bench-oracle",
+      "provider": "open-workforce-index",
+      "effective_from_epoch_ms": 1754006400000,
+      "currency": "USD",
+      "input_micros_per_million_tokens": 0,
+      "output_micros_per_million_tokens": 0,
+      "fixed_request_micros": 0,
+      "quota_milliunits_per_request": 0,
+      "context_window_tokens": 1000000,
+      "source_url": "https://github.com/Morshedvarzandeh/Open-Workforce-Index",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "offering:bench/stub",
+      "model_release_id": "model:bench-stub",
+      "provider": "open-workforce-index",
+      "effective_from_epoch_ms": 1754006400000,
+      "currency": "USD",
+      "input_micros_per_million_tokens": 0,
+      "output_micros_per_million_tokens": 0,
+      "fixed_request_micros": 0,
+      "quota_milliunits_per_request": 0,
+      "context_window_tokens": 1000000,
+      "source_url": "https://github.com/Morshedvarzandeh/Open-Workforce-Index",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    }
+  ],
+  "worker_profiles": [
+    {
+      "id": "worker:bench-oracle",
+      "offering_id": "offering:bench/oracle",
+      "harness_id": "owi-bench-harness",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "python-v1",
+      "toolset_version": "shell-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:python-numerical-implementation"
+      ],
+      "tools": [
+        "shell"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "b137b80f2962c771d04aebdf485c6e815eabdff81f44d8522bdcb51a95b72896",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:bench-stub",
+      "offering_id": "offering:bench/stub",
+      "harness_id": "owi-bench-harness",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "python-v1",
+      "toolset_version": "shell-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:python-numerical-implementation"
+      ],
+      "tools": [
+        "shell"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "d323b086216a403d38978151b25691890f82830f7ada7c6814da73412dde1e51",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    }
+  ],
+  "evidence": []
+}
