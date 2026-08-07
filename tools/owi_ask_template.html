@@ -1,0 +1,268 @@
+<title>OWI — ask</title>
+<style>
+  :root {
+    --ground:#EEF1F5; --panel:#FFFFFF; --panel-sunk:#F5F7FA;
+    --rule:#D3DAE3; --rule-firm:#B4BECB;
+    --ink:#14171C; --ink-2:#454E5B; --ink-3:#6B7686;
+    --accent:#2B5CE6; --accent-soft:#E4EAFB;
+    --good:#0F6B47; --bad:#9E3B2C;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:#101318; --panel:#171B21; --panel-sunk:#1D222A;
+      --rule:#2B323C; --rule-firm:#3D4653;
+      --ink:#E8ECF2; --ink-2:#AEB8C6; --ink-3:#7C8797;
+      --accent:#7CA0FF; --accent-soft:#1C2740;
+      --good:#4FC08D; --bad:#E0796A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#101318; --panel:#171B21; --panel-sunk:#1D222A;
+    --rule:#2B323C; --rule-firm:#3D4653;
+    --ink:#E8ECF2; --ink-2:#AEB8C6; --ink-3:#7C8797;
+    --accent:#7CA0FF; --accent-soft:#1C2740;
+    --good:#4FC08D; --bad:#E0796A;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--ground); color:var(--ink);
+    font-family:var(--mono); font-size:15px; line-height:1.55;
+    -webkit-font-smoothing:antialiased; }
+  .shell { max-width:640px; margin:0 auto; padding:12vh 22px 60px;
+    display:flex; flex-direction:column; gap:22px; }
+  h1 { margin:0; font-size:20px; letter-spacing:-0.02em; }
+  h1 small { color:var(--ink-3); font-weight:400; font-size:12px;
+    margin-left:10px; letter-spacing:0.06em; }
+  form { display:flex; gap:8px; }
+  input[type=text] { flex:1; font:inherit; padding:12px 14px;
+    background:var(--panel); color:var(--ink);
+    border:1.5px solid var(--rule-firm); }
+  input[type=text]:focus-visible { outline:2px solid var(--accent);
+    outline-offset:1px; }
+  button { font:inherit; padding:12px 18px; background:var(--accent);
+    color:#fff; border:none; cursor:pointer; font-weight:700; }
+  :root[data-theme="dark"] button { color:#0F1420; }
+  button:focus-visible { outline:2px solid var(--ink); outline-offset:1px; }
+
+  .answer { background:var(--panel); border:1px solid var(--rule);
+    padding:16px 18px; display:none; flex-direction:column; gap:10px; }
+  .answer.show { display:flex; }
+  .line { color:var(--ink-2); font-size:13px; }
+  .pick { font-size:18px; font-weight:700; }
+  .pick .price { color:var(--accent); }
+  .alt { font-size:13px; color:var(--ink-2);
+    font-variant-numeric:tabular-nums; }
+  .meta { font-size:12px; color:var(--ink-3); }
+  .verdict { display:flex; gap:8px; align-items:center;
+    border-top:1px solid var(--rule); padding-top:12px; }
+  .verdict span { font-size:13px; color:var(--ink-2); }
+  .verdict button { padding:7px 14px; font-size:13px; }
+  .verdict .no { background:var(--panel-sunk); color:var(--ink-2);
+    border:1px solid var(--rule-firm); }
+  .learned { font-size:12.5px; }
+  .learned.up { color:var(--good); } .learned.down { color:var(--bad); }
+  .none { color:var(--bad); font-weight:700; }
+
+  footer { font-family:var(--sans); font-size:12px; color:var(--ink-3);
+    line-height:1.6; border-top:1px solid var(--rule-firm); padding-top:12px; }
+  footer a { color:var(--ink-3); }
+</style>
+
+<div class="shell">
+  <h1>ask<small>Open Workforce Index</small></h1>
+
+  <form id="form">
+    <input type="text" id="q" autocomplete="off" autofocus
+      placeholder='e.g. "rewrite this email to the supplier"'>
+    <button type="submit">ask</button>
+  </form>
+
+  <div class="answer" id="answer"></div>
+
+  <footer>
+    Prices are real (published, content-hashed import). Abilities are assumed
+    starting points; your <b>worked / didn't</b> answers reshape them with the
+    same Beta update the engine uses — stored only in this browser
+    (<a href="#" id="reset">reset</a>). The terminal command
+    <code>tools/owi-do</code> is the same flow recorded to the real ledger.
+  </footer>
+</div>
+
+<script id="ask-data" type="application/json">__DATA__</script>
+<script>
+  const DATA = JSON.parse(document.getElementById("ask-data").textContent);
+  const KEYWORDS = {
+    "skill:python-numerical-implementation":
+      ["code","implement","fix","bug","test","function","rust","python",
+       "cargo","refactor","compile"],
+    "skill:structured-extraction":
+      ["extract","json","parse","table","csv","fields","structured",
+       "invoice","records"],
+    "skill:parametric-cad":
+      ["cad","step","bracket","part","geometry","solid","enclosure","3d"],
+    "skill:text-editing":
+      ["write","rewrite","draft","email","summarize","summary","notes",
+       "docs","tutorial","explain"],
+  };
+  const STORE = "owi-ask-v1";
+  const local = () => JSON.parse(localStorage.getItem(STORE) || "{}");
+  const save = (d) => localStorage.setItem(STORE, JSON.stringify(d));
+
+  // Exact Beta lower bound — the same regularized-incomplete-beta quantile the
+  // engine gates on, not a normal approximation.
+  function lnGamma(x) {
+    const c = [0.99999999999980993,676.5203681218851,-1259.1392167224028,
+      771.32342877765313,-176.61502916214059,12.507343278686905,
+      -0.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7];
+    if (x < 0.5)
+      return Math.log(Math.PI / Math.abs(Math.sin(Math.PI * x))) - lnGamma(1 - x);
+    x -= 1; let a = c[0]; const t = x + 7.5;
+    for (let i = 1; i < 9; i++) a += c[i] / (x + i);
+    return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
+  }
+  function betacf(a, b, x) {
+    const TINY = 1e-300, qab = a + b, qap = a + 1, qam = a - 1;
+    let c = 1, d = 1 - qab * x / qap;
+    if (Math.abs(d) < TINY) d = TINY;
+    d = 1 / d; let h = d;
+    for (let m = 1; m <= 300; m++) {
+      const m2 = 2 * m;
+      let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+      d = 1 + aa * d; if (Math.abs(d) < TINY) d = TINY;
+      c = 1 + aa / c; if (Math.abs(c) < TINY) c = TINY;
+      d = 1 / d; h *= d * c;
+      aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+      d = 1 + aa * d; if (Math.abs(d) < TINY) d = TINY;
+      c = 1 + aa / c; if (Math.abs(c) < TINY) c = TINY;
+      d = 1 / d; const del = d * c; h *= del;
+      if (Math.abs(del - 1) < 3e-12) break;
+    }
+    return h;
+  }
+  function betaCdf(a, b, x) {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    const front = Math.exp(a * Math.log(x) + b * Math.log1p(-x)
+      - (lnGamma(a) + lnGamma(b) - lnGamma(a + b)));
+    return x < (a + 1) / (a + b + 2)
+      ? front * betacf(a, b, x) / a
+      : 1 - front * betacf(b, a, 1 - x) / b;
+  }
+  function lcb(a, b) {
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 80; i++) {
+      const mid = (lo + hi) / 2;
+      if (betaCdf(a, b, mid) < 0.05) lo = mid; else hi = mid;
+    }
+    return (lo + hi) / 2;
+  }
+
+  const guess = (text) => {
+    const t = text.toLowerCase();
+    let best = "skill:text-editing", hits = 0;
+    for (const [skill, words] of Object.entries(KEYWORDS)) {
+      const n = words.filter(w => t.includes(w)).length;
+      if (n > hits) { best = skill; hits = n; }
+    }
+    return best;
+  };
+
+  function posterior(skill, workerId) {
+    const base = (DATA.posteriors[skill] || {})[workerId] || { a: 1, b: 1 };
+    const mine = (local()[skill] || {})[workerId] || { s: 0, f: 0 };
+    return { a: base.a + mine.s, b: base.b + mine.f };
+  }
+
+  function evaluate(skill, tokensIn, tokensOut) {
+    const need = DATA.skillTools[skill] || [];
+    const rows = [];
+    let turnedAway = 0;
+    for (const w of DATA.workers) {
+      const qualified = w.skills.includes(skill)
+        && need.every(t => w.tools.includes(t));
+      if (!qualified) { turnedAway++; continue; }
+      const p = posterior(skill, w.id);
+      const bound = lcb(p.a, p.b);
+      if (bound < DATA.floor) { turnedAway++; continue; }
+      const mean = p.a / (p.a + p.b);
+      const run = Math.ceil(tokensIn * w.inRate / 1e6)
+                + Math.ceil(tokensOut * w.outRate / 1e6);
+      const retry = Math.ceil((1 - mean) * DATA.fallbackMicros);
+      rows.push({ id: w.id, mean, bound, total: run + retry });
+    }
+    rows.sort((x, y) => x.total - y.total || y.bound - x.bound
+      || x.id.localeCompare(y.id));
+    return { rows, turnedAway };
+  }
+
+  const $ = (m) => "$" + (m / 1e6).toFixed(4);
+  const short = (id) => id.replace("worker:", "");
+  let last = null;
+
+  function render(learnedNote) {
+    const text = document.getElementById("q").value.trim();
+    if (!text) return;
+    const skill = guess(text);
+    const tokensIn = 1500 + Math.floor(text.length / 4);
+    const { rows, turnedAway } = evaluate(skill, tokensIn, 800);
+    const box = document.getElementById("answer");
+    box.classList.add("show");
+
+    if (!rows.length) {
+      last = null;
+      box.innerHTML = `<div class="line">skill:
+        ${skill.replace("skill:", "")}</div>
+        <div class="none">nobody qualified — every capable worker has fallen
+        below the quality floor.</div>
+        <div class="meta">that is your own feedback speaking; reset below to
+        forgive, or measure for real with the terminal.</div>`;
+      return;
+    }
+    const top = rows[0];
+    last = { skill, id: top.id };
+    box.innerHTML = `
+      <div class="line">skill: ${skill.replace("skill:", "")}
+        &nbsp;·&nbsp; ~${tokensIn} in / 800 out tokens</div>
+      <div class="pick">→ ${short(top.id)}
+        <span class="price">${$(top.total)}</span>
+        <span class="meta">per accepted result</span></div>
+      ${rows.slice(1, 3).map(r => `<div class="alt">next:
+        ${short(r.id)} &nbsp;+${$(r.total - top.total)}</div>`).join("")}
+      <div class="meta">checked ${DATA.workers.length},
+        turned away ${turnedAway}</div>
+      ${learnedNote ? `<div class="learned ${learnedNote.cls}">
+        ${learnedNote.text}</div>` : ""}
+      <div class="verdict"><span>after you run it:</span>
+        <button type="button" id="yes">worked</button>
+        <button type="button" class="no" id="no">didn't</button></div>`;
+    document.getElementById("yes").onclick = () => verdict(true);
+    document.getElementById("no").onclick = () => verdict(false);
+  }
+
+  function verdict(worked) {
+    if (!last) return;
+    const store = local();
+    store[last.skill] = store[last.skill] || {};
+    const mine = store[last.skill][last.id] || { s: 0, f: 0 };
+    if (worked) mine.s += 1; else mine.f += 1;
+    store[last.skill][last.id] = mine;
+    save(store);
+    const p = posterior(last.skill, last.id);
+    render({
+      cls: worked ? "up" : "down",
+      text: `${short(last.id)} ${worked ? "credited" : "marked down"} — its
+        estimate is now ${(p.a / (p.a + p.b)).toFixed(2)}
+        (${mine.s} worked / ${mine.f} didn't, this browser only)`,
+    });
+  }
+
+  document.getElementById("form").addEventListener("submit", (e) => {
+    e.preventDefault(); render();
+  });
+  document.getElementById("reset").addEventListener("click", (e) => {
+    e.preventDefault(); localStorage.removeItem(STORE);
+    document.getElementById("answer").classList.remove("show");
+    document.getElementById("q").value = ""; document.getElementById("q").focus();
+  });
+</script>
