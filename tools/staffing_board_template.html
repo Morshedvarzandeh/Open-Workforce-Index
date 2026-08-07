@@ -1,0 +1,317 @@
+<title>Staffing Board — Open Workforce Index</title>
+<style>
+  :root {
+    --ground: #EEF1F5;
+    --panel: #FFFFFF;
+    --panel-sunk: #F5F7FA;
+    --rule: #D3DAE3;
+    --rule-firm: #B4BECB;
+    --ink: #14171C;
+    --ink-2: #454E5B;
+    --ink-3: #6B7686;
+    --accent: #2B5CE6;
+    --accent-soft: #E4EAFB;
+    --pass: #0F6B47;
+    --pass-soft: #DCEFE6;
+    --warn: #8A6109;
+    --warn-soft: #F6EBD2;
+    --stop: #9E3B2C;
+    --stop-soft: #F6E2DE;
+    --mono: ui-monospace, "SF Mono", "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #101318;
+      --panel: #171B21;
+      --panel-sunk: #1D222A;
+      --rule: #2B323C;
+      --rule-firm: #3D4653;
+      --ink: #E8ECF2;
+      --ink-2: #AEB8C6;
+      --ink-3: #7C8797;
+      --accent: #7CA0FF;
+      --accent-soft: #1C2740;
+      --pass: #4FC08D;
+      --pass-soft: #142A22;
+      --warn: #D9A63E;
+      --warn-soft: #2C2415;
+      --stop: #E0796A;
+      --stop-soft: #301C19;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #101318;
+    --panel: #171B21;
+    --panel-sunk: #1D222A;
+    --rule: #2B323C;
+    --rule-firm: #3D4653;
+    --ink: #E8ECF2;
+    --ink-2: #AEB8C6;
+    --ink-3: #7C8797;
+    --accent: #7CA0FF;
+    --accent-soft: #1C2740;
+    --pass: #4FC08D;
+    --pass-soft: #142A22;
+    --warn: #D9A63E;
+    --warn-soft: #2C2415;
+    --stop: #E0796A;
+    --stop-soft: #301C19;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .shell { max-width: 1180px; margin: 0 auto; padding: 40px 24px 80px; display: flex; flex-direction: column; gap: 34px; }
+  .prose { font-family: var(--sans); }
+
+  /* ---- masthead ---- */
+  .masthead { border-bottom: 2px solid var(--ink); padding-bottom: 18px; display: flex; flex-direction: column; gap: 14px; }
+  .stamp { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .stamp h1 { font-size: 25px; margin: 0; letter-spacing: -0.02em; font-weight: 700; }
+  .stamp .ref { font-size: 11px; color: var(--ink-3); letter-spacing: 0.08em; text-transform: uppercase; }
+  .thesis { font-family: var(--sans); font-size: 16px; line-height: 1.55; color: var(--ink-2); max-width: 66ch; margin: 0; }
+  .thesis strong { color: var(--ink); font-weight: 600; }
+
+  /* ---- summary ---- */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .tile { background: var(--panel); padding: 15px 16px; display: flex; flex-direction: column; gap: 5px; }
+  .tile .k { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
+  .tile .v { font-size: 25px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .tile .n { font-size: 11px; color: var(--ink-3); }
+  .tile.headline .v { color: var(--accent); }
+  .tile.strike .v { color: var(--ink-3); text-decoration: line-through; text-decoration-thickness: 1.5px; }
+
+  /* ---- sections ---- */
+  section { display: flex; flex-direction: column; gap: 14px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; border-bottom: 1px solid var(--rule-firm); padding-bottom: 7px; flex-wrap: wrap; }
+  .sec-head h2 { margin: 0; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; }
+  .sec-head .note { font-size: 12px; color: var(--ink-3); font-family: var(--sans); }
+
+  /* ---- task cards ---- */
+  .task { background: var(--panel); border: 1px solid var(--rule); }
+  .task-head { padding: 14px 16px; display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; border-bottom: 1px solid var(--rule); }
+  .task-id { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+  .task-sum { font-family: var(--sans); font-size: 13px; color: var(--ink-2); margin-top: 3px; max-width: 58ch; }
+  .reqs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px; }
+  .chip { font-size: 10.5px; padding: 2px 7px; border: 1px solid var(--rule-firm); color: var(--ink-2); letter-spacing: 0.02em; white-space: nowrap; }
+  .chip.skill { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .budget { text-align: right; font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+  .budget b { display: block; font-size: 19px; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+
+  .bench { padding: 4px 0; }
+  .row { display: grid; grid-template-columns: 22px 1fr 84px 120px 96px; gap: 12px; align-items: center; padding: 7px 16px; border-bottom: 1px solid var(--panel-sunk); }
+  .row:last-child { border-bottom: 0; }
+  .row.assigned { background: var(--accent-soft); }
+  .rank { font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .row.assigned .rank { color: var(--accent); font-weight: 700; }
+  .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .who .name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row.assigned .who .name { font-weight: 700; }
+  .tag { font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; padding: 1px 6px; background: var(--accent); color: #fff; white-space: nowrap; }
+  :root[data-theme="dark"] .tag, :root:not([data-theme="light"]) .tag { color: #0F1420; }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .tag { color: #fff; } }
+  .lcb { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .bar { height: 9px; background: var(--panel-sunk); border: 1px solid var(--rule); position: relative; }
+  .bar i { position: absolute; inset: 0 auto 0 0; display: block; background: var(--ink-3); }
+  .bar i.run { background: var(--accent); }
+  .bar i.retry { background: var(--warn); }
+  .cost { text-align: right; font-size: 13px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .row.assigned .cost { font-weight: 700; color: var(--accent); }
+  .cost .mult { display: block; font-size: 10px; color: var(--ink-3); font-weight: 400; }
+
+  .turned-away { padding: 10px 16px; background: var(--panel-sunk); border-top: 1px solid var(--rule); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 11.5px; color: var(--ink-2); }
+  .why { padding: 2px 8px; border: 1px solid var(--rule-firm); background: var(--panel); white-space: nowrap; }
+  .why b { font-variant-numeric: tabular-nums; }
+
+  /* ---- roster ---- */
+  .scroll { overflow-x: auto; border: 1px solid var(--rule); background: var(--panel); }
+  table { border-collapse: collapse; width: 100%; min-width: 720px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--rule); font-size: 12.5px; white-space: nowrap; }
+  th { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); background: var(--panel-sunk); position: sticky; top: 0; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: 0; }
+  .role { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; padding: 1px 6px; border: 1px solid var(--rule-firm); color: var(--ink-2); }
+
+  /* ---- explainers ---- */
+  .split { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
+  .card { background: var(--panel); border: 1px solid var(--rule); padding: 18px; display: flex; flex-direction: column; gap: 11px; }
+  .card h3 { margin: 0; font-size: 13px; letter-spacing: 0.02em; }
+  .card p { margin: 0; font-family: var(--sans); font-size: 13.5px; line-height: 1.6; color: var(--ink-2); }
+  .card p strong { color: var(--ink); font-weight: 600; }
+  .ledger { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--rule); }
+  .ledger div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 10px; font-size: 12px; border-bottom: 1px solid var(--rule); }
+  .ledger div:last-child { border-bottom: 0; }
+  .ledger div:nth-child(odd) { background: var(--panel-sunk); }
+  .ledger span:last-child { font-variant-numeric: tabular-nums; }
+  .ledger .free span:last-child { color: var(--pass); font-weight: 700; }
+  ul.points { margin: 0; padding-left: 17px; font-family: var(--sans); font-size: 13.5px; line-height: 1.6; color: var(--ink-2); display: flex; flex-direction: column; gap: 7px; }
+  ul.points strong { color: var(--ink); font-weight: 600; }
+
+  .caveat { border: 1px solid var(--warn); background: var(--warn-soft); padding: 16px 18px; display: flex; flex-direction: column; gap: 9px; }
+  .caveat h3 { margin: 0; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--warn); }
+  .caveat p { margin: 0; font-family: var(--sans); font-size: 13.5px; line-height: 1.6; color: var(--ink-2); }
+  .caveat strong { color: var(--ink); font-weight: 600; }
+
+  footer { border-top: 1px solid var(--rule-firm); padding-top: 14px; font-size: 11.5px; color: var(--ink-3); font-family: var(--sans); }
+
+  @media (max-width: 700px) {
+    .row { grid-template-columns: 20px 1fr 78px; row-gap: 5px; }
+    .bar { display: none; }
+    .cost { grid-column: 3; }
+    .lcb { grid-column: 3; text-align: right; }
+  }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <div class="stamp">
+      <h1>Staffing Board</h1>
+      <span class="ref">scenario:manager-v1 · snapshot:manager-scenario-v1 · policy:economy-v1</span>
+    </div>
+    <p class="thesis">Five jobs, sixteen people on the roster, one rule: <strong>give each job to the cheapest person who is actually qualified for it.</strong> Not the best person available — the cheapest one who clears the bar. Nobody sends the principal engineer to reformat an email, and nobody sends the copywriter to cut metal.</p>
+  </header>
+
+  <section>
+    <div class="sec-head"><h2>The week's bill</h2><span class="note">Expected cost per accepted result, including the price of retrying failures.</span></div>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Assignments</h2><span class="note">Ranked bench per job. Bars split run cost from expected retry cost.</span></div>
+    <div id="board" style="display:flex;flex-direction:column;gap:16px"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Roster</h2><span class="note">A person is a model <em>plus</em> a harness and toolset — the same model appears more than once with different capabilities. Rates are real, imported from published prices.</span></div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Person</th><th>Model</th><th>Configured as</th><th>Can do</th><th>Tools</th><th class="num">In $/Mtok</th><th class="num">Out $/Mtok</th><th class="num">Context</th></tr></thead>
+        <tbody id="roster"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Two problems this has to survive</h2></div>
+    <div class="split">
+      <div class="card">
+        <h3>Someone new joins every week</h3>
+        <p>A new model arriving is a new hire with no track record. You cannot trust the CV, and you cannot afford a full assessment centre for every applicant.</p>
+        <p>So evaluation is <strong>per-person, not per-roster</strong>. The existing sixteen are untouched — their measured evidence stays exactly as it was, and re-running it would buy nothing. Only the newcomer is assessed, against the same fixed corpus, so results are comparable by construction.</p>
+        <p>And they get a <strong>three-task trial before the eleven-task assessment</strong>. Most bad hires fail the trial, and the trial costs a quarter of the full run:</p>
+        <div class="ledger" id="onboard"></div>
+        <p>Onboarding cost is <strong>O(one person)</strong>, and it is bounded by the newcomer's own rate. A weekly cadence stays in the low single dollars.</p>
+      </div>
+      <div class="card">
+        <h3>Keeping the accumulated knowledge cheap</h3>
+        <p>An organisation's memory usually gets more expensive as it grows. Three deliberate choices stop that here.</p>
+        <ul class="points">
+          <li><strong>Knowledge lives in the index, not the prompt.</strong> Everything learned is a row queried by <code>(worker, skill)</code>. It is never replayed into a context window, so a year of history adds nothing to the cost of a single call. This is the one that matters most — history stuffed into context is what makes accumulated knowledge expensive.</li>
+          <li><strong>Public evidence is capped.</strong> A benchmark claiming ten thousand samples contributes at most eight pseudo-observations. Old, weak, plentiful evidence can never outvote a handful of things you actually measured.</li>
+          <li><strong>Evidence is scoped and never re-derived.</strong> Observations are append-only and immutable. Nothing is recomputed when someone joins, and evidence measured on one skill is not consulted for another — so the working set stays small no matter how much history accrues.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>What is real here</h2></div>
+    <div class="caveat">
+      <h3>Prices are measured · ability is assumed</h3>
+      <p>Every <strong>rate, context window, and cost figure</strong> on this board is real, imported from a published price file with its source URL and a content digest. Every <strong>routing decision</strong> is real, computed by the engine.</p>
+      <p>The <strong>ability estimates are not</strong>. No benchmark measures these exact configurations on these skills, so the pass rates are assumed and tagged <code>vendor_reported</code>, which the calibration discounts to a tenth of a reproduced observation.</p>
+      <p>That discount is why the quality floors here sit near <strong>0.30 rather than 0.90</strong>. The confidence you may demand is bounded by the evidence you hold, not by how confident you would like to feel — a vendor's claim of 93% only supports a 95% lower bound around 0.33. Real measured runs are what raise that ceiling; a press release never does.</p>
+    </div>
+  </section>
+
+  <footer>Open Workforce Index · decisions produced by <code>owi allocate</code> against a digest-verified snapshot · prices via <code>owi prices</code> · every rejection below is a recorded, machine-readable reason, not a heuristic.</footer>
+</div>
+
+<script id="board-data" type="application/json">__DATA__</script>
+<script>
+  const DATA = JSON.parse(document.getElementById("board-data").textContent);
+  const money = (v) => "$" + v.toFixed(4);
+  const short = (id) => (id || "").replace("worker:", "");
+  const skillName = (s) => s.replace("skill:", "").replace(/-/g, " ");
+  const REASON = {
+    missing_skill: "not qualified",
+    missing_tool: "lacks required tool",
+    skill_confidence_below_minimum: "below skill bar",
+    task_confidence_below_minimum: "below job bar",
+    insufficient_skill_evidence: "not enough evidence",
+    unavailable: "unavailable",
+  };
+
+  const t = DATA.totals;
+  document.getElementById("tiles").innerHTML = [
+    ['headline', "Right-sized", money(t.rightsized), "cheapest qualified person per job"],
+    ['strike', "If always top-tier", money(t.toptier), "most expensive eligible person per job"],
+    ['', "Saved", t.saving_pct.toFixed(1) + "%", "same jobs, same quality bar"],
+    ['', "Jobs staffed", String(DATA.tasks.length), "all cleared their quality floor"],
+    ['', "Roster", String(DATA.roster.length), "model × harness configurations"],
+  ].map(([cls, k, v, n]) => `<div class="tile ${cls}"><span class="k">${k}</span><span class="v">${v}</span><span class="n">${n}</span></div>`).join("");
+
+  document.getElementById("board").innerHTML = DATA.tasks.map((task) => {
+    const max = Math.max(...task.eligible.map((c) => c.total));
+    const cheapest = task.eligible.find((c) => c.id === task.assigned);
+    const rows = task.eligible.map((c, i) => {
+      const on = c.id === task.assigned;
+      const runPct = (c.run / max) * 100;
+      const retryPct = (c.retry / max) * 100;
+      const mult = cheapest && !on ? (c.total / cheapest.total).toFixed(1) + "× dearer" : "";
+      return `<div class="row ${on ? "assigned" : ""}">
+        <span class="rank">${i + 1}</span>
+        <span class="who"><span class="name">${short(c.id)}</span>${on ? '<span class="tag">assigned</span>' : ""}</span>
+        <span class="lcb">lcb ${c.lcb.toFixed(3)}</span>
+        <span class="bar"><i class="run" style="width:${runPct}%"></i><i class="retry" style="left:${runPct}%;width:${retryPct}%"></i></span>
+        <span class="cost">${money(c.total)}<span class="mult">${mult}</span></span>
+      </div>`;
+    }).join("");
+    const turned = Object.entries(task.rejected_by)
+      .sort((a, b) => b[1] - a[1])
+      .map(([code, n]) => `<span class="why"><b>${n}</b> ${REASON[code] || code.replace(/_/g, " ")}</span>`).join("");
+    return `<article class="task">
+      <div class="task-head">
+        <div>
+          <div class="task-id">${task.id.replace("task:", "")}</div>
+          <div class="task-sum">${task.summary}</div>
+          <div class="reqs">
+            <span class="chip skill">${skillName(task.skill)}</span>
+            ${task.tools.map((x) => `<span class="chip">${x}</span>`).join("")}
+            <span class="chip">${(task.tin / 1000).toFixed(0)}k in · ${(task.tout / 1000).toFixed(0)}k out</span>
+          </div>
+        </div>
+        <div class="budget"><b>${money(cheapest ? cheapest.total : 0)}</b>expected, accepted</div>
+      </div>
+      <div class="bench">${rows}</div>
+      <div class="turned-away"><span>${task.rejected_count} of ${DATA.roster.length} turned away —</span>${turned}</div>
+    </article>`;
+  }).join("");
+
+  document.getElementById("roster").innerHTML = DATA.roster.map((r) => `<tr>
+    <td>${short(r.id)}</td><td>${r.model}</td>
+    <td><span class="role">${r.role}</span></td>
+    <td>${r.skills.map(skillName).join(", ")}</td>
+    <td>${r.tools.length ? r.tools.join(", ") : "—"}</td>
+    <td class="num">${r.in != null ? r.in.toFixed(2) : "—"}</td>
+    <td class="num">${r.out != null ? r.out.toFixed(2) : "—"}</td>
+    <td class="num">${r.ctx != null ? (r.ctx / 1000).toFixed(0) + "k" : "—"}</td>
+  </tr>`).join("");
+
+  const ob = DATA.onboarding;
+  document.getElementById("onboard").innerHTML =
+    `<div><span>3-task trial · cheapest rate</span><span>${money(ob.cost["gpt-5-mini"].smoke)}</span></div>` +
+    `<div><span>3-task trial · dearest rate</span><span>${money(ob.cost["opus-4-5"].smoke)}</span></div>` +
+    `<div><span>${ob.corpus_tasks}-task assessment · cheapest rate</span><span>${money(ob.cost["gpt-5-mini"].full)}</span></div>` +
+    `<div><span>${ob.corpus_tasks}-task assessment · dearest rate</span><span>${money(ob.cost["opus-4-5"].full)}</span></div>` +
+    `<div class="free"><span>Re-testing the existing ${DATA.roster.length}</span><span>$0.0000</span></div>`;
+</script>
