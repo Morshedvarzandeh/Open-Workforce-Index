@@ -92,6 +92,21 @@
       "provenance": "first live split run, 2026-08-07: haiku asked clarifying questions instead of drafting; only a judged item caught it — free-form items MUST go to an independent judge, never silently pass"
     }
   ],
+  "auto_checklist_fixtures": [
+    {
+      "raw": ["contains:import", "  min-words:30 ", "", 42],
+      "expect": ["contains:import", "min-words:30", "42"],
+      "provenance": "auto-written checklists are cleaned like planner parts: trimmed, empties dropped, capped at 4"
+    },
+    {
+      "raw": "not a list",
+      "expect": []
+    },
+    {
+      "raw": ["a", "b", "c", "d", "e", "f"],
+      "expect": ["a", "b", "c", "d"]
+    }
+  ],
   "planner_fixtures": [
     {
       "raw": [

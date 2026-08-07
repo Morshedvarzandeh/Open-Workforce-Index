@@ -137,8 +137,10 @@ reads. Full detail: [BENCHMARKING.md](BENCHMARKING.md).
 
 ## The checklist: verdicts earned, not asked for
 
-Attach acceptance criteria with `--check` (or the checklist box on the ask
-page) and three things happen:
+Every `--run` has a test procedure. Give one yourself with `--check` (or the
+checklist box on the ask page); give none and the cheapest runnable model
+writes it for the task — printed before the run, `--check none` to opt out
+into the manual `y/n`. Either way, three things happen:
 
 1. **The checklist is given to the task.** The worker sees exactly what it
    will be checked against — a checklist you'd verify with is also the best

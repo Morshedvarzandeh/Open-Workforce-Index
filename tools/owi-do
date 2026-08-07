@@ -409,6 +409,40 @@ def run_checklist(home: Path, task: str, output: str, items: list[str],
 # work. It writes summaries and checklists — never staffing; models are picked
 # by the engine, part by part.
 
+CHECKLIST_PROMPT = """Write the acceptance checklist for this task: 2-4 short items
+its output must pass. Prefer mechanical items where natural — contains:TEXT,
+regex:PATTERN, json, python, min-words:N — and make free-form items objectively
+judgeable against the output alone.
+
+TASK:
+{task}
+
+Reply with JSON only: {{"checklist": ["...", "..."]}}"""
+
+
+def clean_checklist(raw) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    return [str(item).strip() for item in raw if str(item).strip()][:4]
+
+
+def auto_checklist(home: Path, task: str) -> tuple[str | None, list[str]]:
+    """No checklist given? The cheapest runnable model writes the test
+    procedure before the run — printed, never silent. The verifier at the end
+    is still a different model than the maker."""
+    writer = judge_model_for(home, exclude=None)
+    if writer is None:
+        return None, []
+    try:
+        stdout, _, code = run_command(
+            home, writer, CHECKLIST_PROMPT.format(task=task[:6000]), timeout=300)
+    except subprocess.TimeoutExpired:
+        return writer, []
+    data = find_json(stdout) if code == 0 else None
+    return writer, clean_checklist(
+        data.get("checklist") if isinstance(data, dict) else None)
+
+
 PLAN_PROMPT = """You split one request into independent parts for specialist workers.
 Available skills — use ONLY these ids:
 - skill:text-editing — writing, rewriting, summarizing, documentation
@@ -439,10 +473,8 @@ def clean_parts(raw_parts) -> list[dict] | None:
         summary = str(part.get("summary", "")).strip()
         if not summary:
             return None
-        checklist = [str(item).strip() for item in part.get("checklist", [])
-                     if str(item).strip()][:4]
         cleaned.append({"summary": summary, "skill": part["skill"],
-                        "checklist": checklist})
+                        "checklist": clean_checklist(part.get("checklist"))})
     return cleaned or None
 
 
@@ -631,6 +663,10 @@ def run_split(arguments, stdin_text: str) -> int:
             outcomes.append((part, eligible[0], "no runner"))
             continue
         worker, model, _ = chosen
+        if not part["checklist"]:
+            writer, part["checklist"] = auto_checklist(home, part["summary"])
+            for item in part["checklist"]:
+                print(f"   check (auto, by {writer}): {item}")
         verdict = execute_and_verify(home, worker, model, part["skill"],
                                      part["summary"], "", part["checklist"],
                                      arguments.accepted, arguments.cause)
@@ -669,7 +705,9 @@ def main() -> int:
                         help="checklist item the result must pass (repeatable). "
                              "Mechanical: contains:TEXT, regex:PATTERN, json, "
                              "python, min-words:N. Anything else is judged by "
-                             "a different model than the maker")
+                             "a different model than the maker. Omitted? A "
+                             "cheap model writes the checklist for you. "
+                             "--check none = no checklist, manual y/n verdict")
     parser.add_argument("--split", action="store_true",
                         help="let a cheap planner split the task into parts by "
                              "kind of work; each part is staffed, run, and "
@@ -726,9 +764,15 @@ def main() -> int:
               f"{arguments.home}/runners.json")
         return 1
     worker, model, _ = chosen
+    checklist = [] if arguments.check == ["none"] else (arguments.check or [])
+    if not checklist and arguments.check != ["none"]:
+        writer, checklist = auto_checklist(arguments.home, arguments.task)
+        if checklist:
+            print(f"\nchecklist (auto-written by {writer}; --check none to skip):")
+            for item in checklist:
+                print(f"   {item}")
     verdict = execute_and_verify(arguments.home, worker, model, skill,
-                                 arguments.task, stdin_text,
-                                 arguments.check or [],
+                                 arguments.task, stdin_text, checklist,
                                  arguments.accepted, arguments.cause)
     return 0 if verdict in ("accepted", "unrecorded") else 1
 
