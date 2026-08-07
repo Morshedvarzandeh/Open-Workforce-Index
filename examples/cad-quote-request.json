@@ -1,0 +1,214 @@
+{
+  "decision_id": "decision:demo-cad-001",
+  "evidence_snapshot_id": "snapshot:demo-cad-v1",
+  "task": {
+    "id": "task:demo-cad-001",
+    "summary": "Create a fully constrained mounting bracket, validate the solid, and export a round-trip-tested STEP artifact",
+    "repository": "local:demo-cad-project",
+    "required_skills": [
+      {
+        "skill_id": "skill:cad-parametric-solid-modeling",
+        "minimum_success_probability": 0.75
+      },
+      {
+        "skill_id": "skill:cad-design-for-manufacture",
+        "minimum_success_probability": 0.7
+      }
+    ],
+    "required_tools": [
+      "tool:cad-parametric-kernel",
+      "tool:geometry-validator",
+      "tool:step-export"
+    ],
+    "allowed_providers": [],
+    "privacy": "confidential_content",
+    "risk": "medium",
+    "verification": "deterministic",
+    "minimum_success_probability": 0.78,
+    "max_expected_cash_micros": 250000,
+    "max_p95_latency_ms": 90000,
+    "estimated_input_tokens": 12000,
+    "estimated_output_tokens": 4000
+  },
+  "policy": {
+    "policy_id": "policy:cad-cost-aware-demo-v1",
+    "currency": "USD",
+    "quota_shadow_cash_micros_per_unit": 5000,
+    "max_expected_quota_milliunits": 3000,
+    "authorized_checker_worker_ids": []
+  },
+  "candidates": [
+    {
+      "worker": {
+        "identity": {
+          "worker_id": "worker:demo-chat-only-v1",
+          "model_release_id": "model:demo-conversation-2026-01-01",
+          "offering_id": "offering:demo-conversation-v1",
+          "provider": "demo-provider",
+          "harness_id": "chat-interface",
+          "harness_version": "1.0.0",
+          "reasoning_configuration": "standard",
+          "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "skill_pack_version": "conversation-v1",
+          "toolset_version": "text-only-v1",
+          "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "supported_skills": [
+          "skill:conversation"
+        ],
+        "tools": [
+          "tool:text-chat"
+        ],
+        "data_clearance": "confidential_content",
+        "context_window_tokens": 128000,
+        "cost": {
+          "currency": "USD",
+          "input_micros_per_million_tokens": 200000,
+          "output_micros_per_million_tokens": 500000,
+          "fixed_request_micros": 0,
+          "quota_milliunits_per_request": 0
+        },
+        "available": true
+      },
+      "success": {
+        "success_mean": 0.92,
+        "success_lower_bound": 0.86,
+        "evidence_count": 50
+      },
+      "skill_estimates": {
+        "skill:conversation": {
+          "success_mean": 0.95,
+          "success_lower_bound": 0.9,
+          "evidence_count": 48
+        }
+      },
+      "expected_tool_cash_micros": 0,
+      "expected_review_cash_micros": 2000,
+      "expected_fallback_cash_micros": 120000,
+      "expected_additional_quota_milliunits": 0,
+      "checker_worker_id": null,
+      "p95_latency_ms": 3000,
+      "evidence_snapshot_id": "snapshot:demo-cad-v1"
+    },
+    {
+      "worker": {
+        "identity": {
+          "worker_id": "worker:demo-cad-efficient-v1",
+          "model_release_id": "model:demo-cad-efficient-2026-01-01",
+          "offering_id": "offering:demo-cad-efficient-v1",
+          "provider": "demo-provider",
+          "harness_id": "cad-agent",
+          "harness_version": "2.1.0",
+          "reasoning_configuration": "standard",
+          "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "skill_pack_version": "mechanical-cad-v2",
+          "toolset_version": "parametric-kernel-step-validator-v1",
+          "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "supported_skills": [
+          "skill:cad-design-for-manufacture",
+          "skill:cad-parametric-solid-modeling"
+        ],
+        "tools": [
+          "tool:cad-parametric-kernel",
+          "tool:geometry-validator",
+          "tool:step-export"
+        ],
+        "data_clearance": "confidential_content",
+        "context_window_tokens": 64000,
+        "cost": {
+          "currency": "USD",
+          "input_micros_per_million_tokens": 1500000,
+          "output_micros_per_million_tokens": 4000000,
+          "fixed_request_micros": 2000,
+          "quota_milliunits_per_request": 1000
+        },
+        "available": true
+      },
+      "success": {
+        "success_mean": 0.88,
+        "success_lower_bound": 0.8,
+        "evidence_count": 24
+      },
+      "skill_estimates": {
+        "skill:cad-design-for-manufacture": {
+          "success_mean": 0.84,
+          "success_lower_bound": 0.76,
+          "evidence_count": 18
+        },
+        "skill:cad-parametric-solid-modeling": {
+          "success_mean": 0.9,
+          "success_lower_bound": 0.82,
+          "evidence_count": 22
+        }
+      },
+      "expected_tool_cash_micros": 12000,
+      "expected_review_cash_micros": 6000,
+      "expected_fallback_cash_micros": 80000,
+      "expected_additional_quota_milliunits": 0,
+      "checker_worker_id": null,
+      "p95_latency_ms": 40000,
+      "evidence_snapshot_id": "snapshot:demo-cad-v1"
+    },
+    {
+      "worker": {
+        "identity": {
+          "worker_id": "worker:demo-cad-premium-v1",
+          "model_release_id": "model:demo-cad-premium-2026-01-01",
+          "offering_id": "offering:demo-cad-premium-v1",
+          "provider": "demo-provider",
+          "harness_id": "cad-agent",
+          "harness_version": "2.1.0",
+          "reasoning_configuration": "high",
+          "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "skill_pack_version": "mechanical-cad-v2",
+          "toolset_version": "parametric-kernel-step-validator-v1",
+          "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "supported_skills": [
+          "skill:cad-design-for-manufacture",
+          "skill:cad-parametric-solid-modeling"
+        ],
+        "tools": [
+          "tool:cad-parametric-kernel",
+          "tool:geometry-validator",
+          "tool:step-export"
+        ],
+        "data_clearance": "confidential_content",
+        "context_window_tokens": 128000,
+        "cost": {
+          "currency": "USD",
+          "input_micros_per_million_tokens": 6000000,
+          "output_micros_per_million_tokens": 18000000,
+          "fixed_request_micros": 5000,
+          "quota_milliunits_per_request": 2000
+        },
+        "available": true
+      },
+      "success": {
+        "success_mean": 0.96,
+        "success_lower_bound": 0.9,
+        "evidence_count": 31
+      },
+      "skill_estimates": {
+        "skill:cad-design-for-manufacture": {
+          "success_mean": 0.93,
+          "success_lower_bound": 0.86,
+          "evidence_count": 26
+        },
+        "skill:cad-parametric-solid-modeling": {
+          "success_mean": 0.96,
+          "success_lower_bound": 0.91,
+          "evidence_count": 30
+        }
+      },
+      "expected_tool_cash_micros": 10000,
+      "expected_review_cash_micros": 8000,
+      "expected_fallback_cash_micros": 40000,
+      "expected_additional_quota_milliunits": 0,
+      "checker_worker_id": null,
+      "p95_latency_ms": 55000,
+      "evidence_snapshot_id": "snapshot:demo-cad-v1"
+    }
+  ]
+}

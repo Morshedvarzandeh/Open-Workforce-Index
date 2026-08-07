@@ -1,0 +1,426 @@
+@prefix owf: <https://openworkforce.dev/ns#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<https://openworkforce.dev/ontology>
+    a owl:Ontology ;
+    owl:versionIRI <https://openworkforce.dev/ontology/0.1.0> ;
+    owl:versionInfo "0.1.0" ;
+    dct:title "Open Workforce Index ontology"@en ;
+    dct:description "Provider-neutral vocabulary for evidence-backed AI worker allocation."@en ;
+    dct:license <https://spdx.org/licenses/Apache-2.0.html> ;
+    dct:issued "2026-08-07"^^xsd:date .
+
+# The unversioned owf: namespace is stable. Released ontology documents receive
+# immutable version IRIs; compatible terms keep their existing owf: identifiers.
+
+owf:Provider a owl:Class ; rdfs:label "Provider"@en .
+owf:ModelFamily a owl:Class ; rdfs:label "Model family"@en .
+owf:ModelRelease a owl:Class ; rdfs:subClassOf prov:Entity ; rdfs:label "Model release"@en .
+owf:ProviderOffering a owl:Class ;
+    rdfs:subClassOf prov:Entity ;
+    rdfs:label "Provider offering"@en ;
+    rdfs:comment "A time-bounded, immutable provider endpoint or price revision that serves one exact model release. A commercial change creates a new offering resource linked with owf:supersedesOffering; an existing resource is never edited."@en .
+owf:PriceTerm a owl:Class ; rdfs:subClassOf prov:Entity ; rdfs:label "Price term"@en .
+owf:Harness a owl:Class ; rdfs:label "Agent harness"@en .
+owf:Tool a owl:Class ; rdfs:label "Tool"@en .
+owf:WorkerProfile a owl:Class ;
+    rdfs:subClassOf prov:Entity ;
+    rdfs:label "Worker profile"@en ;
+    rdfs:comment "An exact executable configuration: offering, harness, tools and inference settings."@en .
+owf:Skill a owl:Class ;
+    rdfs:subClassOf skos:Concept ;
+    rdfs:label "Skill"@en .
+owf:ApplicationDomain a owl:Class ;
+    rdfs:subClassOf skos:Concept ;
+    rdfs:label "Application domain"@en ;
+    rdfs:comment "The work context in which a capability is required or measured, such as legal analysis, software engineering, or mechanical design. Domain membership alone never grants a skill."@en .
+owf:TaskClass a owl:Class ;
+    rdfs:subClassOf skos:Concept ;
+    rdfs:label "Task class"@en ;
+    rdfs:comment "An extensible work-position concept. Routable task classes add capability templates without creating a universal model rank."@en .
+owf:RoutableTaskClass a owl:Class ;
+    rdfs:subClassOf owf:TaskClass ;
+    rdfs:label "Routable task class"@en ;
+    rdfs:comment "A task-class concept with a complete minimum capability template. Abstract SKOS task concepts need not be routable."@en .
+owf:ArtifactType a owl:Class ;
+    rdfs:subClassOf skos:Concept ;
+    rdfs:label "Artifact type"@en ;
+    rdfs:comment "A semantic output type such as a conversation answer, source patch, legal memorandum, image, simulation, or parametric solid."@en .
+owf:AcceptanceProfile a owl:Class ;
+    rdfs:subClassOf prov:Entity ;
+    rdfs:label "Acceptance profile"@en ;
+    rdfs:comment "A versioned, reusable set of objective acceptance criteria for one or more artifact types."@en .
+owf:AcceptanceCriterion a owl:Class ;
+    rdfs:subClassOf skos:Concept ;
+    rdfs:label "Acceptance criterion"@en .
+owf:Metric a owl:Class ; rdfs:label "Metric"@en .
+owf:BenchmarkSuite a owl:Class ;
+    rdfs:subClassOf dcat:Dataset ;
+    rdfs:label "Benchmark suite"@en .
+owf:EvidenceObservation a owl:Class ;
+    rdfs:subClassOf prov:Entity ;
+    rdfs:label "Evidence observation"@en ;
+    rdfs:comment "A source-native measurement of one exact model release. It may also identify an exact worker configuration when the source reports the harness and execution settings; missing worker identity or sample size remains unknown and is never fabricated."@en .
+owf:PublicIndexRecord a owl:Class ;
+    rdfs:label "Public index record"@en ;
+    rdfs:comment "Marker class required on every resource admitted to a public snapshot."@en .
+owf:PublicEvidenceObservation a owl:Class ;
+    rdfs:subClassOf owf:EvidenceObservation, owf:PublicIndexRecord ;
+    rdfs:label "Public evidence observation"@en .
+owf:CapabilityEvidenceObservation a owl:Class ;
+    rdfs:subClassOf owf:EvidenceObservation ;
+    rdfs:label "Scoped capability evidence observation"@en ;
+    rdfs:comment "A planned v0.2 routing-eligible observation with an explicit skill, application domain, task class, artifact type, acceptance profile, and any tool context actually exercised. It may be public or private; a public record is also typed PublicCapabilityEvidenceObservation. A generic benchmark record is not capability evidence until this scope is reviewably mapped."@en .
+owf:PublicCapabilityEvidenceObservation a owl:Class ;
+    rdfs:subClassOf owf:CapabilityEvidenceObservation, owf:PublicEvidenceObservation ;
+    rdfs:label "Public scoped capability evidence observation"@en .
+owf:EnvironmentalProfile a owl:Class ;
+    rdfs:subClassOf prov:Entity, owf:PublicIndexRecord ;
+    rdfs:label "Environmental profile"@en ;
+    rdfs:comment "A time-bounded, source-backed environmental factor profile for one exact provider offering and one declared functional unit. A missing impact term means unknown; zero is never used as a missing-value sentinel."@en .
+owf:ImpactTerm a owl:Class ;
+    rdfs:subClassOf prov:Entity, owf:PublicIndexRecord ;
+    rdfs:label "Environmental impact term"@en ;
+    rdfs:comment "One rational coefficient with a non-negative numerator and positive denominator for a separately identified impact metric, lifecycle phase, activity unit and result unit. A measured zero remains known; an absent term means unknown."@en .
+owf:ImpactMetric a owl:Class ; rdfs:subClassOf skos:Concept ; rdfs:label "Impact metric"@en .
+owf:LifecyclePhase a owl:Class ; rdfs:subClassOf skos:Concept ; rdfs:label "Lifecycle phase"@en .
+owf:AbilityEstimate a owl:Class ; rdfs:subClassOf prov:Entity ; rdfs:label "Ability estimate"@en .
+owf:ScopedAbilityEstimate a owl:Class ;
+    rdfs:subClassOf owf:AbilityEstimate ;
+    rdfs:label "Scoped ability estimate"@en ;
+    rdfs:comment "A planned v0.2 ability estimate whose applicability tuple exactly matches its supporting capability evidence. Cross-scope transfer is not implicit."@en .
+owf:IndexSnapshot a owl:Class ; rdfs:subClassOf prov:Entity ; rdfs:label "Index snapshot"@en .
+owf:TaskSpec a owl:Class ; rdfs:subClassOf prov:Entity ; rdfs:label "Private task specification"@en .
+owf:StructuredTaskSpec a owl:Class ;
+    rdfs:subClassOf owf:TaskSpec ;
+    rdfs:label "Private structured task specification"@en ;
+    rdfs:comment "Planned v0.2 local task contract that selects one application domain, task class, primary artifact type, and acceptance profile. Composite plans are split into atomic structured tasks."@en .
+owf:SkillRequirement a owl:Class ; rdfs:label "Skill requirement"@en .
+owf:RoutingDecision a owl:Class ; rdfs:subClassOf prov:Activity ; rdfs:label "Routing decision"@en .
+owf:CandidateQuote a owl:Class ; rdfs:subClassOf prov:Entity ; rdfs:label "Candidate quote"@en .
+owf:RejectedCandidate a owl:Class ; rdfs:subClassOf prov:Entity ; rdfs:label "Rejected candidate"@en .
+owf:OutcomeEvent a owl:Class ; rdfs:subClassOf prov:Entity ; rdfs:label "Outcome event"@en .
+owf:Budget a owl:Class ; rdfs:label "Budget"@en .
+owf:UsageRecord a owl:Class ; rdfs:subClassOf prov:Entity ; rdfs:label "Usage record"@en .
+
+# These classes describe the planned private reporting projection. Their
+# authoritative representation remains the append-only local SQL ledger; the
+# current Rust/store implementation does not yet materialize these RDF nodes.
+owf:Project a owl:Class ; rdfs:subClassOf prov:Entity ; rdfs:label "Private project"@en .
+owf:ImpactEstimate a owl:Class ; rdfs:subClassOf prov:Entity ; rdfs:label "Private impact estimate"@en .
+owf:Baseline a owl:Class ; rdfs:subClassOf prov:Entity ; rdfs:label "Private precommitted baseline"@en .
+owf:SavingsEstimate a owl:Class ; rdfs:subClassOf prov:Entity ; rdfs:label "Private savings estimate"@en .
+owf:ProjectReport a owl:Class ; rdfs:subClassOf prov:Entity ; rdfs:label "Private project report"@en .
+owf:EstimateStatus a owl:Class ; rdfs:subClassOf skos:Concept ; rdfs:label "Estimate status"@en .
+
+owf:PrivacyClass a owl:Class ; rdfs:subClassOf skos:Concept ; rdfs:label "Privacy class"@en .
+owf:EvidenceTier a owl:Class ; rdfs:subClassOf skos:Concept ; rdfs:label "Evidence tier"@en .
+owf:FailureClass a owl:Class ; rdfs:subClassOf skos:Concept ; rdfs:label "Failure class"@en .
+owf:VerificationPolicy a owl:Class ; rdfs:subClassOf skos:Concept ; rdfs:label "Verification policy"@en .
+
+owf:Public a owf:PrivacyClass, skos:Concept ; skos:prefLabel "public"@en .
+owf:PrivateMetadata a owf:PrivacyClass, skos:Concept ; skos:prefLabel "private metadata"@en .
+owf:ConfidentialContent a owf:PrivacyClass, skos:Concept ; skos:prefLabel "confidential content"@en .
+owf:Secret a owf:PrivacyClass, skos:Concept ; skos:prefLabel "secret; never transmit or persist"@en .
+
+owf:DeterministicVerification a owf:VerificationPolicy, skos:Concept ; skos:prefLabel "deterministic verification"@en .
+owf:MakerCheckerVerification a owf:VerificationPolicy, skos:Concept ; skos:prefLabel "maker-checker verification"@en .
+owf:HumanApprovalVerification a owf:VerificationPolicy, skos:Concept ; skos:prefLabel "human approval verification"@en .
+
+owf:ProjectReproduced a owf:EvidenceTier, skos:Concept ; skos:prefLabel "project reproduced"@en .
+owf:IndependentSigned a owf:EvidenceTier, skos:Concept ; skos:prefLabel "independent signed"@en .
+owf:CommunityReproducible a owf:EvidenceTier, skos:Concept ; skos:prefLabel "community reproducible"@en .
+owf:VendorReported a owf:EvidenceTier, skos:Concept ; skos:prefLabel "vendor reported"@en .
+
+# Deprecated pre-v0.1 draft labels remain resolvable for migration. The broad
+# independent-benchmark label cannot be mapped 1:1 because signed independent
+# evidence and community-reproducible evidence are separate runtime tiers.
+owf:ProviderReported a owf:EvidenceTier, skos:Concept ;
+    skos:prefLabel "provider reported (deprecated)"@en ;
+    skos:exactMatch owf:VendorReported ; owl:deprecated true .
+owf:IndependentBenchmark a owf:EvidenceTier, skos:Concept ;
+    skos:prefLabel "independent benchmark (deprecated)"@en ;
+    skos:narrower owf:IndependentSigned, owf:CommunityReproducible ; owl:deprecated true .
+owf:VerifiedLocalOutcome a owf:EvidenceTier, skos:Concept ;
+    skos:prefLabel "verified local outcome (deprecated)"@en ;
+    skos:closeMatch owf:ProjectReproduced ; owl:deprecated true .
+
+owf:Energy a owf:ImpactMetric, skos:Concept ; skos:prefLabel "energy"@en .
+owf:Co2eLocationBased a owf:ImpactMetric, skos:Concept ; skos:prefLabel "location-based carbon dioxide equivalent"@en .
+owf:Co2eMarketBased a owf:ImpactMetric, skos:Concept ; skos:prefLabel "market-based carbon dioxide equivalent"@en .
+owf:WaterConsumption a owf:ImpactMetric, skos:Concept ; skos:prefLabel "water consumption"@en .
+owf:WaterWithdrawal a owf:ImpactMetric, skos:Concept ; skos:prefLabel "water withdrawal"@en .
+
+owf:InferenceOperational a owf:LifecyclePhase, skos:Concept ; skos:prefLabel "inference operational"@en .
+owf:InferenceEmbodiedHardware a owf:LifecyclePhase, skos:Concept ; skos:prefLabel "inference embodied hardware"@en .
+owf:InferenceEmbodiedFacility a owf:LifecyclePhase, skos:Concept ; skos:prefLabel "inference embodied facility"@en .
+owf:TrainingOperational a owf:LifecyclePhase, skos:Concept ; skos:prefLabel "training operational"@en .
+owf:TrainingEmbodied a owf:LifecyclePhase, skos:Concept ; skos:prefLabel "training embodied"@en .
+
+owf:KnownEstimate a owf:EstimateStatus, skos:Concept ; skos:prefLabel "known estimate"@en .
+owf:UnknownEstimate a owf:EstimateStatus, skos:Concept ; skos:prefLabel "unknown estimate"@en .
+
+owf:memberOfFamily a owl:ObjectProperty ;
+    rdfs:domain owf:ModelRelease ; rdfs:range owf:ModelFamily ; rdfs:label "member of family"@en .
+owf:offeredBy a owl:ObjectProperty ;
+    rdfs:domain owf:ProviderOffering ; rdfs:range owf:Provider ; rdfs:label "offered by"@en .
+owf:offersRelease a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:ProviderOffering ; rdfs:range owf:ModelRelease ; rdfs:label "offers release"@en .
+owf:hasPriceTerm a owl:ObjectProperty ;
+    rdfs:domain owf:ProviderOffering ; rdfs:range owf:PriceTerm ; rdfs:label "has price term"@en .
+owf:supersedesOffering a owl:ObjectProperty, owl:AsymmetricProperty, owl:IrreflexiveProperty ;
+    rdfs:subPropertyOf prov:wasRevisionOf ;
+    rdfs:domain owf:ProviderOffering ; rdfs:range owf:ProviderOffering ;
+    rdfs:label "supersedes offering revision"@en ;
+    rdfs:comment "Links a newly appended offering revision to the immediately preceding immutable revision. If that predecessor has no explicit validUntil, current-selection queries treat the new revision's validFrom as its implicit end; the predecessor is never edited closed."@en .
+owf:hasHarness a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:WorkerProfile ; rdfs:range owf:Harness ; rdfs:label "has harness"@en .
+owf:usesOffering a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:WorkerProfile ; rdfs:range owf:ProviderOffering ; rdfs:label "uses offering"@en .
+owf:supportsTool a owl:ObjectProperty ;
+    rdfs:domain owf:WorkerProfile ; rdfs:range owf:Tool ; rdfs:label "supports tool"@en .
+owf:hasSkill a owl:ObjectProperty ;
+    rdfs:domain owf:WorkerProfile ; rdfs:range owf:Skill ; rdfs:label "has skill"@en .
+owf:taskClassDomain a owl:ObjectProperty ;
+    rdfs:domain owf:TaskClass ; rdfs:range owf:ApplicationDomain ;
+    rdfs:label "task class application domain"@en .
+owf:taskClassArtifactType a owl:ObjectProperty ;
+    rdfs:domain owf:TaskClass ; rdfs:range owf:ArtifactType ;
+    rdfs:label "task class primary artifact type"@en .
+owf:taskClassRequiredSkill a owl:ObjectProperty ;
+    rdfs:domain owf:TaskClass ; rdfs:range owf:Skill ;
+    rdfs:label "task class required skill"@en .
+owf:taskClassRequiredTool a owl:ObjectProperty ;
+    rdfs:domain owf:TaskClass ; rdfs:range owf:Tool ;
+    rdfs:label "task class required tool"@en .
+owf:taskClassAcceptanceProfile a owl:ObjectProperty ;
+    rdfs:domain owf:TaskClass ; rdfs:range owf:AcceptanceProfile ;
+    rdfs:label "task class acceptance profile"@en .
+owf:acceptsArtifactType a owl:ObjectProperty ;
+    rdfs:domain owf:AcceptanceProfile ; rdfs:range owf:ArtifactType ;
+    rdfs:label "accepts artifact type"@en .
+owf:hasAcceptanceCriterion a owl:ObjectProperty ;
+    rdfs:domain owf:AcceptanceProfile ; rdfs:range owf:AcceptanceCriterion ;
+    rdfs:label "has acceptance criterion"@en .
+owf:forTaskClass a owl:ObjectProperty ;
+    rdfs:range owf:TaskClass ; rdfs:label "for task class"@en ;
+    rdfs:comment "Scopes capability evidence and estimates to the task family actually measured. It is not a global model label."@en .
+owf:benchmarkSuite a owl:ObjectProperty ;
+    rdfs:domain owf:EvidenceObservation ; rdfs:range owf:BenchmarkSuite ; rdfs:label "benchmark suite"@en .
+owf:metric a owl:ObjectProperty ; rdfs:range owf:Metric ; rdfs:label "metric"@en .
+owf:environmentalProfileForOffering a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:EnvironmentalProfile ; rdfs:range owf:ProviderOffering ;
+    rdfs:label "environmental profile for offering"@en .
+owf:hasImpactTerm a owl:ObjectProperty ;
+    rdfs:domain owf:EnvironmentalProfile ; rdfs:range owf:ImpactTerm ;
+    rdfs:label "has environmental impact term"@en .
+owf:impactMetric a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:range owf:ImpactMetric ; rdfs:label "environmental impact metric"@en .
+owf:lifecyclePhase a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:range owf:LifecyclePhase ; rdfs:label "lifecycle phase"@en .
+owf:measuresWorker a owl:ObjectProperty ;
+    rdfs:domain owf:EvidenceObservation ; rdfs:range owf:WorkerProfile ; rdfs:label "measures exact worker when reported"@en .
+owf:measuresRelease a owl:ObjectProperty ;
+    rdfs:domain owf:EvidenceObservation ; rdfs:range owf:ModelRelease ; rdfs:label "measures release"@en .
+owf:measuresSkill a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:EvidenceObservation ; rdfs:range owf:Skill ;
+    rdfs:label "measures skill"@en .
+owf:evidenceApplicationDomain a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:EvidenceObservation ; rdfs:range owf:ApplicationDomain ;
+    rdfs:label "evidence application domain"@en .
+owf:evidenceArtifactType a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:EvidenceObservation ; rdfs:range owf:ArtifactType ;
+    rdfs:label "evidence artifact type"@en .
+owf:evidenceAcceptanceProfile a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:EvidenceObservation ; rdfs:range owf:AcceptanceProfile ;
+    rdfs:label "evidence acceptance profile"@en .
+owf:evaluatedWithTool a owl:ObjectProperty ;
+    rdfs:domain owf:EvidenceObservation ; rdfs:range owf:Tool ;
+    rdfs:label "evaluated with tool"@en ;
+    rdfs:comment "Names only tools exercised by the observation. Absence cannot satisfy a task's tool requirement."@en .
+owf:abilityForWorker a owl:ObjectProperty ;
+    rdfs:domain owf:AbilityEstimate ; rdfs:range owf:WorkerProfile ; rdfs:label "ability for worker"@en .
+owf:abilitySkill a owl:ObjectProperty ;
+    rdfs:domain owf:AbilityEstimate ; rdfs:range owf:Skill ; rdfs:label "ability skill"@en .
+owf:estimateApplicationDomain a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:AbilityEstimate ; rdfs:range owf:ApplicationDomain ;
+    rdfs:label "estimate application domain"@en .
+owf:estimateArtifactType a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:AbilityEstimate ; rdfs:range owf:ArtifactType ;
+    rdfs:label "estimate artifact type"@en .
+owf:estimateAcceptanceProfile a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:AbilityEstimate ; rdfs:range owf:AcceptanceProfile ;
+    rdfs:label "estimate acceptance profile"@en .
+owf:derivedFromEvidence a owl:ObjectProperty ;
+    rdfs:subPropertyOf prov:wasDerivedFrom ;
+    rdfs:domain owf:AbilityEstimate ; rdfs:range owf:EvidenceObservation ; rdfs:label "derived from evidence"@en .
+owf:containsEstimate a owl:ObjectProperty ;
+    rdfs:domain owf:IndexSnapshot ; rdfs:range owf:AbilityEstimate ; rdfs:label "contains estimate"@en .
+owf:taskHasClass a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:TaskSpec ; rdfs:range owf:TaskClass ; rdfs:label "task has class"@en .
+owf:taskApplicationDomain a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:TaskSpec ; rdfs:range owf:ApplicationDomain ; rdfs:label "task application domain"@en .
+owf:taskArtifactType a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:TaskSpec ; rdfs:range owf:ArtifactType ; rdfs:label "task primary artifact type"@en .
+owf:taskAcceptanceProfile a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:TaskSpec ; rdfs:range owf:AcceptanceProfile ; rdfs:label "task acceptance profile"@en .
+owf:requiresSkill a owl:ObjectProperty ;
+    rdfs:domain owf:TaskSpec ; rdfs:range owf:SkillRequirement ; rdfs:label "requires skill"@en .
+owf:requiredSkill a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:SkillRequirement ; rdfs:range owf:Skill ; rdfs:label "required skill"@en .
+owf:requiresTool a owl:ObjectProperty ;
+    rdfs:domain owf:TaskSpec ; rdfs:range owf:Tool ; rdfs:label "requires tool"@en .
+owf:hasBudget a owl:ObjectProperty ;
+    rdfs:domain owf:TaskSpec ; rdfs:range owf:Budget ; rdfs:label "has budget"@en .
+owf:privacyClass a owl:ObjectProperty ;
+    rdfs:range owf:PrivacyClass ; rdfs:label "privacy class or data clearance"@en ;
+    rdfs:comment "On a task, classifies its data. On a worker profile, states the highest data class that exact configuration is permitted to receive."@en .
+owf:decisionForTask a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:RoutingDecision ; rdfs:range owf:TaskSpec ; rdfs:label "decision for task"@en .
+owf:usesSnapshot a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:RoutingDecision ; rdfs:range owf:IndexSnapshot ; rdfs:label "uses snapshot"@en .
+owf:hasCandidateQuote a owl:ObjectProperty ;
+    rdfs:domain owf:RoutingDecision ; rdfs:range owf:CandidateQuote ; rdfs:label "has candidate quote"@en .
+owf:hasRejectedCandidate a owl:ObjectProperty ;
+    rdfs:domain owf:RoutingDecision ; rdfs:range owf:RejectedCandidate ; rdfs:label "has rejected candidate"@en .
+owf:candidateWorker a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:CandidateQuote ; rdfs:range owf:WorkerProfile ; rdfs:label "candidate worker"@en .
+owf:rejectedWorker a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:RejectedCandidate ; rdfs:range owf:WorkerProfile ; rdfs:label "rejected worker"@en .
+owf:selectedWorker a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:RoutingDecision ; rdfs:range owf:WorkerProfile ; rdfs:label "selected worker"@en .
+owf:checkerWorker a owl:ObjectProperty ;
+    rdfs:domain owf:RoutingDecision ; rdfs:range owf:WorkerProfile ; rdfs:label "checker worker"@en .
+owf:decisionVerificationPolicy a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:RoutingDecision ; rdfs:range owf:VerificationPolicy ;
+    rdfs:label "decision verification policy"@en .
+owf:outcomeForDecision a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:OutcomeEvent ; rdfs:range owf:RoutingDecision ; rdfs:label "outcome for decision"@en .
+owf:outcomeForTask a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:OutcomeEvent ; rdfs:range owf:TaskSpec ; rdfs:label "outcome for task"@en .
+owf:outcomeWorker a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:OutcomeEvent ; rdfs:range owf:WorkerProfile ; rdfs:label "outcome worker"@en .
+owf:outcomeCheckerWorker a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:OutcomeEvent ; rdfs:range owf:WorkerProfile ; rdfs:label "outcome checker worker"@en .
+owf:hasUsageRecord a owl:ObjectProperty ;
+    rdfs:domain owf:OutcomeEvent ; rdfs:range owf:UsageRecord ; rdfs:label "has usage record"@en .
+
+owf:releaseIdentifier a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:ModelRelease ; rdfs:range xsd:string ; rdfs:label "release identifier"@en .
+owf:configurationDigest a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:WorkerProfile ; rdfs:range xsd:string ;
+    rdfs:label "exact configuration SHA-256"@en ;
+    rdfs:comment "Lowercase hexadecimal SHA-256 of a canonical serialization containing every execution-relevant setting. Any setting change creates a new worker profile."@en .
+owf:inferenceConfiguration a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:WorkerProfile ; rdfs:range rdf:JSON ; rdfs:label "canonical inference configuration"@en .
+owf:profileVersion a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:AcceptanceProfile ; rdfs:range xsd:string ;
+    rdfs:label "acceptance profile version"@en .
+owf:contextWindowTokens a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:ProviderOffering ; rdfs:range xsd:nonNegativeInteger ; rdfs:label "context window tokens"@en .
+owf:priceMicrounits a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:PriceTerm ; rdfs:range xsd:nonNegativeInteger ; rdfs:label "price in currency microunits"@en .
+owf:currencyCode a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:PriceTerm ; rdfs:range xsd:string ; rdfs:label "ISO 4217 currency code"@en .
+owf:billingUnit a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:PriceTerm ; rdfs:range xsd:string ; rdfs:label "billing unit"@en .
+owf:validFrom a owl:DatatypeProperty ; rdfs:range xsd:dateTime ; rdfs:label "valid from"@en .
+owf:validUntil a owl:DatatypeProperty ; rdfs:range xsd:dateTime ; rdfs:label "valid until"@en .
+owf:observedAt a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:EvidenceObservation ; rdfs:range xsd:dateTime ; rdfs:label "observed at"@en .
+owf:rawScore a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:EvidenceObservation ; rdfs:range xsd:decimal ; rdfs:label "source-native score"@en .
+owf:scoreUnit a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:EvidenceObservation ; rdfs:range xsd:string ; rdfs:label "source-native score unit"@en .
+owf:normalizedScore a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:EvidenceObservation ; rdfs:range xsd:decimal ;
+    rdfs:comment "Optional value produced by the explicitly named adapter; never silently comparable across metrics."@en .
+owf:adapterVersion a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:EvidenceObservation ; rdfs:range xsd:string ; rdfs:label "transformation adapter version"@en .
+owf:sampleSize a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:EvidenceObservation ; rdfs:range xsd:positiveInteger ;
+    rdfs:label "reported sample size"@en ;
+    rdfs:comment "Optional because licensed and public benchmark sources do not always disclose a sample size; absence means unknown."@en .
+owf:evidenceTier a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:EvidenceObservation ; rdfs:range owf:EvidenceTier ; rdfs:label "evidence tier"@en .
+owf:estimateMean a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:AbilityEstimate ; rdfs:range xsd:decimal ; rdfs:label "estimate mean"@en .
+owf:estimateLowerBound a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:AbilityEstimate ; rdfs:range xsd:decimal ; rdfs:label "confidence lower bound"@en .
+owf:estimateUpperBound a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:AbilityEstimate ; rdfs:range xsd:decimal ; rdfs:label "confidence upper bound"@en ;
+    rdfs:comment "Optional because the v0.1 estimator persists mean and conservative lower bound only; a projector must not invent an upper bound."@en .
+owf:minimumQuality a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:SkillRequirement ; rdfs:range xsd:decimal ; rdfs:label "minimum quality"@en .
+owf:cashLimitMicrounits a owl:DatatypeProperty ;
+    rdfs:domain owf:Budget ; rdfs:range xsd:nonNegativeInteger ; rdfs:label "cash limit in microunits"@en .
+owf:latencyLimitMilliseconds a owl:DatatypeProperty ;
+    rdfs:domain owf:Budget ; rdfs:range xsd:nonNegativeInteger ; rdfs:label "latency limit in milliseconds"@en .
+owf:expectedAcceptedCostMicrounits a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:CandidateQuote ; rdfs:range xsd:nonNegativeInteger ; rdfs:label "expected accepted cost in microunits"@en .
+owf:successLowerBound a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:CandidateQuote ; rdfs:range xsd:decimal ; rdfs:label "success confidence lower bound"@en .
+owf:rejectionCode a owl:DatatypeProperty ;
+    rdfs:domain owf:RejectedCandidate ; rdfs:range xsd:string ; rdfs:label "machine-readable rejection code"@en .
+owf:decisionAt a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:RoutingDecision ; rdfs:range xsd:dateTime ; rdfs:label "decision at"@en .
+owf:policyVersion a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:RoutingDecision ; rdfs:range xsd:string ; rdfs:label "policy version"@en .
+owf:accepted a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:OutcomeEvent ; rdfs:range xsd:boolean ; rdfs:label "accepted"@en .
+owf:actualCostMicrounits a owl:DatatypeProperty ;
+    rdfs:range xsd:nonNegativeInteger ; rdfs:label "actual cost in microunits"@en .
+owf:finishedAt a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:OutcomeEvent ; rdfs:range xsd:dateTime ; rdfs:label "finished at"@en .
+owf:snapshotDigest a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:IndexSnapshot ; rdfs:range xsd:string ; rdfs:label "snapshot digest"@en .
+
+owf:functionalUnit a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:range xsd:string ; rdfs:label "functional unit"@en .
+owf:measurementBoundary a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:EnvironmentalProfile ; rdfs:range rdf:JSON ;
+    rdfs:label "environmental measurement boundary"@en .
+owf:factorNumerator a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:ImpactTerm ; rdfs:range xsd:nonNegativeInteger ;
+    rdfs:label "non-negative rational factor numerator"@en .
+owf:factorDenominator a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:ImpactTerm ; rdfs:range xsd:positiveInteger ;
+    rdfs:label "positive rational factor denominator"@en .
+owf:factorActivityUnit a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:ImpactTerm ; rdfs:range xsd:string ;
+    rdfs:label "factor activity unit"@en .
+owf:factorResultUnit a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain owf:ImpactTerm ; rdfs:range xsd:string ;
+    rdfs:label "factor result unit"@en .
+
+# Private-only properties are declared so SHACL can explicitly reject them from
+# public export records. Their values must live in the physically separate store.
+owf:promptText a owl:DatatypeProperty ; rdfs:label "prompt text"@en .
+owf:repositoryUri a owl:DatatypeProperty ; rdfs:label "repository URI"@en .
+owf:tenantId a owl:DatatypeProperty ; rdfs:label "tenant identifier"@en .
+owf:credentialReference a owl:DatatypeProperty ; rdfs:label "credential reference"@en .
+owf:rawArtifact a owl:DatatypeProperty ; rdfs:label "raw artifact"@en .
+owf:projectIdentifier a owl:DatatypeProperty ; rdfs:domain owf:Project ; rdfs:range xsd:string ; rdfs:label "private project identifier"@en .
+owf:repositoryFingerprint a owl:DatatypeProperty ; rdfs:domain owf:Project ; rdfs:range xsd:string ; rdfs:label "private keyed repository fingerprint"@en .
+owf:impactEstimateForProject a owl:ObjectProperty ; rdfs:domain owf:ImpactEstimate ; rdfs:range owf:Project ; rdfs:label "impact estimate for private project"@en .
+owf:usesEnvironmentalProfile a owl:ObjectProperty ; rdfs:domain owf:ImpactEstimate ; rdfs:range owf:EnvironmentalProfile ; rdfs:label "uses environmental profile"@en .
+owf:estimateStatus a owl:ObjectProperty ; rdfs:domain owf:ImpactEstimate ; rdfs:range owf:EstimateStatus ; rdfs:label "estimate status"@en .
+owf:estimatedValueMicrounits a owl:DatatypeProperty ; rdfs:domain owf:ImpactEstimate ; rdfs:range xsd:nonNegativeInteger ; rdfs:label "estimated impact value in metric microunits"@en .
+owf:unknownReason a owl:DatatypeProperty ; rdfs:domain owf:ImpactEstimate ; rdfs:range xsd:string ; rdfs:label "structured unknown reason"@en .
+owf:baselineForProject a owl:ObjectProperty ; rdfs:domain owf:Baseline ; rdfs:range owf:Project ; rdfs:label "baseline for private project"@en .
+owf:baselinePolicyDigest a owl:DatatypeProperty ; rdfs:domain owf:Baseline ; rdfs:range xsd:string ; rdfs:label "baseline policy digest"@en .
+owf:savingsForProject a owl:ObjectProperty ; rdfs:domain owf:SavingsEstimate ; rdfs:range owf:Project ; rdfs:label "savings estimate for private project"@en .
+owf:comparesBaseline a owl:ObjectProperty ; rdfs:domain owf:SavingsEstimate ; rdfs:range owf:Baseline ; rdfs:label "compares precommitted baseline"@en .
+owf:actualImpactEstimate a owl:ObjectProperty ; rdfs:domain owf:SavingsEstimate ; rdfs:range owf:ImpactEstimate ; rdfs:label "actual impact estimate"@en .
+owf:counterfactualImpactEstimate a owl:ObjectProperty ; rdfs:domain owf:SavingsEstimate ; rdfs:range owf:ImpactEstimate ; rdfs:label "counterfactual impact estimate"@en .
+owf:savedImpactMicrounits a owl:DatatypeProperty ; rdfs:domain owf:SavingsEstimate ; rdfs:range xsd:integer ; rdfs:label "counterfactual impact difference in metric microunits"@en .
+owf:counterfactualMethod a owl:DatatypeProperty ; rdfs:domain owf:SavingsEstimate ; rdfs:range xsd:string ; rdfs:label "counterfactual method"@en .
+owf:reportForProject a owl:ObjectProperty ; rdfs:domain owf:ProjectReport ; rdfs:range owf:Project ; rdfs:label "report for private project"@en .
+owf:reportDigest a owl:DatatypeProperty ; rdfs:domain owf:ProjectReport ; rdfs:range xsd:string ; rdfs:label "private project report digest"@en .

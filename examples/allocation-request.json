@@ -1,0 +1,53 @@
+{
+  "_comment": [
+    "Everything the public index cannot supply, because it describes your",
+    "workflow rather than a worker. Note what is NOT here: no success",
+    "probabilities, no confidence bounds, no per-worker abilities. Those are",
+    "derived from the seeded evidence and the private outcome history.",
+    "",
+    "Compare with examples/quote-request.json, where the caller hand-writes",
+    "success_lower_bound for each candidate and the engine only confirms it."
+  ],
+  "decision_id": "decision:example-0001",
+  "snapshot_id": "snapshot:example-v1",
+  "at_epoch_ms": 1785000000000,
+  "created_at": "2026-08-07T00:00:00Z",
+  "task": {
+    "id": "task:fix-failing-test",
+    "summary": "Make the failing integration test pass without changing its assertions",
+    "required_skills": [
+      {
+        "skill_id": "skill:rust-debugging",
+        "minimum_success_probability": 0.1,
+        "minimum_evidence_count": 0
+      }
+    ],
+    "required_tools": ["shell"],
+    "privacy": "private_metadata",
+    "risk": "low",
+    "verification": "deterministic",
+    "minimum_success_probability": 0.1,
+    "minimum_evidence_count": 0,
+    "estimated_input_tokens": 20000,
+    "estimated_output_tokens": 4000
+  },
+  "policy": {
+    "policy_id": "policy:economy-v1",
+    "currency": "USD",
+    "quota_shadow_cash_micros_per_unit": 0,
+    "failure_probability_basis": "mean",
+    "max_attempts": 2
+  },
+  "calibration": {
+    "calibration_id": "calibration:v1",
+    "confidence_tail_probability": 0.05,
+    "prior_alpha": 1.0,
+    "prior_beta": 1.0,
+    "max_public_prior_weight": 8.0,
+    "private_outcome_weight": 1.0
+  },
+  "assumptions": {
+    "expected_fallback_cash_micros": 150000,
+    "default_p95_latency_ms": 30000
+  }
+}

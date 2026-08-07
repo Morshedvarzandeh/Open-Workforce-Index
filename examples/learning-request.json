@@ -1,0 +1,15 @@
+{
+  "prior": {
+    "alpha": 2.0,
+    "beta": 2.0
+  },
+  "prior_evidence_count": 0,
+  "confidence_tail_probability": 0.05,
+  "outcomes": [
+    { "accepted": true, "weight": 1.0 },
+    { "accepted": true, "weight": 1.0 },
+    { "accepted": true, "weight": 1.0 },
+    { "accepted": false, "weight": 1.0 },
+    { "accepted": true, "weight": 1.0 }
+  ]
+}

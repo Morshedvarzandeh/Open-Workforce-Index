@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust workspace
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Check
+        run: cargo check --workspace --all-targets --locked
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked
+      - name: Test
+        run: cargo test --workspace --all-targets --locked
+      - name: Validate JSON fixtures
+        run: |
+          for fixture in examples/*.json; do
+            python3 -m json.tool "$fixture" >/dev/null
+          done
+      - name: CLI vertical slice
+        run: |
+          cargo run --locked -p workforce-cli -- ontology validate
+          cargo run --locked -p workforce-cli -- database init --index "${RUNNER_TEMP}/owi-index.sqlite" --local "${RUNNER_TEMP}/owi-local.sqlite"
+          cargo run --locked -p workforce-cli -- quote --input examples/quote-request.json
+          cargo run --locked -p workforce-cli -- quote --input examples/cad-quote-request.json
+          cargo run --locked -p workforce-cli -- learn --input examples/learning-request.json
+      - name: Price import adapter
+        run: |
+          cargo run --locked -q -p workforce-cli -- prices \
+            --input examples/litellm-prices-sample.json \
+            --options examples/price-import-options.json --dry-run \
+            | python3 tools/check_price_import.py
+
+      - name: Closed-loop vertical slice
+        run: |
+          INDEX="${RUNNER_TEMP}/loop-index.sqlite"
+          LOCAL="${RUNNER_TEMP}/loop-local.sqlite"
+          cargo run --locked -p workforce-cli -- seed --index "$INDEX" --input examples/index-seed.json
+          # Before local evidence the cheap worker wins on expected accepted cost.
+          before=$(cargo run --locked -q -p workforce-cli -- allocate \
+            --index "$INDEX" --local "$LOCAL" --input examples/allocation-request.json --record \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["quote"]["selected_worker_id"])')
+          test "$before" = "worker:compact-agent-v1" \
+            || { echo "expected the cheap worker first, got $before"; exit 1; }
+          # Six verified local failures make its retry cost dominate.
+          for id in a b c d e f; do
+            python3 tools/ci_variant_outcome.py "$id" "${RUNNER_TEMP}/outcome-$id.json"
+            cargo run --locked -q -p workforce-cli -- outcome --local "$LOCAL" --input "${RUNNER_TEMP}/outcome-$id.json" >/dev/null
+          done
+          after=$(cargo run --locked -q -p workforce-cli -- allocate \
+            --index "$INDEX" --local "$LOCAL" --input examples/allocation-request.json \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["quote"]["selected_worker_id"])')
+          test "$after" = "worker:balanced-agent-v1" \
+            || { echo "local outcomes did not change the decision, got $after"; exit 1; }
+          echo "closed loop verified: $before -> $after"
+
+  msrv:
+    name: Rust 1.87 compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.87.0
+      - run: cargo check --workspace --all-targets --locked

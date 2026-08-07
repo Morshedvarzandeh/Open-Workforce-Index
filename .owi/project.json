@@ -1,0 +1,129 @@
+{
+  "_comment": [
+    "Check this into your repository. `owi plan` costs it against the roster on every commit.",
+    "",
+    "review_cash_micros_per_hour is money actually paid out for review.",
+    "opportunity_micros_per_hour is what an hour of your own attention is worth --",
+    "not a wage, but the value of the best thing that hour would otherwise buy.",
+    "The two are reported separately and never silently summed.",
+    "",
+    "blocking_fraction is how much of a worker latency you actually sit and wait",
+    "for. At 0 a slow worker is free; at 1 every second is billed at your rate.",
+    "",
+    "Run with --scenarios 0,15,60,200 to see how the staffing changes and pick.",
+    "",
+    "onboarding_cash_micros is what it costs to qualify each worker: the 11-task",
+    "corpus at that worker's own rate, which is what run_bench.py actually bills.",
+    "expected_task_volume spreads it. At low volume a cheap model cannot repay",
+    "its own qualification, which is the whole capex-versus-TCO point."
+  ],
+  "project_id": "project:open-workforce-index",
+  "snapshot_id": "snapshot:manager-scenario-v1",
+  "at_epoch_ms": 1785110400000,
+  "created_at": "2026-08-07T18:00:00Z",
+  "defaults": {
+    "minimum_success_probability": 0.3,
+    "privacy": "private_metadata",
+    "policy": {
+      "policy_id": "policy:economy-v1",
+      "currency": "USD",
+      "quota_shadow_cash_micros_per_unit": 0,
+      "failure_probability_basis": "mean",
+      "max_attempts": 2
+    },
+    "calibration": {
+      "calibration_id": "calibration:v1",
+      "confidence_tail_probability": 0.05,
+      "prior_alpha": 1.0,
+      "prior_beta": 1.0,
+      "max_public_prior_weight": 8.0,
+      "private_outcome_weight": 1.0,
+      "cross_repository_weight": 0.35
+    },
+    "assumptions": {
+      "default_p95_latency_ms": 30000,
+      "review_minutes_on_accept": 3.0,
+      "review_minutes_on_reject": 25.0,
+      "review_cash_micros_per_hour": 0,
+      "opportunity_micros_per_hour": 60000000,
+      "blocking_fraction": 0.0,
+      "onboarding_cash_micros": {
+        "worker:gpt-5-mini/text": 143000,
+        "worker:gpt-5-mini/extract": 143000,
+        "worker:haiku-4-5/text": 440000,
+        "worker:haiku-4-5/extract": 440000,
+        "worker:haiku-4-5/code": 440000,
+        "worker:gpt-5/text": 715000,
+        "worker:gpt-5/extract": 715000,
+        "worker:gpt-5/code": 715000,
+        "worker:sonnet-4-5/text": 1320000,
+        "worker:sonnet-4-5/extract": 1320000,
+        "worker:sonnet-4-5/code": 1320000,
+        "worker:sonnet-4-5/cad": 1320000,
+        "worker:opus-4-5/text": 2200000,
+        "worker:opus-4-5/extract": 2200000,
+        "worker:opus-4-5/code": 2200000,
+        "worker:opus-4-5/cad": 2200000
+      },
+      "default_onboarding_cash_micros": 1000000,
+      "expected_task_volume": 50
+    }
+  },
+  "features": [
+    {
+      "id": "task:release-notes",
+      "summary": "Draft release notes from the changelog",
+      "skill_id": "skill:text-editing",
+      "estimated_input_tokens": 8000,
+      "estimated_output_tokens": 1500,
+      "assumptions": {
+        "expected_fallback_cash_micros": 10000
+      }
+    },
+    {
+      "id": "task:changelog-to-json",
+      "summary": "Convert the changelog into structured release records",
+      "skill_id": "skill:structured-extraction",
+      "required_tools": [
+        "json-schema-validator"
+      ],
+      "estimated_input_tokens": 8000,
+      "estimated_output_tokens": 2500,
+      "assumptions": {
+        "expected_fallback_cash_micros": 15000
+      }
+    },
+    {
+      "id": "task:add-provider-adapter",
+      "summary": "Implement a provider execution adapter with tests",
+      "skill_id": "skill:python-numerical-implementation",
+      "required_tools": [
+        "shell"
+      ],
+      "minimum_success_probability": 0.24,
+      "risk": "medium",
+      "estimated_input_tokens": 40000,
+      "estimated_output_tokens": 9000,
+      "assumptions": {
+        "expected_fallback_cash_micros": 200000
+      }
+    },
+    {
+      "id": "task:enclosure-bracket",
+      "summary": "Model a parametric enclosure bracket and export STEP",
+      "skill_id": "skill:parametric-cad",
+      "required_tools": [
+        "cad-kernel",
+        "geometry-validator",
+        "step-exporter"
+      ],
+      "minimum_success_probability": 0.2,
+      "risk": "medium",
+      "estimated_input_tokens": 30000,
+      "estimated_output_tokens": 8000,
+      "assumptions": {
+        "expected_fallback_cash_micros": 400000
+      }
+    }
+  ]
+}

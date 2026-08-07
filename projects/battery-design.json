@@ -1,0 +1,161 @@
+{
+  "_comment": [
+    "Work manifest for battery-design. Edit this file -- it is the interface.",
+    "Copy to battery-design/.owi/project.json when you want the hook/CI there.",
+    "",
+    "The 3D asset task is expected to be UNSTAFFED: nobody on the roster holds",
+    "a Godot asset-pipeline configuration. That is the capability gate doing",
+    "its job -- the fix is onboarding a configured worker, not lowering a bar."
+  ],
+  "project_id": "project:battery-design",
+  "snapshot_id": "snapshot:battery-design-v1",
+  "at_epoch_ms": 1785110400000,
+  "created_at": "2026-08-07T18:00:00Z",
+  "defaults": {
+    "minimum_success_probability": 0.3,
+    "privacy": "private_metadata",
+    "policy": {
+      "policy_id": "policy:economy-v1",
+      "currency": "USD",
+      "quota_shadow_cash_micros_per_unit": 0,
+      "failure_probability_basis": "mean",
+      "max_attempts": 2
+    },
+    "calibration": {
+      "calibration_id": "calibration:v1",
+      "confidence_tail_probability": 0.05,
+      "prior_alpha": 1.0,
+      "prior_beta": 1.0,
+      "max_public_prior_weight": 8.0,
+      "private_outcome_weight": 1.0,
+      "cross_repository_weight": 0.35
+    },
+    "assumptions": {
+      "default_p95_latency_ms": 30000,
+      "review_cash_micros_per_hour": 0,
+      "opportunity_micros_per_hour": 60000000,
+      "review_minutes_on_accept": 3.0,
+      "review_minutes_on_reject": 25.0,
+      "blocking_fraction": 0.0,
+      "expected_task_volume": 50,
+      "default_onboarding_cash_micros": 1000000,
+      "onboarding_cash_micros": {
+        "worker:gpt-5-mini/text": 143000,
+        "worker:haiku-4-5/text": 440000,
+        "worker:gpt-5/text": 715000,
+        "worker:sonnet-4-5/text": 1320000,
+        "worker:opus-4-5/text": 2200000,
+        "worker:gpt-5-mini/extract": 143000,
+        "worker:haiku-4-5/extract": 440000,
+        "worker:gpt-5/extract": 715000,
+        "worker:sonnet-4-5/extract": 1320000,
+        "worker:opus-4-5/extract": 2200000,
+        "worker:gpt-5-mini/code": 143000,
+        "worker:haiku-4-5/code": 440000,
+        "worker:gpt-5/code": 715000,
+        "worker:sonnet-4-5/code": 1320000,
+        "worker:opus-4-5/code": 2200000,
+        "worker:gpt-5-mini/cad": 143000,
+        "worker:haiku-4-5/cad": 440000,
+        "worker:gpt-5/cad": 715000,
+        "worker:sonnet-4-5/cad": 1320000,
+        "worker:opus-4-5/cad": 2200000,
+        "worker:gpt-5-mini/web": 143000,
+        "worker:haiku-4-5/web": 440000,
+        "worker:gpt-5/web": 715000,
+        "worker:sonnet-4-5/web": 1320000,
+        "worker:opus-4-5/web": 2200000,
+        "worker:haiku-4-5/rust": 440000,
+        "worker:gpt-5/rust": 715000,
+        "worker:sonnet-4-5/rust": 1320000,
+        "worker:opus-4-5/rust": 2200000
+      }
+    }
+  },
+  "features": [
+    {
+      "id": "task:rust-core-thermal-node",
+      "summary": "Add a lumped thermal node to rust-core and expose it through the wasm build, with cargo tests",
+      "skill_id": "skill:rust-implementation",
+      "required_tools": [
+        "shell",
+        "cargo"
+      ],
+      "minimum_success_probability": 0.2,
+      "risk": "medium",
+      "estimated_input_tokens": 35000,
+      "estimated_output_tokens": 7000,
+      "assumptions": {
+        "expected_fallback_cash_micros": 250000
+      }
+    },
+    {
+      "id": "task:desktop-profile-import",
+      "summary": "Add profile import/export to the Tauri desktop app with a Playwright test",
+      "skill_id": "skill:web-implementation",
+      "required_tools": [
+        "shell",
+        "playwright"
+      ],
+      "minimum_success_probability": 0.24,
+      "risk": "medium",
+      "estimated_input_tokens": 25000,
+      "estimated_output_tokens": 6000,
+      "assumptions": {
+        "expected_fallback_cash_micros": 150000
+      }
+    },
+    {
+      "id": "task:e2e-cosim-smoke",
+      "summary": "Extend the Playwright e2e suite with a cosim.html smoke path",
+      "skill_id": "skill:web-implementation",
+      "required_tools": [
+        "shell",
+        "playwright"
+      ],
+      "estimated_input_tokens": 12000,
+      "estimated_output_tokens": 3000,
+      "assumptions": {
+        "expected_fallback_cash_micros": 60000
+      },
+      "minimum_success_probability": 0.24
+    },
+    {
+      "id": "task:root-causes-to-json",
+      "summary": "Extract knowledge/root-causes into structured JSON matching the ontology",
+      "skill_id": "skill:structured-extraction",
+      "required_tools": [
+        "json-schema-validator"
+      ],
+      "estimated_input_tokens": 9000,
+      "estimated_output_tokens": 3000,
+      "assumptions": {
+        "expected_fallback_cash_micros": 15000
+      }
+    },
+    {
+      "id": "task:fmi-tutorial-page",
+      "summary": "Draft a docs walkthrough of the FMI signal map for new contributors",
+      "skill_id": "skill:text-editing",
+      "estimated_input_tokens": 9000,
+      "estimated_output_tokens": 2500,
+      "assumptions": {
+        "expected_fallback_cash_micros": 12000
+      }
+    },
+    {
+      "id": "task:garage3d-lod-pass",
+      "summary": "Produce LOD variants of the garage3d models for the web build",
+      "skill_id": "skill:3d-asset-pipeline",
+      "required_tools": [
+        "mesh-optimizer"
+      ],
+      "minimum_success_probability": 0.2,
+      "estimated_input_tokens": 20000,
+      "estimated_output_tokens": 5000,
+      "assumptions": {
+        "expected_fallback_cash_micros": 100000
+      }
+    }
+  ]
+}

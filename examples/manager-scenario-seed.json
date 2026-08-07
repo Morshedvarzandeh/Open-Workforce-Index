@@ -1,0 +1,622 @@
+{
+  "_comment": [
+    "ASSUMED ABILITY, NOT MEASURED. Every evidence row here is tagged",
+    "vendor_reported so the calibration discounts it to a tenth of a",
+    "reproduced observation, and benchmark:assumed-for-demonstration",
+    "makes it greppable. It exists so the staffing board has something",
+    "to rank. Replace it with real runs from tools/run_bench.py before",
+    "treating any assignment here as a recommendation.",
+    "",
+    "Prices and context windows ARE real, imported by `owi prices`."
+  ],
+  "snapshot_id": "snapshot:manager-scenario-v1",
+  "created_at": "2026-08-07T18:00:00Z",
+  "ontology_version": "ontology:v1",
+  "source_revision": "scenario:manager-v1",
+  "worker_profiles": [
+    {
+      "id": "worker:gpt-5-mini/text",
+      "offering_id": "offering:openai/gpt-5-mini",
+      "harness_id": "owi-text-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "text-v1",
+      "toolset_version": "none-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:text-editing"
+      ],
+      "tools": [],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "02dd0f32059e8a04d28c9eb5647efdac0d650381c7091e7548a2db734e91ccdb",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:gpt-5-mini/extract",
+      "offering_id": "offering:openai/gpt-5-mini",
+      "harness_id": "owi-extraction-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "extract-v1",
+      "toolset_version": "json-schema-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:structured-extraction"
+      ],
+      "tools": [
+        "json-schema-validator"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "4ca5a772aa5010f33a839664e6992a26ce6ececd51c654a8bddd5b4d93b4e828",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:haiku-4-5/text",
+      "offering_id": "offering:anthropic/claude-haiku-4-5",
+      "harness_id": "owi-text-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "text-v1",
+      "toolset_version": "none-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:text-editing"
+      ],
+      "tools": [],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "23caa785a6117737a35c3c3aa6d8fb1e35fa198f124a9aec390753659d063566",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:haiku-4-5/extract",
+      "offering_id": "offering:anthropic/claude-haiku-4-5",
+      "harness_id": "owi-extraction-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "extract-v1",
+      "toolset_version": "json-schema-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:structured-extraction"
+      ],
+      "tools": [
+        "json-schema-validator"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "651700d947ee893dbea812f10247a4f69ead69cf91d4bef163a9a252f52bdbf0",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:haiku-4-5/code",
+      "offering_id": "offering:anthropic/claude-haiku-4-5",
+      "harness_id": "owi-code-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "code-v1",
+      "toolset_version": "shell-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:python-numerical-implementation"
+      ],
+      "tools": [
+        "shell"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "e1d3eda1fb0283f5d211111ec01aec1869347925c38b1909208f7c56ff1f157a",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:gpt-5/text",
+      "offering_id": "offering:openai/gpt-5",
+      "harness_id": "owi-text-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "text-v1",
+      "toolset_version": "none-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:text-editing"
+      ],
+      "tools": [],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "232d50d8d9fde4e39697d34ce68bf9b4bc25ba389fc0e4d35ecae0ceee64b650",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:gpt-5/extract",
+      "offering_id": "offering:openai/gpt-5",
+      "harness_id": "owi-extraction-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "extract-v1",
+      "toolset_version": "json-schema-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:structured-extraction"
+      ],
+      "tools": [
+        "json-schema-validator"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "9940c75cee84a831b5988003816797df91b5bdef5fcee5d8516c11e799ea26f5",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:gpt-5/code",
+      "offering_id": "offering:openai/gpt-5",
+      "harness_id": "owi-code-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "code-v1",
+      "toolset_version": "shell-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:python-numerical-implementation"
+      ],
+      "tools": [
+        "shell"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "969bdcec024a7f95e2b02cf61586b808d1d4dc722471dc5099be3408a265b266",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:sonnet-4-5/text",
+      "offering_id": "offering:anthropic/claude-sonnet-4-5",
+      "harness_id": "owi-text-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "text-v1",
+      "toolset_version": "none-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:text-editing"
+      ],
+      "tools": [],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "0d6c5db5c891bedd52562bc33d3e0bbd41818f68bd161d3863e67691ecab9ca8",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:sonnet-4-5/extract",
+      "offering_id": "offering:anthropic/claude-sonnet-4-5",
+      "harness_id": "owi-extraction-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "extract-v1",
+      "toolset_version": "json-schema-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:structured-extraction"
+      ],
+      "tools": [
+        "json-schema-validator"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "201fab35475e95248d64071ccd3aaa0e57ccab66b4d4d35a55f85c06884a7aa4",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:sonnet-4-5/code",
+      "offering_id": "offering:anthropic/claude-sonnet-4-5",
+      "harness_id": "owi-code-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "code-v1",
+      "toolset_version": "shell-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:python-numerical-implementation"
+      ],
+      "tools": [
+        "shell"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "8bfdee98c42cac9d6dcd92fd6d13478587c664b52525620239c445e1e47b1664",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:sonnet-4-5/cad",
+      "offering_id": "offering:anthropic/claude-sonnet-4-5",
+      "harness_id": "owi-cad-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "cad-v1",
+      "toolset_version": "cad-kernel-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:parametric-cad"
+      ],
+      "tools": [
+        "cad-kernel",
+        "geometry-validator",
+        "step-exporter"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "234004b8c0a6f7944d08b6745b771c00c082a8e95f1d96c2d4d3268f3c0f4c69",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:opus-4-5/text",
+      "offering_id": "offering:anthropic/claude-opus-4-5",
+      "harness_id": "owi-text-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "text-v1",
+      "toolset_version": "none-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:text-editing"
+      ],
+      "tools": [],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "6332f036985a01f7e0f020f07410d51103e03ee6985c7b0e28cd4b71262cad00",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:opus-4-5/extract",
+      "offering_id": "offering:anthropic/claude-opus-4-5",
+      "harness_id": "owi-extraction-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "extract-v1",
+      "toolset_version": "json-schema-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:structured-extraction"
+      ],
+      "tools": [
+        "json-schema-validator"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "226a4b4e02819bc5e8aa91394ac07c9200248c95b3a9b96a8a47ffc3e4e9218f",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:opus-4-5/code",
+      "offering_id": "offering:anthropic/claude-opus-4-5",
+      "harness_id": "owi-code-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "code-v1",
+      "toolset_version": "shell-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:python-numerical-implementation"
+      ],
+      "tools": [
+        "shell"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "b3067cf16bfc29a45c3247f9200ff67dd2efe1f1a141f3ed64850eceb4b5b569",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:opus-4-5/cad",
+      "offering_id": "offering:anthropic/claude-opus-4-5",
+      "harness_id": "owi-cad-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "cad-v1",
+      "toolset_version": "cad-kernel-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:parametric-cad"
+      ],
+      "tools": [
+        "cad-kernel",
+        "geometry-validator",
+        "step-exporter"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "1b681638a1cdd92360d9d2dfd96420c3d4832547e71f104dc2d143a4f50de087",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "evidence:assumed:gpt-5-mini:text",
+      "model_release_id": "model:gpt-5-mini",
+      "worker_id": "worker:gpt-5-mini/text",
+      "skill_id": "skill:text-editing",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 93.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.93,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:gpt-5-mini:extract",
+      "model_release_id": "model:gpt-5-mini",
+      "worker_id": "worker:gpt-5-mini/extract",
+      "skill_id": "skill:structured-extraction",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 88.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.88,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:haiku-4-5:text",
+      "model_release_id": "model:claude-haiku-4-5",
+      "worker_id": "worker:haiku-4-5/text",
+      "skill_id": "skill:text-editing",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 95.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.95,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:haiku-4-5:extract",
+      "model_release_id": "model:claude-haiku-4-5",
+      "worker_id": "worker:haiku-4-5/extract",
+      "skill_id": "skill:structured-extraction",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 90.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.9,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:haiku-4-5:code",
+      "model_release_id": "model:claude-haiku-4-5",
+      "worker_id": "worker:haiku-4-5/code",
+      "skill_id": "skill:python-numerical-implementation",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 62.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.62,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:gpt-5:text",
+      "model_release_id": "model:gpt-5",
+      "worker_id": "worker:gpt-5/text",
+      "skill_id": "skill:text-editing",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 96.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.96,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:gpt-5:extract",
+      "model_release_id": "model:gpt-5",
+      "worker_id": "worker:gpt-5/extract",
+      "skill_id": "skill:structured-extraction",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 94.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.94,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:gpt-5:code",
+      "model_release_id": "model:gpt-5",
+      "worker_id": "worker:gpt-5/code",
+      "skill_id": "skill:python-numerical-implementation",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 80.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.8,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:sonnet-4-5:text",
+      "model_release_id": "model:claude-sonnet-4-5",
+      "worker_id": "worker:sonnet-4-5/text",
+      "skill_id": "skill:text-editing",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 97.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.97,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:sonnet-4-5:extract",
+      "model_release_id": "model:claude-sonnet-4-5",
+      "worker_id": "worker:sonnet-4-5/extract",
+      "skill_id": "skill:structured-extraction",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 95.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.95,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:sonnet-4-5:code",
+      "model_release_id": "model:claude-sonnet-4-5",
+      "worker_id": "worker:sonnet-4-5/code",
+      "skill_id": "skill:python-numerical-implementation",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 86.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.86,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:sonnet-4-5:cad",
+      "model_release_id": "model:claude-sonnet-4-5",
+      "worker_id": "worker:sonnet-4-5/cad",
+      "skill_id": "skill:parametric-cad",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 68.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.68,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:opus-4-5:text",
+      "model_release_id": "model:claude-opus-4-5",
+      "worker_id": "worker:opus-4-5/text",
+      "skill_id": "skill:text-editing",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 97.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.97,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:opus-4-5:extract",
+      "model_release_id": "model:claude-opus-4-5",
+      "worker_id": "worker:opus-4-5/extract",
+      "skill_id": "skill:structured-extraction",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 96.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.96,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:opus-4-5:code",
+      "model_release_id": "model:claude-opus-4-5",
+      "worker_id": "worker:opus-4-5/code",
+      "skill_id": "skill:python-numerical-implementation",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 89.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.89,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:opus-4-5:cad",
+      "model_release_id": "model:claude-opus-4-5",
+      "worker_id": "worker:opus-4-5/cad",
+      "skill_id": "skill:parametric-cad",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 78.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.78,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    }
+  ]
+}

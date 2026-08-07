@@ -1,0 +1,336 @@
+<title>OWI Console — battery-design</title>
+<style>
+  :root {
+    --ground:#EEF1F5; --panel:#FFFFFF; --panel-sunk:#F5F7FA;
+    --rule:#D3DAE3; --rule-firm:#B4BECB;
+    --ink:#14171C; --ink-2:#454E5B; --ink-3:#6B7686;
+    --accent:#2B5CE6; --accent-soft:#E4EAFB;
+    --warn:#8A6109; --warn-soft:#F6EBD2;
+    --stop:#9E3B2C; --stop-soft:#F6E2DE;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:#101318; --panel:#171B21; --panel-sunk:#1D222A;
+      --rule:#2B323C; --rule-firm:#3D4653;
+      --ink:#E8ECF2; --ink-2:#AEB8C6; --ink-3:#7C8797;
+      --accent:#7CA0FF; --accent-soft:#1C2740;
+      --warn:#D9A63E; --warn-soft:#2C2415;
+      --stop:#E0796A; --stop-soft:#301C19;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#101318; --panel:#171B21; --panel-sunk:#1D222A;
+    --rule:#2B323C; --rule-firm:#3D4653;
+    --ink:#E8ECF2; --ink-2:#AEB8C6; --ink-3:#7C8797;
+    --accent:#7CA0FF; --accent-soft:#1C2740;
+    --warn:#D9A63E; --warn-soft:#2C2415;
+    --stop:#E0796A; --stop-soft:#301C19;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--ground); color:var(--ink);
+    font-family:var(--mono); font-size:14px; line-height:1.5;
+    -webkit-font-smoothing:antialiased; }
+  .shell { max-width:1080px; margin:0 auto; padding:36px 22px 72px;
+    display:flex; flex-direction:column; gap:26px; }
+
+  .masthead { border-bottom:2px solid var(--ink); padding-bottom:14px; }
+  .masthead h1 { margin:0; font-size:22px; letter-spacing:-0.02em; }
+  .masthead .ref { font-size:11px; color:var(--ink-3); letter-spacing:0.08em;
+    text-transform:uppercase; }
+  .masthead p { font-family:var(--sans); color:var(--ink-2); max-width:64ch;
+    margin:10px 0 0; font-size:14.5px; line-height:1.55; }
+  .masthead strong { color:var(--ink); }
+
+  /* controls */
+  .controls { background:var(--panel); border:1px solid var(--rule);
+    padding:16px 18px; display:grid; gap:16px;
+    grid-template-columns:minmax(240px,1.4fr) repeat(2,minmax(150px,1fr)); }
+  .ctl { display:flex; flex-direction:column; gap:6px; }
+  .ctl label { font-size:10px; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--ink-3); }
+  .ctl .val { font-size:20px; font-weight:700;
+    font-variant-numeric:tabular-nums; }
+  input[type=range] { width:100%; accent-color:var(--accent); }
+  input[type=number] { font:inherit; width:90px; padding:4px 8px;
+    background:var(--panel-sunk); color:var(--ink);
+    border:1px solid var(--rule-firm); }
+  .seg { display:flex; }
+  .seg button { font:inherit; font-size:12px; padding:5px 10px;
+    background:var(--panel-sunk); color:var(--ink-2);
+    border:1px solid var(--rule-firm); border-left-width:0; cursor:pointer; }
+  .seg button:first-child { border-left-width:1px; }
+  .seg button.on { background:var(--accent); color:#fff; }
+  :root[data-theme="dark"] .seg button.on { color:#0F1420; }
+  .seg button:focus-visible, input:focus-visible {
+    outline:2px solid var(--accent); outline-offset:1px; }
+
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:1px; background:var(--rule); border:1px solid var(--rule); }
+  .tile { background:var(--panel); padding:12px 14px; }
+  .tile .k { font-size:10px; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--ink-3); display:block; }
+  .tile .v { font-size:22px; font-weight:700; letter-spacing:-0.02em;
+    font-variant-numeric:tabular-nums; }
+  .tile.headline .v { color:var(--accent); }
+
+  section h2 { margin:0 0 10px; font-size:12px; letter-spacing:0.12em;
+    text-transform:uppercase; border-bottom:1px solid var(--rule-firm);
+    padding-bottom:6px; }
+  .tasks { display:flex; flex-direction:column; gap:12px; }
+  .task { background:var(--panel); border:1px solid var(--rule); }
+  .t-head { padding:12px 14px; border-bottom:1px solid var(--rule);
+    display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+  .t-id { font-weight:700; }
+  .t-sum { font-family:var(--sans); font-size:12.5px; color:var(--ink-2);
+    max-width:56ch; margin-top:2px; }
+  .t-flip { font-size:11px; color:var(--ink-3); text-align:right; }
+  .t-flip b { color:var(--accent); }
+  .rows { padding:2px 0; }
+  .row { display:grid; grid-template-columns:18px 1fr 90px 110px; gap:10px;
+    align-items:baseline; padding:5px 14px; }
+  .row.on { background:var(--accent-soft); font-weight:700; }
+  .row .n { font-size:11px; color:var(--ink-3); }
+  .row.on .n { color:var(--accent); }
+  .row .c { text-align:right; font-variant-numeric:tabular-nums; }
+  .row .d { text-align:right; font-size:11px; color:var(--ink-3);
+    font-variant-numeric:tabular-nums; }
+  .t-foot { padding:7px 14px; background:var(--panel-sunk);
+    border-top:1px solid var(--rule); font-size:11px; color:var(--ink-2); }
+
+  .task.unstaffed { border-color:var(--stop); }
+  .task.unstaffed .t-head { border-bottom-color:var(--stop); }
+  .gates { padding:10px 14px; background:var(--stop-soft); font-size:12px; }
+  .gates b { color:var(--stop); }
+
+  .measure { background:var(--panel); border:1px solid var(--rule);
+    padding:14px 16px; }
+  .measure p { font-family:var(--sans); font-size:13px; color:var(--ink-2);
+    margin:0 0 10px; max-width:64ch; }
+  .m-skill { margin-top:10px; }
+  .m-skill .sk { font-size:11px; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--ink-3); }
+  .m-row { display:flex; justify-content:space-between; gap:10px; padding:3px 0;
+    font-size:12.5px; border-bottom:1px solid var(--panel-sunk); }
+  .m-row span:last-child { font-variant-numeric:tabular-nums; }
+  .m-row .zero { color:var(--warn); }
+
+  .caveat { border:1px solid var(--warn); background:var(--warn-soft);
+    padding:12px 16px; font-family:var(--sans); font-size:12.5px;
+    color:var(--ink-2); line-height:1.55; }
+  .caveat strong { color:var(--ink); }
+  footer { font-family:var(--sans); font-size:11.5px; color:var(--ink-3);
+    border-top:1px solid var(--rule-firm); padding-top:12px; }
+  @media (max-width:640px) {
+    .controls { grid-template-columns:1fr; }
+    .row { grid-template-columns:16px 1fr 90px; }
+    .row .d { display:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="masthead">
+    <span class="ref" id="ref"></span>
+    <h1 id="title"></h1>
+    <p>Eligibility was decided by the engine against the digest-verified
+    snapshot — the dials below cannot resurrect a rejected worker. What they
+    change is the <strong>weighting</strong>: what your hour is worth, how many
+    tasks amortise a worker's qualification cost, and how much of its latency
+    you actually sit through. Move them and watch the staffing re-rank.</p>
+  </header>
+
+  <div class="controls">
+    <div class="ctl">
+      <label for="rate">Your hour is worth</label>
+      <span class="val" id="rateVal"></span>
+      <input type="range" id="rate" min="0" max="300" step="1">
+    </div>
+    <div class="ctl">
+      <label for="vol">Tasks amortising setup</label>
+      <span class="val" id="volVal"></span>
+      <input type="number" id="vol" min="1" max="100000" step="1">
+    </div>
+    <div class="ctl">
+      <label>Waiting on the worker</label>
+      <span class="val" id="blockVal"></span>
+      <div class="seg" id="blockSeg" role="group" aria-label="blocking fraction">
+        <button data-b="0">async</button>
+        <button data-b="0.25">quarter</button>
+        <button data-b="1">watching</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <section>
+    <h2>Assignments — live under your weighting</h2>
+    <div class="tasks" id="tasks"></div>
+  </section>
+
+  <section>
+    <h2>What measurement would change this</h2>
+    <div class="measure" id="measure"></div>
+  </section>
+
+  <div class="caveat" id="caveat">
+    <strong>Prices are real; ability is assumed.</strong> Every rate came from
+    the published price import with its content digest. Ability evidence is
+    tagged <code>vendor_reported</code> and discounted to a tenth of a measured
+    observation — the panel above prices the fix. Totals here recompute the
+    engine's arithmetic in the browser and can differ by a few micros of
+    rounding; the ledgered decision is the authority.
+  </div>
+
+  <footer>Open Workforce Index · regenerate with
+  <code>python3 tools/owi_console.py</code> after editing the manifest ·
+  eligibility, gates and calibration by <code>owi allocate</code>.</footer>
+</div>
+
+<script id="console-data" type="application/json">__DATA__</script>
+<script>
+  const DATA = JSON.parse(document.getElementById("console-data").textContent);
+  const M = 1e6;
+  const $ = (v, d=4) => "$" + (v / M).toFixed(d);
+  const short = id => id.replace("worker:", "");
+
+  let rate = DATA.controls.rate;        // dollars per hour
+  let vol = DATA.controls.volume;       // tasks amortising setup
+  let blocking = DATA.controls.blocking;
+
+  function parts(t, c) {
+    const revMin = c.s * t.accMin + (1 - c.s) * t.rejMin;
+    const waitMin = blocking * c.p95 / 60000;
+    const wage = t.wage * revMin / 60;
+    const time = rate * M * (revMin + waitMin) / 60;
+    const setup = vol > 0 ? Math.ceil(c.setup / vol) : 0;
+    return {
+      cash: c.run + c.retry + c.flatReview + wage,
+      setup, time,
+      total: c.run + c.retry + c.flatReview + wage + time + setup,
+    };
+  }
+  function ranked(t) {
+    return t.candidates
+      .map(c => ({ c, p: parts(t, c) }))
+      .sort((a, b) => a.p.total - b.p.total || b.c.lcb - a.c.lcb
+                   || a.c.p95 - b.c.p95 || a.c.id.localeCompare(b.c.id));
+  }
+  function flipAnnotation(t) {
+    // Scan the rate axis once per render state; volume/blocking are folded in.
+    const saved = rate;
+    let previous = null, notes = [];
+    for (let r = 0; r <= 300; r++) {
+      rate = r;
+      const top = ranked(t)[0].c.id;
+      if (previous !== null && top !== previous)
+        notes.push({ at: r, to: top });
+      previous = top;
+    }
+    rate = saved;
+    const next = notes.find(n => n.at > rate);
+    if (next) return `flips to <b>${short(next.to)}</b> at $${next.at}/hr`;
+    const before = [...notes].reverse().find(n => n.at <= rate);
+    if (before) return `held since $${before.at}/hr · stable to $300/hr`;
+    return "stable across $0–300/hr";
+  }
+
+  function render() {
+    document.getElementById("rateVal").textContent =
+      rate === 0 ? "free" : `$${rate}/hr`;
+    document.getElementById("volVal").textContent = `${vol} tasks`;
+    document.getElementById("blockVal").textContent =
+      blocking === 0 ? "0% — async" : `${Math.round(blocking * 100)}%`;
+    document.querySelectorAll("#blockSeg button").forEach(b =>
+      b.classList.toggle("on", Number(b.dataset.b) === blocking));
+
+    let cash = 0, setup = 0, time = 0, staffed = 0;
+    const cards = DATA.tasks.map(t => {
+      if (t.unstaffed) {
+        const away = Object.entries(t.turnedAway)
+          .map(([k, n]) => `${n} on ${k}`).join(", ");
+        const headline = t.gates.length
+          ? `<b>UNSTAFFED — hard gates hit: ${t.gates.join(", ")}.</b>
+             No budget clears these; onboard a configured worker.`
+          : `<b>UNSTAFFED — every capable worker falls below the quality
+             floor.</b> Measurement or a lower floor is the fix, not money.`;
+        const quality = t.gates.length && t.qualityOnly
+          ? ` ${t.qualityOnly} worker(s) hold the capability but fall below
+              the quality floor — for them measurement is the fix.` : "";
+        return `<article class="task unstaffed">
+          <div class="t-head"><div><div class="t-id">${t.id.replace("task:","")}</div>
+          <div class="t-sum">${t.summary}</div></div></div>
+          <div class="gates">${headline}${quality} Turned away: ${away}.</div>
+        </article>`;
+      }
+      const rows = ranked(t);
+      const top = rows[0];
+      cash += top.p.cash; setup += top.p.setup; time += top.p.time; staffed++;
+      const body = rows.slice(0, 3).map((r, i) => {
+        const delta = i === 0 ? "assigned"
+          : "+" + $(r.p.total - top.p.total);
+        return `<div class="row ${i === 0 ? "on" : ""}">
+          <span class="n">${i + 1}</span><span>${short(r.c.id)}</span>
+          <span class="d">${delta}</span>
+          <span class="c">${$(r.p.total)}</span></div>`;
+      }).join("");
+      const away = Object.entries(t.turnedAway)
+        .map(([k, n]) => `${n} on ${k}`).join(", ") || "none";
+      return `<article class="task">
+        <div class="t-head">
+          <div><div class="t-id">${t.id.replace("task:","")}</div>
+          <div class="t-sum">${t.summary}</div></div>
+          <div class="t-flip">${flipAnnotation(t)}</div>
+        </div>
+        <div class="rows">${body}</div>
+        <div class="t-foot">turned away: ${away} ·
+        ${(t.tin/1000).toFixed(0)}k in / ${(t.tout/1000).toFixed(0)}k out</div>
+      </article>`;
+    });
+    document.getElementById("tasks").innerHTML = cards.join("");
+
+    const total = cash + setup + time;
+    document.getElementById("tiles").innerHTML = [
+      ["", "Run + review cash", $(cash, 2)],
+      ["", "Amortised setup", $(setup, 2)],
+      ["", "Your time", $(time, 2)],
+      ["headline", "Economic total", $(total, 2)],
+      ["", "Staffed", `${staffed}/${DATA.tasks.length}`],
+    ].map(([cls, k, v]) =>
+      `<div class="tile ${cls}"><span class="k">${k}</span>
+       <span class="v">${v}</span></div>`).join("");
+  }
+
+  document.getElementById("title").textContent =
+    "Console — " + DATA.project_id.replace("project:", "");
+  document.getElementById("ref").textContent =
+    `${DATA.snapshot_id} · ${DATA.rosterCount} on roster`;
+
+  document.getElementById("measure").innerHTML =
+    `<p>Every dial above moves costs; only measurement moves <em>confidence</em>.
+     These workers hold the needed skills but have zero locally verified
+     outcomes — the price shown qualifies one on the 11-task corpus via
+     <code>run_bench.py</code>.</p>` +
+    DATA.measure.map(m => `<div class="m-skill">
+      <div class="sk">${m.skill.replace("skill:","").replace(/-/g," ")}</div>
+      ${m.workers.slice(0, 4).map(w => `<div class="m-row">
+        <span>${short(w.id)}
+          <span class="${w.measured === 0 ? "zero" : ""}">
+          ${w.measured === 0 ? "0 measured" : w.measured + " measured"}
+          · ${w.assumed} assumed</span></span>
+        <span>qualify for ${$(w.onboard, 2)}</span></div>`).join("")}
+    </div>`).join("");
+
+  const rateInput = document.getElementById("rate");
+  const volInput = document.getElementById("vol");
+  rateInput.value = rate; volInput.value = vol;
+  rateInput.addEventListener("input", () => { rate = Number(rateInput.value); render(); });
+  volInput.addEventListener("input", () => {
+    vol = Math.max(1, Number(volInput.value) || 1); render(); });
+  document.getElementById("blockSeg").addEventListener("click", e => {
+    if (e.target.dataset.b !== undefined) {
+      blocking = Number(e.target.dataset.b); render(); }
+  });
+  render();
+</script>

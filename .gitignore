@@ -1,0 +1,15 @@
+/target/
+/.data/
+.env
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+/.bench/
+/.mgr/
+/.owi/.work/
+/.owi/plan.json
+__pycache__/
+/.owi-quick/

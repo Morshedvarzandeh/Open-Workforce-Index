@@ -1,0 +1,368 @@
+{
+  "_comment": [
+    "Roster extension for the battery-design project: web and rust harness",
+    "configurations on the same real offerings. Ability is ASSUMED",
+    "(vendor_reported, discounted 10x) exactly as in the manager scenario;",
+    "replace with run_bench.py measurements. Seed AFTER the manager seed so the",
+    "snapshot closes over both."
+  ],
+  "snapshot_id": "snapshot:battery-design-v1",
+  "created_at": "2026-08-07T18:00:00Z",
+  "ontology_version": "ontology:v1",
+  "source_revision": "scenario:battery-design-v1",
+  "worker_profiles": [
+    {
+      "id": "worker:gpt-5-mini/web",
+      "offering_id": "offering:openai/gpt-5-mini",
+      "harness_id": "owi-web-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "web-v1",
+      "toolset_version": "web-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:web-implementation"
+      ],
+      "tools": [
+        "shell",
+        "playwright"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "1ce38ab527a577e6dd7904a5d989734321fd904ed69269912100132b5592ccc7",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:haiku-4-5/web",
+      "offering_id": "offering:anthropic/claude-haiku-4-5",
+      "harness_id": "owi-web-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "web-v1",
+      "toolset_version": "web-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:web-implementation"
+      ],
+      "tools": [
+        "shell",
+        "playwright"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "1264946d9f1aa037d7277b79a4a4ac63f3c0e6f7448c3029258c1985f1120863",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:gpt-5/web",
+      "offering_id": "offering:openai/gpt-5",
+      "harness_id": "owi-web-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "web-v1",
+      "toolset_version": "web-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:web-implementation"
+      ],
+      "tools": [
+        "shell",
+        "playwright"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "66849508dd16911f2e18a8d01a6bc0f99666696d900244a8259f236cdf0b9fa9",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:sonnet-4-5/web",
+      "offering_id": "offering:anthropic/claude-sonnet-4-5",
+      "harness_id": "owi-web-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "web-v1",
+      "toolset_version": "web-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:web-implementation"
+      ],
+      "tools": [
+        "shell",
+        "playwright"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "7f2485f2cf055d445de6cff149775fcac612f86c287cf79b75fe3ac832387b3f",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:opus-4-5/web",
+      "offering_id": "offering:anthropic/claude-opus-4-5",
+      "harness_id": "owi-web-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "web-v1",
+      "toolset_version": "web-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:web-implementation"
+      ],
+      "tools": [
+        "shell",
+        "playwright"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "4924f691048ef0a4555fb1a8048e18a31c9ac98e19c74f90387b4f7b8de952ad",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:haiku-4-5/rust",
+      "offering_id": "offering:anthropic/claude-haiku-4-5",
+      "harness_id": "owi-rust-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "rust-v1",
+      "toolset_version": "cargo-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:rust-implementation"
+      ],
+      "tools": [
+        "shell",
+        "cargo"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "40979697dce5e7d2b16292a9e33b0522fa900ae576378576a5e452b4478fe2f4",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:gpt-5/rust",
+      "offering_id": "offering:openai/gpt-5",
+      "harness_id": "owi-rust-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "rust-v1",
+      "toolset_version": "cargo-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:rust-implementation"
+      ],
+      "tools": [
+        "shell",
+        "cargo"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "377b39d6bac09acbf29ca9c9c7056c3dbdc4650d6346eec348f38158e6771a9b",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:sonnet-4-5/rust",
+      "offering_id": "offering:anthropic/claude-sonnet-4-5",
+      "harness_id": "owi-rust-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "rust-v1",
+      "toolset_version": "cargo-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:rust-implementation"
+      ],
+      "tools": [
+        "shell",
+        "cargo"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "c5a3beb2e4285dbcf7c38e3dab6be4672987a202b383e8a283cfb4498d3d7f85",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    },
+    {
+      "id": "worker:opus-4-5/rust",
+      "offering_id": "offering:anthropic/claude-opus-4-5",
+      "harness_id": "owi-rust-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "rust-v1",
+      "toolset_version": "cargo-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:rust-implementation"
+      ],
+      "tools": [
+        "shell",
+        "cargo"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "f0a2b6be3e7c747a79c0986b56f90d9fc96a4afb128a1ed3ff0d799f624db194",
+      "recorded_at": "2026-08-07T18:00:00Z"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "evidence:assumed:gpt-5-mini:web",
+      "model_release_id": "model:gpt-5-mini",
+      "worker_id": "worker:gpt-5-mini/web",
+      "skill_id": "skill:web-implementation",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 60.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.6,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:haiku-4-5:web",
+      "model_release_id": "model:claude-haiku-4-5",
+      "worker_id": "worker:haiku-4-5/web",
+      "skill_id": "skill:web-implementation",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 66.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.66,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:gpt-5:web",
+      "model_release_id": "model:gpt-5",
+      "worker_id": "worker:gpt-5/web",
+      "skill_id": "skill:web-implementation",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 80.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.8,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:sonnet-4-5:web",
+      "model_release_id": "model:claude-sonnet-4-5",
+      "worker_id": "worker:sonnet-4-5/web",
+      "skill_id": "skill:web-implementation",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 85.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.85,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:opus-4-5:web",
+      "model_release_id": "model:claude-opus-4-5",
+      "worker_id": "worker:opus-4-5/web",
+      "skill_id": "skill:web-implementation",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 88.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.88,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:haiku-4-5:rust",
+      "model_release_id": "model:claude-haiku-4-5",
+      "worker_id": "worker:haiku-4-5/rust",
+      "skill_id": "skill:rust-implementation",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 55.00000000000001,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.55,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:gpt-5:rust",
+      "model_release_id": "model:gpt-5",
+      "worker_id": "worker:gpt-5/rust",
+      "skill_id": "skill:rust-implementation",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 75.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.75,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:sonnet-4-5:rust",
+      "model_release_id": "model:claude-sonnet-4-5",
+      "worker_id": "worker:sonnet-4-5/rust",
+      "skill_id": "skill:rust-implementation",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 83.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.83,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "evidence:assumed:opus-4-5:rust",
+      "model_release_id": "model:claude-opus-4-5",
+      "worker_id": "worker:opus-4-5/rust",
+      "skill_id": "skill:rust-implementation",
+      "benchmark_id": "benchmark:assumed-for-demonstration",
+      "evidence_tier": "vendor_reported",
+      "raw_score": 87.0,
+      "metric": "pass_rate",
+      "unit": "percent",
+      "normalized_score": 0.87,
+      "adapter_version": "assumed@0",
+      "sample_count": 20,
+      "observed_at": "2026-08-07T18:00:00Z",
+      "source_url": "https://example.invalid/assumed-not-measured",
+      "artifact_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "license": "CC0-1.0"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+[package]
+name = "workforce-kg"
+description = "Rebuildable RDF read model for the Open Workforce Index"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+oxigraph.workspace = true
+
+[lints]
+workspace = true

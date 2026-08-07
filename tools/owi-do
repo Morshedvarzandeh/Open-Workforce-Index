@@ -1,0 +1,322 @@
+#!/usr/bin/env python3
+"""owi-do — say what you want done; it picks the worker, you confirm, it runs.
+
+    owi-do "rewrite this email to the supplier"
+    owi-do "fix the failing cargo test" --run
+    echo "...long input..." | owi-do "summarize into action items"
+
+First run bootstraps a private workspace (.owi-quick/) with real published
+prices and the demo roster. No flags are required; every default is printed so
+nothing is decided silently. The advanced layer (manifests, consoles, scenario
+sweeps) is documented in the README — this command is the front door.
+
+Execution is delegated: .owi-quick/runners.json maps a model to YOUR command
+line (your CLI, your key — owi-do never sees credentials). After a run you say
+whether the result was accepted, and that verified outcome makes the next
+pick smarter. That is the whole loop.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+MICROS = 1_000_000
+
+# Plain-words → skill. A visible keyword heuristic, not a model: the guess is
+# printed and --skill overrides it.
+SKILLS = {
+    "skill:python-numerical-implementation": {
+        "words": ["code", "implement", "fix", "bug", "test", "function",
+                  "rust", "python", "cargo", "refactor", "compile"],
+        "tools": ["shell"],
+    },
+    "skill:structured-extraction": {
+        "words": ["extract", "json", "parse", "table", "csv", "fields",
+                  "structured", "invoice", "records"],
+        "tools": ["json-schema-validator"],
+    },
+    "skill:parametric-cad": {
+        "words": ["cad", "step", "bracket", "part", "geometry", "solid",
+                  "enclosure", "3d model"],
+        "tools": ["cad-kernel", "geometry-validator", "step-exporter"],
+    },
+    "skill:text-editing": {
+        "words": ["write", "rewrite", "draft", "email", "summarize",
+                  "summary", "notes", "docs", "tutorial", "explain"],
+        "tools": [],
+    },
+}
+DEFAULT_SKILL = "skill:text-editing"
+
+# Models the bundled `claude` CLI can run directly, when it is on PATH. The
+# command is written into runners.json where the user can see and change it —
+# never invoked invisibly.
+CLAUDE_MODELS = {
+    "haiku-4-5": "claude-haiku-4-5-20251001",
+    "sonnet-4-5": "claude-sonnet-4-5",
+    "opus-4-5": "claude-opus-4-5",
+}
+
+
+def builtin_runner(model: str) -> str | None:
+    if model in CLAUDE_MODELS and shutil.which("claude"):
+        return f"claude --model {CLAUDE_MODELS[model]} -p"
+    return None
+
+
+def resolve_runner(home: Path, model: str) -> str | None:
+    """The configured command for a model, or the built-in when unset."""
+    runners_path = home / "runners.json"
+    configured = ""
+    if runners_path.exists():
+        configured = (json.loads(runners_path.read_text()).get(model) or "").strip()
+    return configured or builtin_runner(model)
+
+
+def owi(*args: str) -> dict:
+    completed = subprocess.run(
+        ["cargo", "run", "-q", "-p", "workforce-cli", "--", *args],
+        cwd=REPO, capture_output=True, text=True)
+    if completed.returncode != 0:
+        sys.stderr.write(completed.stderr[-1500:])
+        raise SystemExit(f"owi {args[0]} failed")
+    return json.loads(completed.stdout)
+
+
+def bootstrap(home: Path) -> None:
+    index, local = home / "index.sqlite", home / "local.sqlite"
+    if index.exists():
+        return
+    print("first run — building your private workspace in "
+          f"{home}/ (real prices, demo roster)", file=sys.stderr)
+    home.mkdir(parents=True, exist_ok=True)
+    owi("prices", "--index", str(index),
+        "--input", str(REPO / "examples/litellm-prices-sample.json"),
+        "--options", str(REPO / "examples/price-import-options.json"))
+    owi("seed", "--index", str(index),
+        "--input", str(REPO / "examples/manager-scenario-seed.json"))
+    owi("database", "init", "--index", str(index), "--local", str(local))
+    runners = home / "runners.json"
+    if not runners.exists():
+        # Prefill anything runnable out of the box, visibly.
+        prefilled = {m: (builtin_runner(m) or "")
+                     for m in ["gpt-5-mini", "haiku-4-5", "gpt-5",
+                               "sonnet-4-5", "opus-4-5"]}
+        runners.write_text(json.dumps({
+            "_comment": [
+                "model -> the command that runs it. The task text arrives on",
+                "stdin. Your CLI, your key -- owi-do never sees credentials.",
+                "Anthropic models are prefilled when the `claude` CLI is on",
+                "PATH. Others: e.g. \"gpt-5-mini\": \"llm -m gpt-5-mini\"",
+            ],
+            **prefilled,
+        }, indent=2) + "\n")
+
+
+def classify(task: str) -> str:
+    text = task.lower()
+    best, hits = DEFAULT_SKILL, 0
+    for skill, spec in SKILLS.items():
+        n = sum(1 for w in spec["words"] if w in text)
+        if n > hits:
+            best, hits = skill, n
+    return best
+
+
+def pick(home: Path, task: str, skill: str, tokens_in: int, tokens_out: int,
+         rate: int) -> dict:
+    request = {
+        "decision_id": f"decision:do-{int(time.time())}",
+        "snapshot_id": "snapshot:manager-scenario-v1",
+        "at_epoch_ms": 1_785_110_400_000,
+        "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "task": {
+            "id": f"task:do-{int(time.time())}",
+            "summary": task[:200],
+            "required_skills": [{"skill_id": skill,
+                                 "minimum_success_probability": 0.24,
+                                 "minimum_evidence_count": 0}],
+            "required_tools": SKILLS[skill]["tools"],
+            "privacy": "private_metadata", "risk": "low",
+            "verification": "deterministic",
+            "minimum_success_probability": 0.24,
+            "minimum_evidence_count": 0,
+            "estimated_input_tokens": tokens_in,
+            "estimated_output_tokens": tokens_out,
+        },
+        "policy": {"policy_id": "policy:economy-v1", "currency": "USD",
+                   "quota_shadow_cash_micros_per_unit": 0,
+                   "failure_probability_basis": "mean", "max_attempts": 2},
+        "calibration": {"calibration_id": "calibration:v1",
+                        "confidence_tail_probability": 0.05,
+                        "prior_alpha": 1.0, "prior_beta": 1.0,
+                        "max_public_prior_weight": 8.0,
+                        "private_outcome_weight": 1.0},
+        "assumptions": {"default_p95_latency_ms": 30000,
+                        "opportunity_micros_per_hour": rate * MICROS,
+                        "review_minutes_on_accept": 3.0,
+                        "review_minutes_on_reject": 25.0,
+                        "expected_fallback_cash_micros": 20000},
+    }
+    request_path = home / "last-request.json"
+    request_path.write_text(json.dumps(request, indent=2))
+    return owi("allocate", "--index", str(home / "index.sqlite"),
+               "--local", str(home / "local.sqlite"),
+               "--input", str(request_path), "--record")
+
+
+def record_outcome(home: Path, worker: str, skill: str, accepted: bool,
+                   cause: str | None = None) -> None:
+    """Record a verified outcome. On rejection, `cause` names the root cause;
+    only 'worker' (the default) counts against the model's evidence."""
+    event = {
+        "id": f"outcome:do-{int(time.time())}",
+        "task_id": f"task:do-{int(time.time())}",
+        "worker_id": worker, "skill_id": skill, "accepted": accepted,
+        "validation_kind": "human",
+        "actual_cash_micros": 0, "actual_quota_milliunits": 0,
+        "latency_ms": 0,
+        "observed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    if not accepted and cause:
+        event["metadata"] = {"root_cause": cause}
+    path = home / "last-outcome.json"
+    path.write_text(json.dumps({"event": event}, indent=2))
+    owi("outcome", "--local", str(home / "local.sqlite"), "--input", str(path))
+    blame = "" if accepted else (
+        " (held against the model)" if (cause or "worker") == "worker"
+        else f" (root cause: {cause} — not held against the model)")
+    print(f"recorded: {'accepted' if accepted else 'rejected'}{blame} — "
+          "the next pick will know", file=sys.stderr)
+
+
+CAUSES = {"m": "worker", "t": "task_spec", "s": "environment", "h": "harness"}
+
+
+def ask_cause() -> str:
+    try:
+        answer = input(
+            "why? [m]odel's fault / [t]ask unclear / my [s]etup / "
+            "[h]arness (enter = model) ").strip().lower()
+    except EOFError:
+        return "worker"
+    return CAUSES.get(answer[:1], "worker") if answer else "worker"
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("task", help="what you want done, in plain words")
+    parser.add_argument("--skill", choices=sorted(SKILLS),
+                        help="override the keyword guess")
+    parser.add_argument("--rate", type=int, default=0,
+                        help="advanced: also charge your own time at this "
+                             "many dollars per hour (default 0 = cash only)")
+    parser.add_argument("--run", action="store_true",
+                        help="execute via your configured runner and record the outcome")
+    parser.add_argument("--accepted", choices=["y", "n"],
+                        help="record the result without prompting (for scripts)")
+    parser.add_argument("--cause",
+                        choices=["worker", "task_spec", "harness", "environment"],
+                        help="root cause when rejecting; only 'worker' counts "
+                             "against the model (default: worker)")
+    parser.add_argument("--home", type=Path, default=REPO / ".owi-quick")
+    arguments = parser.parse_args()
+
+    bootstrap(arguments.home)
+
+    stdin_text = "" if sys.stdin.isatty() else sys.stdin.read()
+    skill = arguments.skill or classify(arguments.task)
+    tokens_in = 1500 + (len(arguments.task) + len(stdin_text)) // 4
+    tokens_out = 800
+
+    result = pick(arguments.home, arguments.task, skill, tokens_in,
+                  tokens_out, arguments.rate)
+    quote = result["quote"]
+    eligible = quote["eligible_candidates"]
+
+    guessed = "" if arguments.skill else "  (guessed — --skill to change)"
+    print(f"task : {arguments.task}")
+    print(f"skill: {skill.replace('skill:', '')}{guessed}")
+    rate_note = f" · your hour ${arguments.rate}/hr" if arguments.rate else ""
+    print(f"size : ~{tokens_in} in / {tokens_out} out tokens{rate_note}")
+
+    if not eligible:
+        reasons = sorted({r["code"] for c in quote["rejected_candidates"]
+                          for r in c["reasons"]})
+        print(f"\nnobody qualified: {', '.join(reasons)}")
+        print("advanced: docs/BENCHMARKING.md explains how measurement fixes this")
+        return 1
+
+    top = eligible[0]
+    worker = top["worker_id"]
+    model = worker.split(":")[1].split("/")[0]
+    print(f"\n→ {worker.replace('worker:', '')}   "
+          f"${top['cost']['expected_accepted_cost_micros'] / MICROS:.4f} "
+          f"per accepted result")
+    for alt in eligible[1:3]:
+        extra = (alt["cost"]["expected_accepted_cost_micros"]
+                 - top["cost"]["expected_accepted_cost_micros"]) / MICROS
+        print(f"  next: {alt['worker_id'].replace('worker:', ''):22} "
+              f"+${extra:.4f}")
+    print(f"  checked {len(eligible) + len(quote['rejected_candidates'])}, "
+          f"turned away {len(quote['rejected_candidates'])} · decision recorded")
+
+    if not arguments.run:
+        note = "" if resolve_runner(arguments.home, model) else (
+            f"   (first set your command for '{model}' in "
+            f"{arguments.home}/runners.json)")
+        print(f"\nrun it: add --run{note}")
+        return 0
+
+    # A worker nobody can execute is unavailable for running: fall through the
+    # bench to the cheapest candidate with a working runner, and say so.
+    command = resolve_runner(arguments.home, model)
+    if not command:
+        for candidate in eligible[1:]:
+            other_model = candidate["worker_id"].split(":")[1].split("/")[0]
+            other_command = resolve_runner(arguments.home, other_model)
+            if other_command:
+                print(f"\n{model} has no runner here — running with "
+                      f"{candidate['worker_id'].replace('worker:', '')} "
+                      "(cheapest runnable)")
+                worker, model, command = (candidate["worker_id"], other_model,
+                                          other_command)
+                break
+    if not command:
+        print(f"\nno runner for any eligible worker. Fill in "
+              f"{arguments.home}/runners.json")
+        return 1
+
+    print(f"\nrunning via: {command}\n" + "-" * 60)
+    payload = arguments.task + ("\n\n" + stdin_text if stdin_text else "")
+    completed = subprocess.run(command, shell=True, input=payload, text=True)
+    print("-" * 60)
+
+    if arguments.accepted:
+        record_outcome(arguments.home, worker, skill, arguments.accepted == "y",
+                       arguments.cause if arguments.accepted == "n" else None)
+    else:
+        try:
+            answer = input("accepted? [y/n] ").strip().lower()
+            if answer == "y":
+                record_outcome(arguments.home, worker, skill, True)
+            elif answer == "n":
+                record_outcome(arguments.home, worker, skill, False,
+                               arguments.cause or ask_cause())
+            else:
+                print("not recorded (answer y or n next time)", file=sys.stderr)
+        except EOFError:
+            print("not recorded (no answer; use --accepted y|n in scripts)",
+                  file=sys.stderr)
+    return completed.returncode
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

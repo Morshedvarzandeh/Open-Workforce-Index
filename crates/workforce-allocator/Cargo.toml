@@ -1,0 +1,21 @@
+[package]
+name = "workforce-allocator"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Calibrates stored evidence into engine candidates and records decisions back to the private ledger"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+workforce-domain = { path = "../workforce-domain" }
+workforce-engine = { path = "../workforce-engine" }
+workforce-store = { path = "../workforce-store" }
+
+[lints]
+workspace = true
