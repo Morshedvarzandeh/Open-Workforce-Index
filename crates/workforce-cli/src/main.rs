@@ -206,6 +206,8 @@ struct CalibrationSummary<'a> {
     worker_id: &'a workforce_domain::WorkerId,
     available: bool,
     skills: &'a [workforce_allocator::SkillCalibration],
+    /// Cash and opportunity, kept apart.
+    cost_decomposition: workforce_allocator::CostDecomposition,
 }
 
 fn main() -> Result<()> {
@@ -375,6 +377,7 @@ fn run_allocate(index: &Path, local: &Path, input: &Path, record: bool) -> Resul
                 worker_id: &candidate.estimate.worker.identity.worker_id,
                 available: candidate.estimate.worker.available,
                 skills: &candidate.skill_calibrations,
+                cost_decomposition: candidate.cost_decomposition,
             })
             .collect(),
         recorded: record,

@@ -133,6 +133,10 @@ pub struct SkillCalibration {
 pub struct CalibratedCandidate {
     pub estimate: WorkerEstimate,
     pub skill_calibrations: Vec<SkillCalibration>,
+    /// Cash and opportunity kept apart. The engine ranks on their sum, but the
+    /// two are reported separately so a plan can never present foregone time as
+    /// money out of the account.
+    pub cost_decomposition: CostDecomposition,
 }
 
 /// Assumptions the index cannot supply, because they describe your workflow
@@ -162,14 +166,27 @@ pub struct WorkflowAssumptions {
     pub default_p95_latency_ms: u64,
     #[serde(default)]
     pub checker_worker_id: Option<WorkerId>,
-    /// Loaded hourly cost of the person who checks the result, in cash micros.
+    /// Cash actually paid out per hour of review, in micros.
     ///
-    /// This is usually the largest term in total cost of ownership and the one
-    /// most often left out. Tokens are cheap; the half hour someone spends
-    /// discovering that a cheap worker's output was subtly wrong is not. Zero
-    /// disables human-time accounting and falls back to a flat review cost.
+    /// Money that leaves the account: a contractor's invoice, an employee's
+    /// loaded salary. Zero when the reviewer is you and you draw no wage for
+    /// it — your time is still not free, but it is not *cash*, and the two must
+    /// not be added into one number. A provider cannot be paid in foregone
+    /// afternoons.
     #[serde(default)]
-    pub human_review_micros_per_hour: u64,
+    pub review_cash_micros_per_hour: u64,
+    /// Shadow price of an hour of the reviewer's attention, in micros.
+    ///
+    /// Not a wage — the value of the best thing that hour would otherwise have
+    /// bought. For a founder this is routinely far above any salary rate, and
+    /// it is the term that makes an unreliable worker genuinely expensive.
+    ///
+    /// This mirrors `quota_shadow_cash_micros_per_unit`: a scarce non-cash
+    /// resource priced by an explicit, declared rate. The person supplies it;
+    /// the system never infers one, because a silently assumed price is how a
+    /// model starts trading away things its owner never agreed to sell.
+    #[serde(default)]
+    pub opportunity_micros_per_hour: u64,
     /// Minutes a person spends checking a result that turns out to be good.
     #[serde(default)]
     pub review_minutes_on_accept: f64,
@@ -180,40 +197,100 @@ pub struct WorkflowAssumptions {
     /// worker can cost more in total than a dearer reliable one.
     #[serde(default)]
     pub review_minutes_on_reject: f64,
+    /// Share of a worker's wall-clock time the person is actually blocked on,
+    /// in `[0, 1]`.
+    ///
+    /// This is what turns latency from a constraint into a cost. At `0` the
+    /// work is fully asynchronous and a slow worker is free; at `1` the person
+    /// sits and waits, and every second is billed at the opportunity rate.
+    /// Most real work sits near zero — which is why latency deserves a ceiling
+    /// far more often than it deserves a price.
+    #[serde(default)]
+    pub blocking_fraction: f64,
+}
+
+/// Cash and opportunity kept apart, because they are not the same currency.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct CostDecomposition {
+    /// Review cost that is real money leaving the account.
+    pub review_cash_micros: u64,
+    /// Review cost that is the reviewer's time, at the declared shadow rate.
+    pub review_opportunity_micros: u64,
+    /// Time lost waiting for the worker, at the declared shadow rate.
+    pub waiting_opportunity_micros: u64,
+}
+
+impl CostDecomposition {
+    /// Everything charged to the person rather than to a provider.
+    pub const fn opportunity_micros(&self) -> u64 {
+        self.review_opportunity_micros
+            .saturating_add(self.waiting_opportunity_micros)
+    }
 }
 
 impl WorkflowAssumptions {
-    /// Expected review spend for a worker with this success probability.
+    /// Expected minutes of review for a worker with this success probability.
     ///
     /// Weighting the two cases by the worker's own success estimate is what
     /// makes review a *differentiator* between candidates rather than a
     /// constant that cancels out of the comparison.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    fn expected_review_cash_micros(&self, success_mean: f64) -> u64 {
-        if self.human_review_micros_per_hour == 0 {
-            return self.expected_review_cash_micros;
-        }
+    fn expected_review_minutes(&self, success_mean: f64) -> f64 {
         let success = success_mean.clamp(0.0, 1.0);
         let minutes = success.mul_add(
             self.review_minutes_on_accept,
             (1.0 - success) * self.review_minutes_on_reject,
         );
-        if !minutes.is_finite() || minutes <= 0.0 {
-            return self.expected_review_cash_micros;
-        }
-        // Round up so a fractional micro is never dropped, but absorb
-        // representation error first: 0.95*2 + 0.05*25 is exactly 3.15 in
-        // decimal and 3.1500000000000004 in binary, and a bare ceil would bill
-        // an extra micro for arithmetic noise rather than for work.
-        const TOLERANCE_MICROS: f64 = 1e-6;
-        let exact = self.human_review_micros_per_hour as f64 * minutes / 60.0;
-        let human = (exact - TOLERANCE_MICROS).ceil().max(0.0);
-        let human = if human >= u64::MAX as f64 {
-            u64::MAX
+        if minutes.is_finite() && minutes > 0.0 {
+            minutes
         } else {
-            human as u64
-        };
-        self.expected_review_cash_micros.saturating_add(human)
+            0.0
+        }
+    }
+
+    /// Splits the human cost of one assignment into cash and opportunity.
+    fn decomposition(&self, success_mean: f64, p95_latency_ms: u64) -> CostDecomposition {
+        let minutes = self.expected_review_minutes(success_mean);
+        let blocking = self.blocking_fraction.clamp(0.0, 1.0);
+        #[allow(clippy::cast_precision_loss)]
+        let waiting_minutes = (p95_latency_ms as f64 / 60_000.0) * blocking;
+        CostDecomposition {
+            review_cash_micros: hourly_micros(self.review_cash_micros_per_hour, minutes),
+            review_opportunity_micros: hourly_micros(self.opportunity_micros_per_hour, minutes),
+            waiting_opportunity_micros: hourly_micros(
+                self.opportunity_micros_per_hour,
+                waiting_minutes,
+            ),
+        }
+    }
+
+    /// Total human cost folded into the engine's review term so that ranking
+    /// sees it. The decomposition is reported separately and is never lost.
+    fn expected_review_cash_micros(&self, success_mean: f64, p95_latency_ms: u64) -> u64 {
+        let parts = self.decomposition(success_mean, p95_latency_ms);
+        self.expected_review_cash_micros
+            .saturating_add(parts.review_cash_micros)
+            .saturating_add(parts.opportunity_micros())
+    }
+}
+
+/// Converts an hourly micro rate and a duration in minutes into whole micros.
+///
+/// Rounds up so a fractional micro is never dropped, but absorbs representation
+/// error first: `0.95 * 2 + 0.05 * 25` is exactly 3.15 in decimal and
+/// 3.1500000000000004 in binary, and a bare `ceil` would bill an extra micro
+/// for arithmetic noise rather than for work.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn hourly_micros(micros_per_hour: u64, minutes: f64) -> u64 {
+    const TOLERANCE_MICROS: f64 = 1e-6;
+    if micros_per_hour == 0 || !minutes.is_finite() || minutes <= 0.0 {
+        return 0;
+    }
+    let exact = micros_per_hour as f64 * minutes / 60.0;
+    let rounded = (exact - TOLERANCE_MICROS).ceil().max(0.0);
+    if rounded >= u64::MAX as f64 {
+        u64::MAX
+    } else {
+        rounded as u64
     }
 }
 
@@ -314,8 +391,14 @@ pub fn calibrate_candidates(
         }
 
         let success = task_estimate(&profile.id, &skill_calibrations, &outcomes, calibration)?;
+        let p95_latency_ms = assumptions
+            .p95_latency_ms
+            .get(&profile.id)
+            .copied()
+            .unwrap_or(assumptions.default_p95_latency_ms);
+        let cost_decomposition = assumptions.decomposition(success.success_mean, p95_latency_ms);
         let expected_review_cash_micros =
-            assumptions.expected_review_cash_micros(success.success_mean);
+            assumptions.expected_review_cash_micros(success.success_mean, p95_latency_ms);
 
         candidates.push(CalibratedCandidate {
             estimate: WorkerEstimate {
@@ -328,14 +411,11 @@ pub fn calibrate_candidates(
                 expected_additional_quota_milliunits: assumptions
                     .expected_additional_quota_milliunits,
                 checker_worker_id: assumptions.checker_worker_id.clone(),
-                p95_latency_ms: assumptions
-                    .p95_latency_ms
-                    .get(&profile.id)
-                    .copied()
-                    .unwrap_or(assumptions.default_p95_latency_ms),
+                p95_latency_ms,
                 evidence_snapshot_id: snapshot_id.to_owned(),
             },
             skill_calibrations,
+            cost_decomposition,
         });
     }
 
@@ -1103,42 +1183,92 @@ mod tests {
         assert!((skill.estimate.success_mean - 0.5).abs() < 1e-9);
     }
 
-    /// Human review time is the term that decides real total cost of
-    /// ownership, and it must scale with how often a worker is wrong.
+    /// Human time is the term that decides real total cost of ownership, and it
+    /// must scale with how often a worker is wrong.
     #[test]
     fn review_cost_penalises_unreliable_workers() {
         let assumptions = WorkflowAssumptions {
-            // $60/hour, 2 minutes to confirm a good result, 25 to diagnose a
-            // bad one and send it back.
-            human_review_micros_per_hour: 60_000_000,
+            // No wage is paid; the reviewer's hour is valued at $60.
+            opportunity_micros_per_hour: 60_000_000,
             review_minutes_on_accept: 2.0,
             review_minutes_on_reject: 25.0,
             ..WorkflowAssumptions::default()
         };
 
-        let reliable = assumptions.expected_review_cash_micros(0.95);
-        let unreliable = assumptions.expected_review_cash_micros(0.40);
+        let reliable = assumptions.decomposition(0.95, 0);
+        let unreliable = assumptions.decomposition(0.40, 0);
 
         // 0.95 -> 0.95*2 + 0.05*25 = 3.15 min -> $3.15
-        assert_eq!(reliable, 3_150_000);
+        assert_eq!(reliable.review_opportunity_micros, 3_150_000);
         // 0.40 -> 0.40*2 + 0.60*25 = 15.8 min -> $15.80
-        assert_eq!(unreliable, 15_800_000);
-        assert!(
-            unreliable > reliable * 4,
-            "an unreliable worker must cost far more human time"
+        assert_eq!(unreliable.review_opportunity_micros, 15_800_000);
+        assert!(unreliable.opportunity_micros() > reliable.opportunity_micros() * 4);
+        // None of it is cash: no wage was configured.
+        assert_eq!(reliable.review_cash_micros, 0);
+        assert_eq!(unreliable.review_cash_micros, 0);
+    }
+
+    /// Cash and opportunity are different currencies and must stay apart.
+    #[test]
+    fn cash_and_opportunity_are_reported_separately() {
+        let assumptions = WorkflowAssumptions {
+            review_cash_micros_per_hour: 30_000_000,
+            opportunity_micros_per_hour: 90_000_000,
+            review_minutes_on_accept: 4.0,
+            review_minutes_on_reject: 4.0,
+            ..WorkflowAssumptions::default()
+        };
+        let parts = assumptions.decomposition(0.5, 0);
+
+        // 4 minutes at $30/h is $2.00 of cash; the same 4 minutes at a $90/h
+        // shadow rate is $6.00 of foregone value.
+        assert_eq!(parts.review_cash_micros, 2_000_000);
+        assert_eq!(parts.review_opportunity_micros, 6_000_000);
+        assert_ne!(parts.review_cash_micros, parts.opportunity_micros());
+    }
+
+    /// Latency is only a cost when someone is actually blocked on it.
+    #[test]
+    fn waiting_is_free_unless_the_person_is_blocked() {
+        let base = WorkflowAssumptions {
+            opportunity_micros_per_hour: 60_000_000,
+            ..WorkflowAssumptions::default()
+        };
+        let asynchronous = WorkflowAssumptions {
+            blocking_fraction: 0.0,
+            ..base.clone()
+        };
+        let watching = WorkflowAssumptions {
+            blocking_fraction: 1.0,
+            ..base
+        };
+
+        // Six minutes of wall clock.
+        assert_eq!(
+            asynchronous
+                .decomposition(1.0, 360_000)
+                .waiting_opportunity_micros,
+            0
+        );
+        // 6 minutes at $60/h is $6.00.
+        assert_eq!(
+            watching
+                .decomposition(1.0, 360_000)
+                .waiting_opportunity_micros,
+            6_000_000
         );
     }
 
-    /// With no hourly rate configured the flat review cost is used unchanged,
-    /// so existing callers keep their behaviour.
+    /// With no rates configured the flat review cost is used unchanged, so
+    /// existing callers keep their behaviour.
     #[test]
     fn review_cost_falls_back_to_a_flat_figure() {
         let assumptions = WorkflowAssumptions {
             expected_review_cash_micros: 500,
             ..WorkflowAssumptions::default()
         };
-        assert_eq!(assumptions.expected_review_cash_micros(0.1), 500);
-        assert_eq!(assumptions.expected_review_cash_micros(0.9), 500);
+        assert_eq!(assumptions.expected_review_cash_micros(0.1, 30_000), 500);
+        assert_eq!(assumptions.expected_review_cash_micros(0.9, 30_000), 500);
     }
 
     /// A snapshot whose digest no longer matches must not produce candidates.

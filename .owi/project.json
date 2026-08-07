@@ -1,11 +1,16 @@
 {
   "_comment": [
-    "Check this into your repository. It is the whole interface: list the work,",
-    "and `owi plan` costs it against the current roster on every commit.",
+    "Check this into your repository. `owi plan` costs it against the roster on every commit.",
     "",
-    "human_review_micros_per_hour is your own loaded rate in cash micros",
-    "($60/hr = 60000000). It is the term that makes an unreliable worker",
-    "expensive: review_minutes_on_reject is charged every time one fails."
+    "review_cash_micros_per_hour is money actually paid out for review.",
+    "opportunity_micros_per_hour is what an hour of your own attention is worth --",
+    "not a wage, but the value of the best thing that hour would otherwise buy.",
+    "The two are reported separately and never silently summed.",
+    "",
+    "blocking_fraction is how much of a worker latency you actually sit and wait",
+    "for. At 0 a slow worker is free; at 1 every second is billed at your rate.",
+    "",
+    "Run with --scenarios 0,15,60,200 to see how the staffing changes and pick."
   ],
   "project_id": "project:open-workforce-index",
   "snapshot_id": "snapshot:manager-scenario-v1",
@@ -31,9 +36,11 @@
     },
     "assumptions": {
       "default_p95_latency_ms": 30000,
-      "human_review_micros_per_hour": 60000000,
       "review_minutes_on_accept": 3.0,
-      "review_minutes_on_reject": 25.0
+      "review_minutes_on_reject": 25.0,
+      "review_cash_micros_per_hour": 0,
+      "opportunity_micros_per_hour": 60000000,
+      "blocking_fraction": 0.0
     }
   },
   "features": [

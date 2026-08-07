@@ -131,6 +131,7 @@ def plan(repo: Path, project: dict, index_db: str, local_db: str, work_dir: Path
     work_dir.mkdir(parents=True, exist_ok=True)
     entries, unstaffed = [], []
     right_sized = premium = cheapest = 0
+    cash_total = opportunity_total = 0
 
     for position, feature in enumerate(project["features"], start=1):
         request_path = work_dir / f"request-{position:04d}.json"
@@ -168,10 +169,18 @@ def plan(repo: Path, project: dict, index_db: str, local_db: str, work_dir: Path
 
         selected = quote["selected_worker_id"]
         chosen = next(c for c in eligible if c["worker_id"] == selected)
+        parts = next(c["cost_decomposition"] for c in result["calibration"]
+                     if c["worker_id"] == selected)
+        opportunity = (parts["review_opportunity_micros"]
+                       + parts["waiting_opportunity_micros"])
+        # Cash out the door excludes everything charged to the person's time.
+        cash = chosen["cost"]["expected_accepted_cost_micros"] - opportunity
         dearest = max(eligible, key=lambda c: c["cost"]["expected_accepted_cost_micros"])
         by_run = min(eligible, key=lambda c: c["cost"]["run_cash_micros"])
 
         right_sized += chosen["cost"]["expected_accepted_cost_micros"]
+        cash_total += cash
+        opportunity_total += opportunity
         premium += dearest["cost"]["expected_accepted_cost_micros"]
         cheapest += by_run["cost"]["expected_accepted_cost_micros"]
 
@@ -186,6 +195,11 @@ def plan(repo: Path, project: dict, index_db: str, local_db: str, work_dir: Path
             "review_micros": chosen["cost"]["review_cash_micros"],
             "retry_micros": chosen["cost"]["expected_failure_cash_micros"],
             "total_micros": chosen["cost"]["expected_accepted_cost_micros"],
+            "cash_micros": cash,
+            "opportunity_micros": opportunity,
+            "review_cash_micros": parts["review_cash_micros"],
+            "review_opportunity_micros": parts["review_opportunity_micros"],
+            "waiting_opportunity_micros": parts["waiting_opportunity_micros"],
             "premium_alternative": dearest["worker_id"],
             "premium_total_micros": dearest["cost"]["expected_accepted_cost_micros"],
             "cheapest_by_run": by_run["worker_id"],
@@ -209,6 +223,8 @@ def plan(repo: Path, project: dict, index_db: str, local_db: str, work_dir: Path
         "unstaffed": unstaffed,
         "totals": {
             "right_sized_micros": right_sized,
+            "cash_micros": cash_total,
+            "opportunity_micros": opportunity_total,
             "always_premium_micros": premium,
             "always_cheapest_by_run_micros": cheapest,
             "saved_vs_premium_micros": premium - right_sized,
@@ -226,15 +242,15 @@ def render(report: dict) -> str:
     lines = [
         f"OWI plan · {report['project_id']} · {report['snapshot_id']}",
         "",
-        f"{'feature':32} {'assigned to':26} {'run':>9} {'review':>9} {'retry':>9} {'total':>10}",
+        f"{'feature':32} {'assigned to':26} {'cash':>10} {'your time':>11} {'total':>11}",
         "-" * 100,
     ]
     for e in report["planned"]:
         lines.append(
             f"{e['id'].replace('task:', '')[:32]:32} "
             f"{e['assigned'].replace('worker:', '')[:26]:26} "
-            f"{money(e['run_micros']):>9} {money(e['review_micros']):>9} "
-            f"{money(e['retry_micros']):>9} {money(e['total_micros']):>10}")
+            f"{money(e['cash_micros']):>10} {money(e['opportunity_micros']):>11} "
+            f"{money(e['total_micros']):>11}")
         gates = ", ".join(
             f"{n} on {name}" for name, n in sorted(
                 e["turned_away_by"].items(), key=lambda kv: -kv[1]))
@@ -243,7 +259,11 @@ def render(report: dict) -> str:
             f"verify={e['verification']} | turned away: {gates}")
     lines += [
         "-" * 100,
-        f"{'RIGHT-SIZED PLAN':59} {money(t['right_sized_micros']):>40}",
+        f"{'RIGHT-SIZED PLAN — cash out the door':59} {money(t['cash_micros']):>40}",
+        f"{'                 — your time at the declared shadow rate':59} "
+        f"{money(t['opportunity_micros']):>40}",
+        f"{'                 — economic total (contains a shadow price)':59} "
+        f"{money(t['right_sized_micros']):>40}",
         f"{'if every task went to the dearest qualified worker':59} "
         f"{money(t['always_premium_micros']):>40}",
         f"{'if every task went to the cheapest per-token worker':59} "
@@ -267,6 +287,62 @@ def render(report: dict) -> str:
     return "\n".join(lines)
 
 
+def scenarios(repo: Path, project: dict, index_db: str, local_db: str,
+              work_dir: Path, rates: list[int]) -> list[dict]:
+    """Re-plan at several valuations of the person's own time.
+
+    The system does not know what an hour of your attention is worth and must
+    not guess one. It shows what changes across a range and leaves the choice
+    where it belongs.
+    """
+    out = []
+    for rate in rates:
+        variant = json.loads(json.dumps(project))
+        variant.setdefault("defaults", {}).setdefault("assumptions", {})
+        variant["defaults"]["assumptions"]["opportunity_micros_per_hour"] = rate
+        report = plan(repo, variant, index_db, local_db, work_dir / f"rate-{rate}")
+        out.append({"opportunity_micros_per_hour": rate, "report": report})
+    return out
+
+
+def render_scenarios(runs: list[dict]) -> str:
+    money = lambda m: f"${m / MICROS:,.2f}"
+    lines = [
+        "",
+        "SCENARIOS — what changes as your own hour gets more valuable.",
+        "Pick the row that matches how you actually value your time.",
+        "",
+        f"{'your hour worth':>16} {'cash':>10} {'your time':>11} {'economic':>11}  assignments",
+        "-" * 100,
+    ]
+    previous = None
+    for run in runs:
+        t = run["report"]["totals"]
+        rate = run["opportunity_micros_per_hour"]
+        label = "free" if rate == 0 else f"${rate / MICROS:,.0f}/hr"
+        who = {}
+        for entry in run["report"]["planned"]:
+            name = entry["assigned"].replace("worker:", "").split("/")[0]
+            who[name] = who.get(name, 0) + 1
+        roster = ", ".join(f"{n}x {m}" if n > 1 else m for m, n in
+                           sorted(who.items(), key=lambda kv: -kv[1]))
+        flag = ""
+        if previous is not None and previous != roster:
+            flag = "   <- staffing changes here"
+        previous = roster
+        lines.append(
+            f"{label:>16} {money(t['cash_micros']):>10} "
+            f"{money(t['opportunity_micros']):>11} "
+            f"{money(t['right_sized_micros']):>11}  {roster}{flag}")
+    lines += [
+        "-" * 100,
+        "Cash is money leaving the account. Your time is priced at the rate on",
+        "the left and is never added to cash without saying so. The economic",
+        "column contains that shadow price, so it is only as real as the rate.",
+    ]
+    return "\n".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--owi-repo", required=True, type=Path,
@@ -281,9 +357,23 @@ def main() -> int:
                         help="Exit non-zero if any task has no qualified worker.")
     parser.add_argument("--budget-micros", type=int,
                         help="Exit non-zero if the plan exceeds this total.")
+    parser.add_argument("--scenarios", metavar="RATES",
+                        help="Comma-separated hourly values of your own time, "
+                             "in whole currency units (e.g. 0,15,60,200). "
+                             "Prints one plan per rate instead of a single answer.")
     arguments = parser.parse_args()
 
     project = json.loads(arguments.project.read_text())
+
+    if arguments.scenarios:
+        rates = [int(float(r.strip()) * MICROS) for r in arguments.scenarios.split(",")]
+        runs = scenarios(arguments.owi_repo.resolve(), project, arguments.index,
+                         arguments.local, arguments.work_dir, rates)
+        print(render_scenarios(runs))
+        if arguments.report:
+            arguments.report.write_text(json.dumps(runs, indent=2) + "\n")
+        return 0
+
     report = plan(arguments.owi_repo.resolve(), project,
                   arguments.index, arguments.local, arguments.work_dir)
 
