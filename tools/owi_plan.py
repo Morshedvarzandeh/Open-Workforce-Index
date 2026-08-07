@@ -103,6 +103,7 @@ def allocation_request(project: dict, feature: dict, index: int) -> dict:
         "task": {
             "id": feature["id"],
             "summary": feature["summary"],
+            "repository": project["project_id"],
             "required_skills": [{
                 "skill_id": feature["skill_id"],
                 "minimum_success_probability": feature.get(

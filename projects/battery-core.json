@@ -32,7 +32,8 @@
       "prior_alpha": 1.0,
       "prior_beta": 1.0,
       "max_public_prior_weight": 8.0,
-      "private_outcome_weight": 1.0
+      "private_outcome_weight": 1.0,
+      "cross_repository_weight": 0.35
     },
     "assumptions": {
       "default_p95_latency_ms": 30000,

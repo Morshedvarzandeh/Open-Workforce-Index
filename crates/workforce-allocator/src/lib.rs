@@ -54,6 +54,21 @@ pub struct CalibrationPolicy {
     /// Pseudo-observation weight of one verified local outcome. Deliberately
     /// larger than any single public observation.
     pub private_outcome_weight: f64,
+    /// Multiplier applied to outcomes recorded in a *different* repository
+    /// scope than the task being staffed, in `[0, 1]`.
+    ///
+    /// This is what makes the weights evolve per part rather than globally:
+    /// a worker's record on this repository counts in full, its record
+    /// elsewhere transfers at this declared discount, and `0` isolates parts
+    /// completely. `1` (the default) preserves the original pooled behaviour.
+    /// The discount is declared, never inferred — cross-part transfer at par
+    /// is exactly the leaderboard mistake this project exists to avoid.
+    #[serde(default = "default_cross_repository_weight")]
+    pub cross_repository_weight: f64,
+}
+
+const fn default_cross_repository_weight() -> f64 {
+    1.0
 }
 
 impl Default for CalibrationPolicy {
@@ -65,6 +80,7 @@ impl Default for CalibrationPolicy {
             prior_beta: 1.0,
             max_public_prior_weight: 8.0,
             private_outcome_weight: 1.0,
+            cross_repository_weight: 1.0,
         }
     }
 }
@@ -94,6 +110,11 @@ impl CalibrationPolicy {
         if !self.private_outcome_weight.is_finite() || self.private_outcome_weight <= 0.0 {
             return Err(AllocatorError::InvalidCalibration(
                 "private_outcome_weight must be finite and positive",
+            ));
+        }
+        if !(0.0..=1.0).contains(&self.cross_repository_weight) {
+            return Err(AllocatorError::InvalidCalibration(
+                "cross_repository_weight must lie within [0, 1]",
             ));
         }
         Ok(())
@@ -131,6 +152,10 @@ pub struct SkillCalibration {
     /// else's failure, kept in the ledger but not held against the worker.
     #[serde(default)]
     pub excused_outcome_count: u64,
+    /// Outcomes admitted from a different repository scope at the declared
+    /// cross-repository discount (or skipped entirely at weight zero).
+    #[serde(default)]
+    pub cross_scope_outcome_count: u64,
 }
 
 /// A candidate plus the derivation of every number in it.
@@ -439,12 +464,19 @@ pub fn calibrate_candidates(
                 &export.evidence,
                 &outcomes,
                 calibration,
+                task.repository.as_deref(),
             )?;
             skill_estimates.insert(requirement.skill_id.clone(), calibrated.estimate.clone());
             skill_calibrations.push(calibrated);
         }
 
-        let success = task_estimate(&profile.id, &skill_calibrations, &outcomes, calibration)?;
+        let success = task_estimate(
+            &profile.id,
+            &skill_calibrations,
+            &outcomes,
+            calibration,
+            task.repository.as_deref(),
+        )?;
         let p95_latency_ms = assumptions
             .p95_latency_ms
             .get(&profile.id)
@@ -500,6 +532,7 @@ fn calibrate_skill(
     evidence: &[PublicEvidenceRecord],
     outcomes: &[PrivateOutcomeRecord],
     calibration: &CalibrationPolicy,
+    task_repository: Option<&str>,
 ) -> Result<SkillCalibration, AllocatorError> {
     let mut posterior = BetaPosterior::new(calibration.prior_alpha, calibration.prior_beta)?;
 
@@ -546,6 +579,7 @@ fn calibrate_skill(
 
     let mut private_outcome_count = 0_u64;
     let mut excused_outcome_count = 0_u64;
+    let mut transferred_outcome_count = 0_u64;
     for outcome in outcomes {
         let event = &outcome.event;
         if &event.worker_id != worker_id || &event.skill_id != skill_id {
@@ -555,7 +589,15 @@ fn calibrate_skill(
             excused_outcome_count += 1;
             continue;
         }
-        posterior.observe_outcome(event.accepted, calibration.private_outcome_weight)?;
+        let weight = outcome_weight(outcome, task_repository, calibration);
+        if weight <= 0.0 {
+            transferred_outcome_count += 1;
+            continue;
+        }
+        if weight < calibration.private_outcome_weight {
+            transferred_outcome_count += 1;
+        }
+        posterior.observe_outcome(event.accepted, weight)?;
         private_outcome_count += 1;
     }
 
@@ -570,6 +612,7 @@ fn calibrate_skill(
         private_outcome_count,
         unusable_observation_count,
         excused_outcome_count,
+        cross_scope_outcome_count: transferred_outcome_count,
     })
 }
 
@@ -598,6 +641,27 @@ fn attributable_to_worker(outcome: &PrivateOutcomeRecord) -> bool {
     }
 }
 
+/// The pseudo-observation weight one admitted outcome contributes, given the
+/// repository scope of the task being staffed.
+///
+/// A task with no scope pools everything at full weight (the original
+/// behaviour). A scoped task counts same-scope outcomes in full and everything
+/// else — including unscoped history — at the declared cross-repository
+/// discount. Weight zero means the outcome is skipped entirely.
+fn outcome_weight(
+    outcome: &PrivateOutcomeRecord,
+    task_repository: Option<&str>,
+    calibration: &CalibrationPolicy,
+) -> f64 {
+    match task_repository {
+        None => calibration.private_outcome_weight,
+        Some(task_repo) => match outcome.event.repository_scope.as_deref() {
+            Some(scope) if scope == task_repo => calibration.private_outcome_weight,
+            _ => calibration.private_outcome_weight * calibration.cross_repository_weight,
+        },
+    }
+}
+
 /// A benchmark score is usable as a pass rate only if it already lies in
 /// `[0, 1]`. Anything else needs a normalization the index refuses to invent.
 fn usable_score(record: &PublicEvidenceRecord) -> Option<f64> {
@@ -616,6 +680,7 @@ fn task_estimate(
     skills: &[SkillCalibration],
     outcomes: &[PrivateOutcomeRecord],
     calibration: &CalibrationPolicy,
+    task_repository: Option<&str>,
 ) -> Result<ProbabilityEstimate, AllocatorError> {
     if skills.is_empty() {
         // With no declared skill requirements the only applicable signal is
@@ -626,8 +691,11 @@ fn task_estimate(
             if &outcome.event.worker_id != worker_id || !attributable_to_worker(outcome) {
                 continue;
             }
-            posterior
-                .observe_outcome(outcome.event.accepted, calibration.private_outcome_weight)?;
+            let weight = outcome_weight(outcome, task_repository, calibration);
+            if weight <= 0.0 {
+                continue;
+            }
+            posterior.observe_outcome(outcome.event.accepted, weight)?;
             count += 1;
         }
         return Ok(posterior.estimate(count, calibration.confidence_tail_probability)?);
@@ -1468,6 +1536,87 @@ mod tests {
         };
         assert!((after[0].estimate.success.success_mean - expected).abs() < 1e-9);
         assert!(after[0].estimate.success.success_mean < baseline);
+    }
+
+    /// Weights evolve per part: a worker's record in this repository counts in
+    /// full, its record elsewhere transfers only at the declared discount, and
+    /// a task with no scope keeps the original pooled behaviour.
+    #[test]
+    fn weights_evolve_per_repository_scope() {
+        let (public, snapshot_id) = seeded_index();
+        let private = PrivateLocalStore::in_memory().expect("open private ledger");
+
+        // Six worker-caused failures recorded in a DIFFERENT repository.
+        for index in 0..6 {
+            let mut record = failure(&format!("outcome:other-{index}"), "worker:cheap");
+            record.decision_id = None;
+            record.event.repository_scope = Some("project:other".to_owned());
+            private.append_outcome(&record).expect("append outcome");
+        }
+
+        let mut scoped_task = task(0);
+        scoped_task.repository = Some("project:battery".to_owned());
+
+        let strict = CalibrationPolicy {
+            cross_repository_weight: 0.0,
+            ..CalibrationPolicy::default()
+        };
+        let discounted = CalibrationPolicy {
+            cross_repository_weight: 0.25,
+            ..CalibrationPolicy::default()
+        };
+        let pooled = CalibrationPolicy::default();
+
+        let mean_for = |calibration: &CalibrationPolicy, task_spec: &TaskSpec| {
+            let candidates = calibrate_candidates(
+                &public,
+                &private,
+                &snapshot_id,
+                task_spec,
+                calibration,
+                &assumptions(),
+                NOW_MS,
+            )
+            .expect("calibrate");
+            candidates[0].estimate.success.success_mean
+        };
+
+        let isolated = mean_for(&strict, &scoped_task);
+        let transferred = mean_for(&discounted, &scoped_task);
+        let fully_pooled = mean_for(&pooled, &scoped_task);
+        let unscoped_task_mean = mean_for(&strict, &task(0));
+
+        // Strict isolation ignores the other part's failures entirely.
+        assert!(isolated > transferred);
+        // A discount admits them, but more weakly than full pooling.
+        assert!(transferred > fully_pooled);
+        // A task with no declared part pools everything, whatever the policy.
+        assert!((unscoped_task_mean - fully_pooled).abs() < 1e-9);
+
+        // Same-scope failures always land in full.
+        for index in 0..3 {
+            let mut record = failure(&format!("outcome:same-{index}"), "worker:cheap");
+            record.decision_id = None;
+            record.event.repository_scope = Some("project:battery".to_owned());
+            private.append_outcome(&record).expect("append outcome");
+        }
+        let after_local_failures = mean_for(&strict, &scoped_task);
+        assert!(after_local_failures < isolated);
+
+        let candidates = calibrate_candidates(
+            &public,
+            &private,
+            &snapshot_id,
+            &scoped_task,
+            &discounted,
+            &assumptions(),
+            NOW_MS,
+        )
+        .expect("calibrate");
+        assert_eq!(
+            candidates[0].skill_calibrations[0].cross_scope_outcome_count,
+            6
+        );
     }
 
     /// A snapshot whose digest no longer matches must not produce candidates.

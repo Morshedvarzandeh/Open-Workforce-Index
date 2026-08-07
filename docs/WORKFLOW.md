@@ -140,6 +140,23 @@ ordinary mechanism does the rest: its estimate drops, it re-ranks, and below
 the quality floor it is retired — the model gets changed by evidence, and only
 for failures that were actually its own.
 
+## The weights, and how they evolve
+
+The "weights" are Beta posteriors per worker × skill × part. They move on
+every recorded run — online, no batch step:
+
+- an accepted run raises the worker's posterior; a worker-caused rejection
+  lowers it (excused causes never do);
+- outcomes recorded in the same repository part count in full; outcomes from
+  other parts transfer at the manifest's declared `cross_repository_weight`
+  (0.35 here, 0 for strict isolation, 1 to pool everything);
+- vendor claims stay capped and discounted, so lived evidence always
+  outweighs marketing.
+
+Rise far enough and a worker takes over a part's bench; fall below the floor
+and it is retired from that part — while its record elsewhere stands on its
+own evidence.
+
 ## What lives where
 
 | file | what it is |
