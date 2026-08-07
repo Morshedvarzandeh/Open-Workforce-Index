@@ -131,7 +131,7 @@ def plan(repo: Path, project: dict, index_db: str, local_db: str, work_dir: Path
     work_dir.mkdir(parents=True, exist_ok=True)
     entries, unstaffed = [], []
     right_sized = premium = cheapest = 0
-    cash_total = opportunity_total = 0
+    cash_total = opportunity_total = setup_total = 0
 
     for position, feature in enumerate(project["features"], start=1):
         request_path = work_dir / f"request-{position:04d}.json"
@@ -173,14 +173,18 @@ def plan(repo: Path, project: dict, index_db: str, local_db: str, work_dir: Path
                      if c["worker_id"] == selected)
         opportunity = (parts["review_opportunity_micros"]
                        + parts["waiting_opportunity_micros"])
-        # Cash out the door excludes everything charged to the person's time.
-        cash = chosen["cost"]["expected_accepted_cost_micros"] - opportunity
+        setup = parts["amortized_setup_micros"]
+        # Cash out the door excludes the person's time and the already-spent
+        # setup, so the three columns never double-count.
+        cash = (chosen["cost"]["expected_accepted_cost_micros"]
+                - opportunity - setup)
         dearest = max(eligible, key=lambda c: c["cost"]["expected_accepted_cost_micros"])
         by_run = min(eligible, key=lambda c: c["cost"]["run_cash_micros"])
 
         right_sized += chosen["cost"]["expected_accepted_cost_micros"]
         cash_total += cash
         opportunity_total += opportunity
+        setup_total += setup
         premium += dearest["cost"]["expected_accepted_cost_micros"]
         cheapest += by_run["cost"]["expected_accepted_cost_micros"]
 
@@ -197,6 +201,7 @@ def plan(repo: Path, project: dict, index_db: str, local_db: str, work_dir: Path
             "total_micros": chosen["cost"]["expected_accepted_cost_micros"],
             "cash_micros": cash,
             "opportunity_micros": opportunity,
+            "amortized_setup_micros": setup,
             "review_cash_micros": parts["review_cash_micros"],
             "review_opportunity_micros": parts["review_opportunity_micros"],
             "waiting_opportunity_micros": parts["waiting_opportunity_micros"],
@@ -225,6 +230,7 @@ def plan(repo: Path, project: dict, index_db: str, local_db: str, work_dir: Path
             "right_sized_micros": right_sized,
             "cash_micros": cash_total,
             "opportunity_micros": opportunity_total,
+            "amortized_setup_micros": setup_total,
             "always_premium_micros": premium,
             "always_cheapest_by_run_micros": cheapest,
             "saved_vs_premium_micros": premium - right_sized,
@@ -242,15 +248,16 @@ def render(report: dict) -> str:
     lines = [
         f"OWI plan · {report['project_id']} · {report['snapshot_id']}",
         "",
-        f"{'feature':32} {'assigned to':26} {'cash':>10} {'your time':>11} {'total':>11}",
+        f"{'feature':32} {'assigned to':24} {'run':>9} {'setup':>9} "
+        f"{'your time':>10} {'total':>10}",
         "-" * 100,
     ]
     for e in report["planned"]:
         lines.append(
             f"{e['id'].replace('task:', '')[:32]:32} "
-            f"{e['assigned'].replace('worker:', '')[:26]:26} "
-            f"{money(e['cash_micros']):>10} {money(e['opportunity_micros']):>11} "
-            f"{money(e['total_micros']):>11}")
+            f"{e['assigned'].replace('worker:', '')[:24]:24} "
+            f"{money(e['cash_micros']):>9} {money(e['amortized_setup_micros']):>9} "
+            f"{money(e['opportunity_micros']):>10} {money(e['total_micros']):>10}")
         gates = ", ".join(
             f"{n} on {name}" for name, n in sorted(
                 e["turned_away_by"].items(), key=lambda kv: -kv[1]))
@@ -259,7 +266,9 @@ def render(report: dict) -> str:
             f"verify={e['verification']} | turned away: {gates}")
     lines += [
         "-" * 100,
-        f"{'RIGHT-SIZED PLAN — cash out the door':59} {money(t['cash_micros']):>40}",
+        f"{'RIGHT-SIZED PLAN — run cost (cash)':59} {money(t['cash_micros']):>40}",
+        f"{'                 — amortised setup (cash, already spent)':59} "
+        f"{money(t['amortized_setup_micros']):>40}",
         f"{'                 — your time at the declared shadow rate':59} "
         f"{money(t['opportunity_micros']):>40}",
         f"{'                 — economic total (contains a shadow price)':59} "

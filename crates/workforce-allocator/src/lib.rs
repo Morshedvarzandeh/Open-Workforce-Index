@@ -207,6 +207,26 @@ pub struct WorkflowAssumptions {
     /// far more often than it deserves a price.
     #[serde(default)]
     pub blocking_fraction: f64,
+    /// One-time cost of qualifying and wiring up each worker, in cash micros.
+    ///
+    /// Benchmarking a newcomer, writing its adapter, tuning its prompt pack.
+    /// Real money already spent, and the term that separates total cost of
+    /// ownership from sticker price: a worker whose tokens are cheap can still
+    /// be the expensive choice once the cost of admitting it to the roster is
+    /// spread over the work it will actually do.
+    #[serde(default)]
+    pub onboarding_cash_micros: BTreeMap<WorkerId, u64>,
+    /// Applied to workers absent from `onboarding_cash_micros`.
+    #[serde(default)]
+    pub default_onboarding_cash_micros: u64,
+    /// Tasks of this kind the worker is expected to handle over its useful
+    /// life, used to amortise setup.
+    ///
+    /// This is where a weekly intake of new models is either cheap or ruinous.
+    /// At a volume of one, setup is charged in full against a single task and
+    /// no token saving can repay it. Zero disables amortisation entirely.
+    #[serde(default)]
+    pub expected_task_volume: u64,
 }
 
 /// Cash and opportunity kept apart, because they are not the same currency.
@@ -218,6 +238,8 @@ pub struct CostDecomposition {
     pub review_opportunity_micros: u64,
     /// Time lost waiting for the worker, at the declared shadow rate.
     pub waiting_opportunity_micros: u64,
+    /// This task's share of what it cost to qualify the worker at all.
+    pub amortized_setup_micros: u64,
 }
 
 impl CostDecomposition {
@@ -248,7 +270,12 @@ impl WorkflowAssumptions {
     }
 
     /// Splits the human cost of one assignment into cash and opportunity.
-    fn decomposition(&self, success_mean: f64, p95_latency_ms: u64) -> CostDecomposition {
+    fn decomposition(
+        &self,
+        worker_id: &WorkerId,
+        success_mean: f64,
+        p95_latency_ms: u64,
+    ) -> CostDecomposition {
         let minutes = self.expected_review_minutes(success_mean);
         let blocking = self.blocking_fraction.clamp(0.0, 1.0);
         #[allow(clippy::cast_precision_loss)]
@@ -260,16 +287,38 @@ impl WorkflowAssumptions {
                 self.opportunity_micros_per_hour,
                 waiting_minutes,
             ),
+            amortized_setup_micros: self.amortized_setup_micros(worker_id),
         }
+    }
+
+    /// One task's share of this worker's one-time setup cost.
+    fn amortized_setup_micros(&self, worker_id: &WorkerId) -> u64 {
+        if self.expected_task_volume == 0 {
+            return 0;
+        }
+        let setup = self
+            .onboarding_cash_micros
+            .get(worker_id)
+            .copied()
+            .unwrap_or(self.default_onboarding_cash_micros);
+        // Round up so the amortised shares can never sum to less than what was
+        // actually spent.
+        setup.div_ceil(self.expected_task_volume)
     }
 
     /// Total human cost folded into the engine's review term so that ranking
     /// sees it. The decomposition is reported separately and is never lost.
-    fn expected_review_cash_micros(&self, success_mean: f64, p95_latency_ms: u64) -> u64 {
-        let parts = self.decomposition(success_mean, p95_latency_ms);
+    fn expected_review_cash_micros(
+        &self,
+        worker_id: &WorkerId,
+        success_mean: f64,
+        p95_latency_ms: u64,
+    ) -> u64 {
+        let parts = self.decomposition(worker_id, success_mean, p95_latency_ms);
         self.expected_review_cash_micros
             .saturating_add(parts.review_cash_micros)
             .saturating_add(parts.opportunity_micros())
+            .saturating_add(parts.amortized_setup_micros)
     }
 }
 
@@ -396,9 +445,13 @@ pub fn calibrate_candidates(
             .get(&profile.id)
             .copied()
             .unwrap_or(assumptions.default_p95_latency_ms);
-        let cost_decomposition = assumptions.decomposition(success.success_mean, p95_latency_ms);
-        let expected_review_cash_micros =
-            assumptions.expected_review_cash_micros(success.success_mean, p95_latency_ms);
+        let cost_decomposition =
+            assumptions.decomposition(&profile.id, success.success_mean, p95_latency_ms);
+        let expected_review_cash_micros = assumptions.expected_review_cash_micros(
+            &profile.id,
+            success.success_mean,
+            p95_latency_ms,
+        );
 
         candidates.push(CalibratedCandidate {
             estimate: WorkerEstimate {
@@ -1195,8 +1248,8 @@ mod tests {
             ..WorkflowAssumptions::default()
         };
 
-        let reliable = assumptions.decomposition(0.95, 0);
-        let unreliable = assumptions.decomposition(0.40, 0);
+        let reliable = assumptions.decomposition(&WorkerId::new("w"), 0.95, 0);
+        let unreliable = assumptions.decomposition(&WorkerId::new("w"), 0.40, 0);
 
         // 0.95 -> 0.95*2 + 0.05*25 = 3.15 min -> $3.15
         assert_eq!(reliable.review_opportunity_micros, 3_150_000);
@@ -1218,7 +1271,7 @@ mod tests {
             review_minutes_on_reject: 4.0,
             ..WorkflowAssumptions::default()
         };
-        let parts = assumptions.decomposition(0.5, 0);
+        let parts = assumptions.decomposition(&WorkerId::new("w"), 0.5, 0);
 
         // 4 minutes at $30/h is $2.00 of cash; the same 4 minutes at a $90/h
         // shadow rate is $6.00 of foregone value.
@@ -1246,17 +1299,77 @@ mod tests {
         // Six minutes of wall clock.
         assert_eq!(
             asynchronous
-                .decomposition(1.0, 360_000)
+                .decomposition(&WorkerId::new("w"), 1.0, 360_000)
                 .waiting_opportunity_micros,
             0
         );
         // 6 minutes at $60/h is $6.00.
         assert_eq!(
             watching
-                .decomposition(1.0, 360_000)
+                .decomposition(&WorkerId::new("w"), 1.0, 360_000)
                 .waiting_opportunity_micros,
             6_000_000
         );
+    }
+
+    /// Setup is real money already spent, and spreading it over the work a
+    /// worker will actually do is what separates total cost of ownership from
+    /// sticker price. A newcomer used a handful of times carries its whole
+    /// qualification cost on those few tasks.
+    #[test]
+    fn setup_cost_is_amortised_over_expected_volume() {
+        let worker = WorkerId::new("worker:newcomer");
+        let base = WorkflowAssumptions {
+            onboarding_cash_micros: BTreeMap::from([(worker.clone(), 2_200_000)]),
+            ..WorkflowAssumptions::default()
+        };
+
+        let used_five_times = WorkflowAssumptions {
+            expected_task_volume: 5,
+            ..base.clone()
+        };
+        let used_ten_thousand_times = WorkflowAssumptions {
+            expected_task_volume: 10_000,
+            ..base.clone()
+        };
+
+        // $2.20 over five tasks is $0.44 each — more than the token cost of
+        // most of the work on this roster.
+        assert_eq!(
+            used_five_times
+                .decomposition(&worker, 0.9, 0)
+                .amortized_setup_micros,
+            440_000
+        );
+        // Over ten thousand it rounds to a fifth of a cent.
+        assert_eq!(
+            used_ten_thousand_times
+                .decomposition(&worker, 0.9, 0)
+                .amortized_setup_micros,
+            220
+        );
+        // Volume zero means amortisation is switched off, not divide-by-zero.
+        assert_eq!(
+            base.decomposition(&worker, 0.9, 0).amortized_setup_micros,
+            0
+        );
+    }
+
+    /// Shares round up, so the amortised parts can never sum to less than the
+    /// money that was actually spent.
+    #[test]
+    fn amortised_shares_never_undercount_what_was_spent() {
+        let worker = WorkerId::new("worker:newcomer");
+        let assumptions = WorkflowAssumptions {
+            onboarding_cash_micros: BTreeMap::from([(worker.clone(), 1_000_001)]),
+            expected_task_volume: 3,
+            ..WorkflowAssumptions::default()
+        };
+        let share = assumptions
+            .decomposition(&worker, 0.9, 0)
+            .amortized_setup_micros;
+        assert_eq!(share, 333_334);
+        assert!(share * 3 >= 1_000_001);
     }
 
     /// With no rates configured the flat review cost is used unchanged, so
@@ -1267,8 +1380,14 @@ mod tests {
             expected_review_cash_micros: 500,
             ..WorkflowAssumptions::default()
         };
-        assert_eq!(assumptions.expected_review_cash_micros(0.1, 30_000), 500);
-        assert_eq!(assumptions.expected_review_cash_micros(0.9, 30_000), 500);
+        assert_eq!(
+            assumptions.expected_review_cash_micros(&WorkerId::new("w"), 0.1, 30_000),
+            500
+        );
+        assert_eq!(
+            assumptions.expected_review_cash_micros(&WorkerId::new("w"), 0.9, 30_000),
+            500
+        );
     }
 
     /// A snapshot whose digest no longer matches must not produce candidates.

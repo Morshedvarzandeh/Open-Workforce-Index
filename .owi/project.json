@@ -10,7 +10,12 @@
     "blocking_fraction is how much of a worker latency you actually sit and wait",
     "for. At 0 a slow worker is free; at 1 every second is billed at your rate.",
     "",
-    "Run with --scenarios 0,15,60,200 to see how the staffing changes and pick."
+    "Run with --scenarios 0,15,60,200 to see how the staffing changes and pick.",
+    "",
+    "onboarding_cash_micros is what it costs to qualify each worker: the 11-task",
+    "corpus at that worker's own rate, which is what run_bench.py actually bills.",
+    "expected_task_volume spreads it. At low volume a cheap model cannot repay",
+    "its own qualification, which is the whole capex-versus-TCO point."
   ],
   "project_id": "project:open-workforce-index",
   "snapshot_id": "snapshot:manager-scenario-v1",
@@ -40,7 +45,27 @@
       "review_minutes_on_reject": 25.0,
       "review_cash_micros_per_hour": 0,
       "opportunity_micros_per_hour": 60000000,
-      "blocking_fraction": 0.0
+      "blocking_fraction": 0.0,
+      "onboarding_cash_micros": {
+        "worker:gpt-5-mini/text": 143000,
+        "worker:gpt-5-mini/extract": 143000,
+        "worker:haiku-4-5/text": 440000,
+        "worker:haiku-4-5/extract": 440000,
+        "worker:haiku-4-5/code": 440000,
+        "worker:gpt-5/text": 715000,
+        "worker:gpt-5/extract": 715000,
+        "worker:gpt-5/code": 715000,
+        "worker:sonnet-4-5/text": 1320000,
+        "worker:sonnet-4-5/extract": 1320000,
+        "worker:sonnet-4-5/code": 1320000,
+        "worker:sonnet-4-5/cad": 1320000,
+        "worker:opus-4-5/text": 2200000,
+        "worker:opus-4-5/extract": 2200000,
+        "worker:opus-4-5/code": 2200000,
+        "worker:opus-4-5/cad": 2200000
+      },
+      "default_onboarding_cash_micros": 1000000,
+      "expected_task_volume": 50
     }
   },
   "features": [
