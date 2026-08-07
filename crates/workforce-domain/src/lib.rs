@@ -132,6 +132,13 @@ impl VerificationPolicy {
 pub struct SkillRequirement {
     pub skill_id: SkillId,
     pub minimum_success_probability: f64,
+    /// Minimum number of applicable observations behind the skill estimate.
+    ///
+    /// A confidence bound alone cannot distinguish a well-measured worker from
+    /// an adapter that asserted a number. Requiring observations makes
+    /// "evidence-backed" an enforced property rather than a description.
+    #[serde(default)]
+    pub minimum_evidence_count: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -154,6 +161,9 @@ pub struct TaskSpec {
     pub risk: RiskLevel,
     pub verification: VerificationPolicy,
     pub minimum_success_probability: f64,
+    /// Minimum number of applicable observations behind the task-level estimate.
+    #[serde(default)]
+    pub minimum_evidence_count: u64,
     #[serde(default)]
     pub max_expected_cash_micros: Option<u64>,
     #[serde(default)]
@@ -663,10 +673,12 @@ mod tests {
                 SkillRequirement {
                     skill_id: "skill:rust".into(),
                     minimum_success_probability: 0.7,
+                    minimum_evidence_count: 0,
                 },
                 SkillRequirement {
                     skill_id: "skill:rust".into(),
                     minimum_success_probability: 0.8,
+                    minimum_evidence_count: 0,
                 },
             ],
             required_tools: BTreeSet::new(),
@@ -675,6 +687,7 @@ mod tests {
             risk: RiskLevel::Low,
             verification: VerificationPolicy::Deterministic,
             minimum_success_probability: 0.5,
+            minimum_evidence_count: 0,
             max_expected_cash_micros: None,
             max_p95_latency_ms: None,
             estimated_input_tokens: 100,
@@ -861,6 +874,7 @@ mod tests {
             risk: RiskLevel::Low,
             verification: VerificationPolicy::Deterministic,
             minimum_success_probability: 0.5,
+            minimum_evidence_count: 0,
             max_expected_cash_micros: None,
             max_p95_latency_ms: None,
             estimated_input_tokens: 100,

@@ -124,11 +124,44 @@ adapter. Syntax parsing alone is never reported as SHACL conformance.
 
 ## Estimation and routing
 
-For worker \(w\) and task \(t\), v0.1 provides a transparent Beta estimator per
-skill and produces a mean and conservative lower confidence bound (LCB). The
-quote input carries the resulting task/skill estimates. Persisted scoped
-ability estimates, capped public-prior strength, and repository/task-class
-local calibration are v0.2 work.
+For worker \(w\) and task \(t\), `workforce-allocator` derives a Beta posterior
+per skill from stored evidence and produces a mean and a conservative lower
+credible bound (LCB).
+
+The bound is the exact `tail_probability` quantile of the posterior, computed
+from the regularized incomplete beta function. It is deliberately not the
+normal approximation `mean - z·sqrt(var)`: that form is *anti-conservative*
+when observations are few and the success rate is high, which is the state of
+every newly discovered worker. At `Beta(6, 1)` it reports a 95% floor of 0.654
+against a true 0.607, and the error only becomes negligible past roughly a
+hundred observations. `BetaPosterior::normal_approximation_lower_bound` retains
+the old form so the divergence stays measurable in tests, but it is not a gate.
+
+Evidence enters the posterior under three rules:
+
+1. **Scope is exact.** A public observation applies only when it measured this
+   skill *and* either this exact worker or the model release behind it. Evidence
+   from another skill is not discounted — it is absent.
+2. **Public evidence is capped.** All public observations for one skill together
+   contribute at most `max_public_prior_weight` pseudo-observations, scaled to
+   preserve the reported success ratio. A benchmark quoting ten thousand samples
+   cannot swamp six verified local outcomes. This cap is the difference between
+   an index and a leaderboard.
+3. **Scores are never invented.** A benchmark result is usable as a pass rate
+   only if it already lies in \([0, 1]\). An Elo or a raw count is counted as
+   `unusable_observation_count` and reported, not normalized by guesswork.
+
+A task requiring several skills must clear all of them, so its mean is the
+product of the skill means, its bound the product of the skill bounds, and its
+evidence count the *minimum* across skills — a worker is only as measured as
+its least-measured requirement.
+
+Repository- and task-class-specific calibration remains later work.
+
+Eligibility then adds a second, independent test: an estimate must be backed by
+at least `minimum_evidence_count` applicable observations. A confidence bound
+alone cannot distinguish a well-measured worker from an adapter that asserted a
+number, so the two are checked separately and rejected separately.
 
 Eligibility is lexicographic, not one unsafe weighted score:
 
@@ -139,8 +172,21 @@ Eligibility is lexicographic, not one unsafe weighted score:
 
 \[
 C_{accepted} = C_{run} + C_{verify} + C_{quota-shadow}
-+ (1 - P_{pass}) (C_{retry/escalate} + C_{failure})
++ C_{retry/escalate} \sum_{k=1}^{A-1} (1 - P_{pass})^{k}
 \]
+
+where \(A\) is `policy.max_attempts`. At the default \(A = 2\) this is the
+familiar \((1 - P_{pass}) \cdot C_{retry}\); the general form matters because
+assuming a single retry always succeeds systematically flatters cheap
+unreliable workers, which is the exact error this objective exists to avoid.
+
+\(P_{pass}\) is the mean by default. The gate is always conservative, but an
+expectation is ordinarily taken at the mean, so the objective's choice is
+separate and explicit: `policy.failure_probability_basis` selects `mean` or
+`lower_bound`. The distinction is not cosmetic — under `mean`, `Beta(2, 1)` and
+`Beta(60, 30)` share a mean and therefore rank identically, even though one is
+a guess and the other is measured. `lower_bound` charges a wide posterior for
+its own uncertainty.
 
 Cash uses integer micros. API cash, subscription quota, local GPU seconds,
 tokens, and wall time remain separate budget dimensions unless the user defines
@@ -234,141 +280,20 @@ availability, clearance, review skill/evidence, context, and tariff are not yet
 independently validated; maker/checker execution stays disabled until v0.2
 represents the checker as a complete candidate plan.
 
-## Browser advisor boundary (planned)
+## Deferred product boundaries
 
-The Chromium client is a convenience surface, not a new trust domain. A
-Manifest V3 side panel and context menu send typed requests through a registered
-Native Messaging host to the local Rust service. The local service remains the
-only component allowed to read the index/private ledger, resolve credentials,
-validate policy, lease budgets, call providers, or post usage. Every client
-field is revalidated.
+The browser advisor, private Git-project cost accounting, and environmental
+impact accounting each had a full section here and a numbered ADR. They now
+live in [`docs/future/`](future/), because specifying a Chrome extension's
+DNS-rebinding defence for a product with no users is design debt, not
+architecture.
 
-```mermaid
-flowchart TD
-    Page["Page or selection"] -->|"explicit preview + consent"| Panel["MV3 side panel"]
-    Panel --> Host["Native Messaging host"]
-    Host --> Local["Local Rust service"]
-    Local --> Allocate["Policy + allocator"]
-    Local --> Usage["Execution + private ledger"]
-```
-
-The client presents three modes and does not blur their authority:
-
-| Mode | Local-service operation | May contact a model? |
-|---|---|---|
-| `recommend` | Classify, quote, explain, and show alternatives | No |
-| `run` | Approve a bounded lease, execute, stream events, settle receipt | Yes, after explicit approval |
-| `project` | Read a reconciled private project report | No |
-
-A versioned application adapter converts the user's requested deliverable and
-consented context into a proposed task class, artifact type, required
-skills/tools, acceptance checks, privacy, risk, and budget. It returns its
-evidence and confidence for confirmation. A site name is only a hint: CAD work
-requires CAD capabilities even when requested from a chat page, while a design
-conversation does not automatically require a geometry tool. Classification
-cannot grant permissions or lower a risk level.
-
-Recommendations visibly separate `ready_now` workers from `setup_required`
-catalog candidates and `excluded` workers. This lets OWI suggest a better model
-the person has not configured without pretending it can be run. The explanation
-includes the task-specific reason, hard exclusions, evidence/snapshot age,
-expected accepted-result cost, uncertainty, and close Pareto alternatives.
-
-The base extension has no `<all_urls>`, cookies, history, web-request inspection,
-clipboard-read, or consumer-identity permission. Text typed in the panel needs
-no page access. Selected text and page fields are read only after a user gesture
-and field-level preview using temporary `activeTab` access; persistent host
-permission is opt-in per application adapter. The extension keeps only
-non-sensitive preferences and opaque local IDs. Raw prompt/output display,
-local persistence, redaction, retention, and export are independent consent
-choices; ledger metrics and content digests do not require retaining the raw
-content.
-
-Consumer-provider sessions are outside the boundary. OWI does not extract or
-replay browser cookies, OAuth tokens, DOM tokens, or local storage. A provider
-website can receive an explicit copy action and deep link, followed by explicit
-result import; it is never scraped for output or billing. Direct `run` uses an
-official API/local adapter and locally protected credentials that never enter
-extension storage or page JavaScript.
-
-Every direct execution starts with a quote naming the exact planner, maker,
-checker/fallback workers; estimated cash/token/quota/tool use and environmental
-coverage; project attribution; and a maximum task lease within hard daily,
-weekly, project, and provider caps. A typed live timeline identifies each
-planner, maker, checker, retry, fallback, tool, and verifier event, cumulative
-usage, streamed output, and opaque artifact handles. Circuit breakers stop
-before a spend, quota, output-token, retry, time, or policy limit is exceeded.
-Increasing a lease requires a new approval. OWI never purchases credits,
-enables top-ups, or uses gamified spending prompts.
-
-The terminal event is an actual-versus-estimated receipt reconciled by project,
-provider, worker/model, role, and attempt. Cash, subscriptions, tokens, quota,
-tools, environmental coverage, and counterfactual savings remain separately
-labeled. Chrome is the first packaging target; Edge and Brave use shared
-WebExtension code only after browser-specific API and store-policy tests.
-Native Messaging is preferred; an opt-in loopback fallback must bind only to
-loopback and defend its paired, origin-bound protocol against cross-origin
-requests and DNS rebinding.
-
-The protocol, local advisor service, extension, and all three modes are planned,
-not v0.1 functionality. Delivery starts read-only with `recommend`, adds
-`project`, and enables `run` only after leases, receipts, provider adapters, and
-tool/repository sandboxes pass security tests. See
-[ADR 0008](adr/0008-browser-advisor-and-execution-boundary.md).
-
-## Private project accounting (planned v0.2)
-
-The execution runtime propagates a private attempt identifier into model and
-tool adapters. The attempt links usage to a task node, exact worker, Git context,
-and billing project. Separate attempt roles preserve the cost of makers,
-retries, fallbacks, independent checkers, deterministic verification, tools,
-planning, and routing. Failed attempts and optimizer overhead are not omitted.
-
-Task-DAG nodes use either one billing project or a versioned, explicit
-allocation policy. Shared integer amounts are divided deterministically and
-still reconcile exactly. Allocation is never inferred from changed lines,
-timestamps, or the current working directory.
-
-Direct API cash and provider quota remain distinct. Tariff-derived charges are
-marked provisional until settled against stronger billing evidence. A
-subscription is posted once as organization overhead. An optional versioned
-policy can reclassify that same fee to projects without creating more cash;
-reports distinguish direct cash, allocated subscription overhead, quota, and
-shadow values.
-
-Project reports show reconciled usage and spend by worker/model, task, provider,
-component, and attempt role. An optimizer comparison is a different section. A
-baseline is frozen at decision time, and the difference is labeled
-`counterfactual_estimate`, including method, uncertainty, coverage, and excluded
-tasks. It is never presented as observed cash saved. A paired execution is an
-`observed_cost_difference` because both alternatives were paid for.
-
-See [ADR 0006](adr/0006-private-project-usage-accounting.md) for the private
-ledger and counterfactual-accounting invariants.
-
-## Environmental impact accounting (planned v0.2)
-
-Energy, carbon, and water reuse the private usage allocations but never become
-cash fields or a universal model score. Public environmental profiles are
-immutable evidence tied to an exact offering, functional unit, measurement
-boundary, lifecycle phase, source, and rational coefficient. A product-wide or
-median-prompt disclosure cannot be copied onto a specific API model.
-
-Project reports keep these views separate:
-
-- IT/facility energy and operational/embodied/training lifecycle phases;
-- location-based and market-based CO2e, which are alternative views and are
-  not added together;
-- water withdrawal and water consumption; and
-- known estimates, partial coverage, scenarios, and structured unknowns.
-
-Unknown impact is never represented as zero. Environmental profiles and source
-provenance may enter the public index; project identity, usage calculations,
-baselines, savings, and reports remain in the private trust domain. Estimated
-avoided impact uses the same precommitted, equivalent-quality baseline as cost
-savings, stays outside the actual inventory, and retains its counterfactual
-label. See [ADR 0007](adr/0007-environmental-impact-accounting.md) and the
-illustrative [`project-report.json`](../examples/project-report.json).
+The load-bearing invariants survive the move and are restated in
+[`docs/future/README.md`](future/README.md): usage postings are append-only
+events that reconcile exactly to their allocations, unknown environmental
+impact is `unknown` and never zero, optimizer savings stay labelled
+`counterfactual_estimate`, and a convenience client is never a new trust
+domain.
 
 ## Update lifecycle (planned)
 

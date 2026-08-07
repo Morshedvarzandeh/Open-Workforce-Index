@@ -7,9 +7,17 @@ use std::{
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use workforce_engine::{BetaPosterior, QuoteRequest, quote};
+use workforce_allocator::{
+    CalibrationPolicy, WorkflowAssumptions, calibrate_candidates, quote_record,
+};
+use workforce_domain::{DecisionId, TaskSpec};
+use workforce_engine::{BetaPosterior, QuoteRequest, RoutingPolicy, quote};
 use workforce_kg::{PublicGraph, validate_builtin_rdf};
-use workforce_store::{PrivateLocalStore, PublicIndexStore};
+use workforce_store::{
+    ModelReleaseRecord, PrivateLedgerRead, PrivateLedgerWrite, PrivateLocalStore,
+    PrivateOutcomeRecord, ProviderOfferingRecord, PublicEvidenceRecord, PublicIndexStore,
+    PublicIndexWrite, SnapshotRecord, WorkerProfileRecord,
+};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -25,8 +33,43 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum Command {
     /// Produce an explainable worker assignment from a JSON request.
+    ///
+    /// This path takes pre-computed candidate estimates and is useful for
+    /// testing the engine in isolation. For a decision derived from stored
+    /// evidence, use `allocate`.
     Quote {
         /// QuoteRequest JSON file.
+        #[arg(short, long)]
+        input: PathBuf,
+    },
+    /// Seed the public index from a versioned source file, then snapshot it.
+    Seed {
+        #[arg(long, default_value = ".data/index.sqlite")]
+        index: PathBuf,
+        /// IndexSeed JSON file.
+        #[arg(short, long)]
+        input: PathBuf,
+    },
+    /// Derive candidates from the index and private history, quote, and record.
+    ///
+    /// This is the closed loop: evidence in, decision out, decision persisted.
+    Allocate {
+        #[arg(long, default_value = ".data/index.sqlite")]
+        index: PathBuf,
+        #[arg(long, default_value = ".data/local.sqlite")]
+        local: PathBuf,
+        /// AllocationRequest JSON file.
+        #[arg(short, long)]
+        input: PathBuf,
+        /// Persist the decision to the private ledger.
+        #[arg(long)]
+        record: bool,
+    },
+    /// Append a verified local outcome, which strengthens the next decision.
+    Outcome {
+        #[arg(long, default_value = ".data/local.sqlite")]
+        local: PathBuf,
+        /// PrivateOutcomeRecord JSON file.
         #[arg(short, long)]
         input: PathBuf,
     },
@@ -76,7 +119,8 @@ struct LearningRequest {
     prior: BetaPosterior,
     #[serde(default)]
     prior_evidence_count: u64,
-    confidence_z: f64,
+    /// One-sided tail probability; 0.05 gives a 95% lower bound.
+    confidence_tail_probability: f64,
     outcomes: Vec<WeightedOutcome>,
 }
 
@@ -92,13 +136,216 @@ struct LearningResult {
     estimate: workforce_domain::ProbabilityEstimate,
 }
 
+/// A versioned public-index source file. Everything here is reviewable data,
+/// not generated state.
+#[derive(Debug, Deserialize)]
+struct IndexSeed {
+    snapshot_id: String,
+    created_at: String,
+    ontology_version: String,
+    source_revision: String,
+    #[serde(default)]
+    model_releases: Vec<ModelReleaseRecord>,
+    #[serde(default)]
+    provider_offerings: Vec<ProviderOfferingRecord>,
+    #[serde(default)]
+    worker_profiles: Vec<WorkerProfileRecord>,
+    #[serde(default)]
+    evidence: Vec<PublicEvidenceRecord>,
+}
+
+/// Everything the allocator needs that is not already in the index.
+#[derive(Debug, Deserialize)]
+struct AllocationRequest {
+    decision_id: DecisionId,
+    snapshot_id: String,
+    task: TaskSpec,
+    policy: RoutingPolicy,
+    #[serde(default)]
+    calibration: CalibrationPolicy,
+    #[serde(default)]
+    assumptions: WorkflowAssumptions,
+    /// Evaluation instant for time-bounded offerings, in Unix epoch
+    /// milliseconds. Supplied rather than read from the clock so a decision
+    /// stays reproducible.
+    at_epoch_ms: i64,
+    /// Timestamp recorded with the decision.
+    created_at: String,
+}
+
+#[derive(Debug, Serialize)]
+struct AllocationResult<'a> {
+    quote: &'a workforce_engine::RoutingQuote,
+    calibration: Vec<CalibrationSummary<'a>>,
+    recorded: bool,
+    request_fingerprint: String,
+}
+
+/// Where every candidate's numbers came from.
+#[derive(Debug, Serialize)]
+struct CalibrationSummary<'a> {
+    worker_id: &'a workforce_domain::WorkerId,
+    available: bool,
+    skills: &'a [workforce_allocator::SkillCalibration],
+}
+
 fn main() -> Result<()> {
     match Cli::parse().command {
         Command::Quote { input } => run_quote(&input),
+        Command::Seed { index, input } => run_seed(&index, &input),
+        Command::Allocate {
+            index,
+            local,
+            input,
+            record,
+        } => run_allocate(&index, &local, &input, record),
+        Command::Outcome { local, input } => run_outcome(&local, &input),
         Command::Learn { input } => run_learn(&input),
         Command::Ontology { command } => run_ontology(command),
         Command::Database { command } => run_database(command),
     }
+}
+
+fn run_seed(index: &Path, input: &Path) -> Result<()> {
+    let seed: IndexSeed = read_json(input)?;
+    let resolved = resolve_target(index)?;
+    create_parent(&resolved)?;
+    let store = PublicIndexStore::open(&resolved)
+        .with_context(|| format!("open {}", resolved.display()))?;
+
+    for record in &seed.model_releases {
+        store
+            .append_model_release(record)
+            .with_context(|| format!("append model release {}", record.id))?;
+    }
+    for record in &seed.provider_offerings {
+        store
+            .append_provider_offering(record)
+            .with_context(|| format!("append provider offering {}", record.id))?;
+    }
+    for record in &seed.worker_profiles {
+        store
+            .append_worker_profile(record)
+            .with_context(|| format!("append worker profile {}", record.id))?;
+    }
+    for record in &seed.evidence {
+        store
+            .append_evidence(record)
+            .with_context(|| format!("append evidence {}", record.id))?;
+    }
+
+    let snapshot = SnapshotRecord::new(
+        seed.snapshot_id.clone(),
+        seed.created_at.clone(),
+        seed.ontology_version.clone(),
+        seed.source_revision.clone(),
+        seed.model_releases.iter().map(|r| r.id.clone()).collect(),
+        seed.provider_offerings
+            .iter()
+            .map(|r| r.id.clone())
+            .collect(),
+        seed.worker_profiles.iter().map(|r| r.id.clone()).collect(),
+        seed.evidence.iter().map(|r| r.id.clone()).collect(),
+    )
+    .context("build snapshot manifest")?;
+    store
+        .append_snapshot(&snapshot)
+        .context("append snapshot")?;
+
+    print_json(&serde_json::json!({
+        "public_index": resolved,
+        "snapshot_id": snapshot.id,
+        "content_sha256": snapshot.content_sha256,
+        "model_releases": seed.model_releases.len(),
+        "provider_offerings": seed.provider_offerings.len(),
+        "worker_profiles": seed.worker_profiles.len(),
+        "evidence": seed.evidence.len(),
+    }))
+}
+
+fn run_allocate(index: &Path, local: &Path, input: &Path, record: bool) -> Result<()> {
+    let request: AllocationRequest = read_json(input)?;
+    let resolved_index = resolve_target(index)?;
+    let resolved_local = resolve_target(local)?;
+    if resolved_index == resolved_local {
+        bail!(
+            "public index and private ledger must use different files: {}",
+            resolved_index.display()
+        );
+    }
+    create_parent(&resolved_index)?;
+    create_parent(&resolved_local)?;
+
+    let public = PublicIndexStore::open(&resolved_index)
+        .with_context(|| format!("open {}", resolved_index.display()))?;
+    let private = PrivateLocalStore::open(&resolved_local)
+        .with_context(|| format!("open {}", resolved_local.display()))?;
+
+    let calibrated = calibrate_candidates(
+        &public,
+        &private,
+        &request.snapshot_id,
+        &request.task,
+        &request.calibration,
+        &request.assumptions,
+        request.at_epoch_ms,
+    )
+    .context("calibrate candidates from the index")?;
+
+    let quote_request = QuoteRequest {
+        decision_id: request.decision_id.clone(),
+        evidence_snapshot_id: request.snapshot_id.clone(),
+        task: request.task.clone(),
+        policy: request.policy.clone(),
+        candidates: calibrated
+            .iter()
+            .map(|candidate| candidate.estimate.clone())
+            .collect(),
+    };
+    let result = quote(&quote_request).context("quote request failed")?;
+
+    let quote_record_value = quote_record(
+        &quote_request,
+        &result,
+        &request.calibration,
+        &request.created_at,
+    )
+    .context("build quote record")?;
+    if record {
+        private
+            .append_quote(&quote_record_value)
+            .context("append quote to the private ledger")?;
+    }
+
+    print_json(&AllocationResult {
+        quote: &result,
+        calibration: calibrated
+            .iter()
+            .map(|candidate| CalibrationSummary {
+                worker_id: &candidate.estimate.worker.identity.worker_id,
+                available: candidate.estimate.worker.available,
+                skills: &candidate.skill_calibrations,
+            })
+            .collect(),
+        recorded: record,
+        request_fingerprint: quote_record_value.request_fingerprint.clone(),
+    })
+}
+
+fn run_outcome(local: &Path, input: &Path) -> Result<()> {
+    let record: PrivateOutcomeRecord = read_json(input)?;
+    let resolved = resolve_target(local)?;
+    create_parent(&resolved)?;
+    let store = PrivateLocalStore::open(&resolved)
+        .with_context(|| format!("open {}", resolved.display()))?;
+    store.append_outcome(&record).context("append outcome")?;
+    print_json(&serde_json::json!({
+        "private_local_ledger": resolved,
+        "worker_id": record.event.worker_id,
+        "skill_id": record.event.skill_id,
+        "accepted": record.event.accepted,
+        "recorded_outcomes": store.outcomes().context("read outcomes")?.len(),
+    }))
 }
 
 fn run_quote(path: &Path) -> Result<()> {
@@ -120,7 +367,7 @@ fn run_learn(path: &Path) -> Result<()> {
     let estimate = posterior
         .estimate(
             request.prior_evidence_count.saturating_add(outcome_count),
-            request.confidence_z,
+            request.confidence_tail_probability,
         )
         .context("estimate posterior")?;
     print_json(&LearningResult {

@@ -1,0 +1,21 @@
+{
+  "_comment": [
+    "One verified local outcome. The deterministic validation kind means a",
+    "test suite decided this, not a model's opinion of its own work.",
+    "Appending several of these and re-running `owi allocate` moves the",
+    "decision: that is the whole loop."
+  ],
+  "decision_id": "decision:example-0001",
+  "event": {
+    "id": "outcome:example-0001-a",
+    "task_id": "task:fix-failing-test",
+    "worker_id": "worker:compact-agent-v1",
+    "skill_id": "skill:rust-debugging",
+    "accepted": false,
+    "validation_kind": "deterministic",
+    "actual_cash_micros": 9000,
+    "actual_quota_milliunits": 0,
+    "latency_ms": 28000,
+    "observed_at": "2026-08-07T01:00:00Z"
+  }
+}

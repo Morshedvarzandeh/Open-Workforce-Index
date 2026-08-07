@@ -56,14 +56,33 @@ impl BetaPosterior {
         self.alpha * self.beta / (total * total * (total + 1.0))
     }
 
-    /// A conservative one-sided lower bound using the beta posterior's normal
-    /// approximation: `mean - z * sqrt(variance)`, clipped to `[0, 1]`.
+    /// The exact one-sided lower credible bound: the `tail_probability`
+    /// quantile of `Beta(alpha, beta)`.
     ///
-    /// Keeping `z` explicit makes the confidence policy inspectable. A value of
-    /// `1.645` approximates a one-sided 95% lower bound. This approximation is
-    /// intentionally dependency-free; consumers needing exact beta quantiles can
-    /// calculate them upstream and still use [`ProbabilityEstimate`].
-    pub fn lower_bound(self, z: f64) -> Result<f64, EngineError> {
+    /// `tail_probability = 0.05` gives a 95% lower bound. The quantile is
+    /// computed from the regularized incomplete beta function rather than a
+    /// normal approximation, because the approximation is *anti-conservative*
+    /// exactly where this gate matters most — few observations and a high
+    /// success rate. At `Beta(6, 1)` (five successes) the normal form reports
+    /// 0.654 against a true bound of 0.607, and the error only becomes
+    /// negligible past roughly a hundred observations. A gate whose purpose is
+    /// conservatism must not overstate the floor for a barely-measured worker.
+    ///
+    /// [`Self::normal_approximation_lower_bound`] preserves the old behaviour
+    /// for comparison and regression testing.
+    pub fn lower_bound(self, tail_probability: f64) -> Result<f64, EngineError> {
+        self.validate()?;
+        if !(0.0..=1.0).contains(&tail_probability) || !tail_probability.is_finite() {
+            return Err(EngineError::InvalidTailProbability(tail_probability));
+        }
+        Ok(beta::quantile(self.alpha, self.beta, tail_probability))
+    }
+
+    /// The superseded `mean - z * sqrt(variance)` bound, clipped to `[0, 1]`.
+    ///
+    /// Retained so the divergence from [`Self::lower_bound`] stays measurable
+    /// in tests. It must not be used as an eligibility gate.
+    pub fn normal_approximation_lower_bound(self, z: f64) -> Result<f64, EngineError> {
         if !z.is_finite() || z < 0.0 {
             return Err(EngineError::InvalidConfidenceMultiplier(z));
         }
@@ -98,15 +117,177 @@ impl BetaPosterior {
     pub fn estimate(
         self,
         evidence_count: u64,
-        confidence_z: f64,
+        tail_probability: f64,
     ) -> Result<ProbabilityEstimate, EngineError> {
         self.validate()?;
         Ok(ProbabilityEstimate {
             success_mean: self.mean(),
-            success_lower_bound: self.lower_bound(confidence_z)?,
+            success_lower_bound: self.lower_bound(tail_probability)?,
             evidence_count,
         })
     }
+}
+
+/// Dependency-free regularized incomplete beta function and its inverse.
+///
+/// The engine deliberately carries this rather than a statistics dependency:
+/// the quantile sits directly in the safety gate, so its implementation should
+/// be readable and auditable in-tree.
+mod beta {
+    use std::f64::consts::PI;
+
+    const LANCZOS_G: f64 = 7.0;
+    const LANCZOS_COEFFICIENTS: [f64; 9] = [
+        0.999_999_999_999_809_9,
+        676.520_368_121_885_1,
+        -1_259.139_216_722_402_8,
+        771.323_428_777_653_1,
+        -176.615_029_162_140_6,
+        12.507_343_278_686_905,
+        -0.138_571_095_265_720_12,
+        9.984_369_578_019_572e-6,
+        1.505_632_735_149_311_6e-7,
+    ];
+
+    /// Lanczos approximation of `ln|Gamma(x)|` for `x > 0`.
+    fn ln_gamma(x: f64) -> f64 {
+        if x < 0.5 {
+            // Reflection formula: Gamma(x)Gamma(1-x) = pi / sin(pi x).
+            (PI / (PI * x).sin().abs()).ln() - ln_gamma(1.0 - x)
+        } else {
+            let shifted = x - 1.0;
+            let mut series = LANCZOS_COEFFICIENTS[0];
+            for (index, coefficient) in LANCZOS_COEFFICIENTS.iter().enumerate().skip(1) {
+                #[allow(clippy::cast_precision_loss)]
+                let denominator = shifted + index as f64;
+                series += coefficient / denominator;
+            }
+            let t = shifted + LANCZOS_G + 0.5;
+            0.5 * (2.0 * PI).ln() + (shifted + 0.5) * t.ln() - t + series.ln()
+        }
+    }
+
+    fn ln_beta(a: f64, b: f64) -> f64 {
+        ln_gamma(a) + ln_gamma(b) - ln_gamma(a + b)
+    }
+
+    /// Modified Lentz evaluation of the continued fraction for `I_x(a, b)`.
+    fn continued_fraction(a: f64, b: f64, x: f64) -> f64 {
+        const MAX_ITERATIONS: usize = 400;
+        const EPSILON: f64 = 3e-16;
+        const TINY: f64 = 1e-300;
+
+        let qab = a + b;
+        let qap = a + 1.0;
+        let qam = a - 1.0;
+        let mut c = 1.0_f64;
+        let mut d = 1.0 - qab * x / qap;
+        if d.abs() < TINY {
+            d = TINY;
+        }
+        d = 1.0 / d;
+        let mut h = d;
+
+        for iteration in 1..=MAX_ITERATIONS {
+            #[allow(clippy::cast_precision_loss)]
+            let m = iteration as f64;
+            let m2 = 2.0 * m;
+
+            let even = m * (b - m) * x / ((qam + m2) * (a + m2));
+            d = 1.0 + even * d;
+            if d.abs() < TINY {
+                d = TINY;
+            }
+            c = 1.0 + even / c;
+            if c.abs() < TINY {
+                c = TINY;
+            }
+            d = 1.0 / d;
+            h *= d * c;
+
+            let odd = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+            d = 1.0 + odd * d;
+            if d.abs() < TINY {
+                d = TINY;
+            }
+            c = 1.0 + odd / c;
+            if c.abs() < TINY {
+                c = TINY;
+            }
+            d = 1.0 / d;
+            let delta = d * c;
+            h *= delta;
+
+            if (delta - 1.0).abs() < EPSILON {
+                break;
+            }
+        }
+        h
+    }
+
+    /// The regularized incomplete beta function `I_x(a, b)`, i.e. the CDF of
+    /// `Beta(a, b)` evaluated at `x`.
+    pub fn cdf(a: f64, b: f64, x: f64) -> f64 {
+        if !x.is_finite() || x <= 0.0 {
+            return 0.0;
+        }
+        if x >= 1.0 {
+            return 1.0;
+        }
+        let front = (a * x.ln() + b * (-x).ln_1p() - ln_beta(a, b)).exp();
+        // The continued fraction converges quickly only on its own side of the
+        // distribution's mode, so mirror the arguments past the crossover.
+        if x < (a + 1.0) / (a + b + 2.0) {
+            (front * continued_fraction(a, b, x) / a).clamp(0.0, 1.0)
+        } else {
+            (1.0 - front * continued_fraction(b, a, 1.0 - x) / b).clamp(0.0, 1.0)
+        }
+    }
+
+    /// The `probability` quantile of `Beta(a, b)`, found by bisection on the
+    /// monotone CDF. Bisection is used in preference to Newton steps because it
+    /// cannot overshoot near `0` or `1`, where the gate operates.
+    pub fn quantile(a: f64, b: f64, probability: f64) -> f64 {
+        if probability <= 0.0 {
+            return 0.0;
+        }
+        if probability >= 1.0 {
+            return 1.0;
+        }
+        let mut low = 0.0_f64;
+        let mut high = 1.0_f64;
+        for _ in 0..128 {
+            let mid = 0.5 * (low + high);
+            if mid <= low || mid >= high {
+                break;
+            }
+            if cdf(a, b, mid) < probability {
+                low = mid;
+            } else {
+                high = mid;
+            }
+        }
+        0.5 * (low + high)
+    }
+}
+
+/// Which point of the success posterior prices the retry term.
+///
+/// The eligibility gate is always conservative — it uses the lower bound. The
+/// objective is a separate choice, because an expectation is ordinarily taken
+/// at the mean. Making it explicit matters: under [`Self::Mean`], `Beta(2, 1)`
+/// and `Beta(60, 30)` share a mean and therefore rank identically, even though
+/// one is a guess and the other is measured. [`Self::LowerBound`] prices that
+/// uncertainty into the retry term instead of discarding it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureProbabilityBasis {
+    /// Price retries at `1 - success_mean`. A true expected value.
+    #[default]
+    Mean,
+    /// Price retries at `1 - success_lower_bound`, so a wide posterior is
+    /// charged for its own uncertainty.
+    LowerBound,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -123,6 +304,17 @@ pub struct RoutingPolicy {
     /// an arbitrary worker merely by naming it in its estimate.
     #[serde(default)]
     pub authorized_checker_worker_ids: BTreeSet<WorkerId>,
+    /// Which point of the posterior prices the retry term.
+    #[serde(default)]
+    pub failure_probability_basis: FailureProbabilityBasis,
+    /// Total attempts allowed, including the first. `2` means one retry, which
+    /// is the historical single-retry behaviour and remains the default.
+    #[serde(default = "default_max_attempts")]
+    pub max_attempts: u32,
+}
+
+const fn default_max_attempts() -> u32 {
+    2
 }
 
 impl RoutingPolicy {
@@ -142,7 +334,18 @@ impl RoutingPolicy {
                 "policy.authorized_checker_worker_ids",
             ));
         }
+        if self.max_attempts == 0 {
+            return Err(EngineError::InvalidMaxAttempts(self.max_attempts));
+        }
         Ok(())
+    }
+
+    fn failure_probability(&self, estimate: &ProbabilityEstimate) -> f64 {
+        let success = match self.failure_probability_basis {
+            FailureProbabilityBasis::Mean => estimate.success_mean,
+            FailureProbabilityBasis::LowerBound => estimate.success_lower_bound,
+        };
+        (1.0 - success).clamp(0.0, 1.0)
     }
 }
 
@@ -255,6 +458,15 @@ pub enum IneligibilityReason {
     TaskConfidenceBelowMinimum {
         lower_bound: f64,
         minimum: f64,
+    },
+    InsufficientTaskEvidence {
+        evidence_count: u64,
+        minimum: u64,
+    },
+    InsufficientSkillEvidence {
+        skill_id: SkillId,
+        evidence_count: u64,
+        minimum: u64,
     },
     CurrencyMismatch {
         expected: String,
@@ -475,16 +687,25 @@ fn ineligibility_reasons(
             continue;
         }
         match estimate.skill_estimates.get(&requirement.skill_id) {
-            Some(skill_estimate)
-                if skill_estimate.success_lower_bound < requirement.minimum_success_probability =>
-            {
-                reasons.push(IneligibilityReason::SkillConfidenceBelowMinimum {
-                    skill_id: requirement.skill_id.clone(),
-                    lower_bound: skill_estimate.success_lower_bound,
-                    minimum: requirement.minimum_success_probability,
-                });
+            Some(skill_estimate) => {
+                if skill_estimate.success_lower_bound < requirement.minimum_success_probability {
+                    reasons.push(IneligibilityReason::SkillConfidenceBelowMinimum {
+                        skill_id: requirement.skill_id.clone(),
+                        lower_bound: skill_estimate.success_lower_bound,
+                        minimum: requirement.minimum_success_probability,
+                    });
+                }
+                // A bound without observations behind it is an assertion, not
+                // evidence. Check it separately so the quote says which of the
+                // two failed.
+                if skill_estimate.evidence_count < requirement.minimum_evidence_count {
+                    reasons.push(IneligibilityReason::InsufficientSkillEvidence {
+                        skill_id: requirement.skill_id.clone(),
+                        evidence_count: skill_estimate.evidence_count,
+                        minimum: requirement.minimum_evidence_count,
+                    });
+                }
             }
-            Some(_) => {}
             None => reasons.push(IneligibilityReason::MissingSkillEstimate {
                 skill_id: requirement.skill_id.clone(),
             }),
@@ -500,6 +721,12 @@ fn ineligibility_reasons(
         reasons.push(IneligibilityReason::TaskConfidenceBelowMinimum {
             lower_bound: estimate.success.success_lower_bound,
             minimum: task.minimum_success_probability,
+        });
+    }
+    if estimate.success.evidence_count < task.minimum_evidence_count {
+        reasons.push(IneligibilityReason::InsufficientTaskEvidence {
+            evidence_count: estimate.success.evidence_count,
+            minimum: task.minimum_evidence_count,
         });
     }
     if worker.cost.currency != policy.currency {
@@ -572,9 +799,12 @@ fn cost_breakdown(
         worker_id,
         "run_cash_micros",
     )?;
-    let failure_probability = 1.0 - estimate.success.success_mean;
-    let expected_failure_cash_micros =
-        probability_weighted_cost(estimate.expected_fallback_cash_micros, failure_probability);
+    let failure_probability = policy.failure_probability(&estimate.success);
+    let expected_failure_cash_micros = expected_retry_cost(
+        estimate.expected_fallback_cash_micros,
+        failure_probability,
+        policy.max_attempts,
+    );
     let run_and_review_cash_micros = checked_add_cost(
         run_cash_micros,
         estimate.expected_review_cash_micros,
@@ -654,19 +884,43 @@ fn checked_add_cost(
         })
 }
 
+/// Expected retry spend over `max_attempts` total attempts.
+///
+/// Each attempt fails independently with `failure_probability`, so attempt
+/// `k + 1` is reached with probability `failure_probability^k` and the expected
+/// extra spend is `fallback * sum_{k=1}^{max_attempts-1} failure_probability^k`.
+///
+/// With the default `max_attempts = 2` this reduces to the original
+/// `(1 - p) * fallback`. The general form matters because the single-retry
+/// model assumes the fallback always succeeds, which systematically flatters
+/// cheap unreliable workers — the precise error this engine exists to avoid.
+fn expected_retry_cost(
+    fallback_cash_micros: u64,
+    failure_probability: f64,
+    max_attempts: u32,
+) -> u64 {
+    if fallback_cash_micros == 0 || failure_probability <= 0.0 || max_attempts <= 1 {
+        return 0;
+    }
+    let mut weight = 0.0_f64;
+    let mut term = 1.0_f64;
+    for _ in 1..max_attempts {
+        term *= failure_probability;
+        weight += term;
+    }
+    probability_weighted_cost(fallback_cash_micros, weight)
+}
+
 #[allow(
     clippy::cast_possible_truncation,
     clippy::cast_precision_loss,
     clippy::cast_sign_loss
 )]
-fn probability_weighted_cost(cost_micros: u64, probability: f64) -> u64 {
-    if cost_micros == 0 || probability <= 0.0 {
+fn probability_weighted_cost(cost_micros: u64, weight: f64) -> u64 {
+    if cost_micros == 0 || weight <= 0.0 {
         return 0;
     }
-    if probability >= 1.0 {
-        return cost_micros;
-    }
-    let weighted = (cost_micros as f64 * probability).ceil();
+    let weighted = (cost_micros as f64 * weight).ceil();
     if weighted >= u64::MAX as f64 {
         u64::MAX
     } else {
@@ -764,6 +1018,10 @@ pub enum EngineError {
     },
     #[error("confidence multiplier must be finite and non-negative, got {0}")]
     InvalidConfidenceMultiplier(f64),
+    #[error("tail probability must be finite and within [0, 1], got {0}")]
+    InvalidTailProbability(f64),
+    #[error("policy.max_attempts must be at least 1, got {0}")]
+    InvalidMaxAttempts(u32),
 }
 
 #[cfg(test)]
@@ -779,10 +1037,90 @@ mod tests {
 
     const EMPTY_SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
+    /// Reference 5th percentiles of `Beta(alpha, beta)`, computed independently
+    /// by numerical quadrature of the density. These pin the quantile against a
+    /// source outside its own implementation.
+    const BETA_FIFTH_PERCENTILE: [(f64, f64, f64); 8] = [
+        (1.0, 1.0, 0.050),
+        (5.0, 0.5, 0.668),
+        (6.0, 1.0, 0.607),
+        (9.0, 1.0, 0.717),
+        (19.0, 1.0, 0.854),
+        (8.0, 2.0, 0.571),
+        (45.0, 5.0, 0.823),
+        (90.0, 10.0, 0.847),
+    ];
+
+    #[test]
+    fn exact_lower_bound_matches_independently_computed_quantiles() {
+        for (alpha, beta, expected) in BETA_FIFTH_PERCENTILE {
+            let bound = BetaPosterior::new(alpha, beta)
+                .expect("valid posterior")
+                .lower_bound(0.05)
+                .expect("valid tail probability");
+            assert!(
+                (bound - expected).abs() < 1e-3,
+                "Beta({alpha}, {beta}): got {bound}, expected {expected}"
+            );
+        }
+    }
+
+    /// The reason the normal approximation was replaced: it overstates the
+    /// floor precisely when a worker is barely measured, which is the default
+    /// state of every newly discovered model.
+    #[test]
+    fn normal_approximation_is_anti_conservative_for_sparse_evidence() {
+        for (alpha, beta, exact) in BETA_FIFTH_PERCENTILE {
+            if alpha + beta > 20.0 {
+                continue;
+            }
+            let posterior = BetaPosterior::new(alpha, beta).expect("valid posterior");
+            let approximate = posterior
+                .normal_approximation_lower_bound(1.645)
+                .expect("valid z");
+            if (alpha, beta) == (1.0, 1.0) {
+                // The uniform prior is the one case the approximation is safe.
+                assert!(approximate <= exact + 1e-9);
+                continue;
+            }
+            assert!(
+                approximate > exact + 1e-3,
+                "Beta({alpha}, {beta}): approximation {approximate} should overstate {exact}"
+            );
+        }
+    }
+
+    #[test]
+    fn beta_cdf_and_quantile_are_mutually_consistent() {
+        for (alpha, beta) in [(2.0, 5.0), (7.0, 3.0), (1.5, 1.5), (60.0, 30.0)] {
+            for probability in [0.01, 0.05, 0.25, 0.5, 0.75, 0.99] {
+                let x = beta::quantile(alpha, beta, probability);
+                let round_trip = beta::cdf(alpha, beta, x);
+                assert!(
+                    (round_trip - probability).abs() < 1e-6,
+                    "Beta({alpha}, {beta}) at p={probability}: cdf(quantile(p)) = {round_trip}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn lower_bound_rejects_a_tail_probability_outside_the_unit_interval() {
+        let posterior = BetaPosterior::new(2.0, 2.0).expect("valid posterior");
+        assert_eq!(
+            posterior.lower_bound(1.645),
+            Err(EngineError::InvalidTailProbability(1.645))
+        );
+        assert_eq!(
+            posterior.lower_bound(-0.1),
+            Err(EngineError::InvalidTailProbability(-0.1))
+        );
+    }
+
     #[test]
     fn beta_posterior_updates_are_transparent() {
         let mut posterior = BetaPosterior::new(1.0, 1.0).expect("valid prior");
-        let initial_lower = posterior.lower_bound(1.645).expect("valid z");
+        let initial_lower = posterior.lower_bound(0.05).expect("valid tail probability");
         posterior.observe(8.0, 2.0).expect("valid observation");
 
         assert_eq!(
@@ -793,7 +1131,7 @@ mod tests {
             }
         );
         assert!((posterior.mean() - 0.75).abs() < 1e-12);
-        assert!(posterior.lower_bound(1.645).expect("valid z") > initial_lower);
+        assert!(posterior.lower_bound(0.05).expect("valid tail probability") > initial_lower);
     }
 
     #[test]
@@ -1163,6 +1501,7 @@ mod tests {
                 required_skills: vec![SkillRequirement {
                     skill_id: "skill:rust".into(),
                     minimum_success_probability: 0.6,
+                    minimum_evidence_count: 0,
                 }],
                 required_tools: BTreeSet::from(["shell".to_owned()]),
                 allowed_providers: BTreeSet::new(),
@@ -1170,6 +1509,7 @@ mod tests {
                 risk: RiskLevel::Low,
                 verification: VerificationPolicy::Deterministic,
                 minimum_success_probability: 0.6,
+                minimum_evidence_count: 0,
                 max_expected_cash_micros: None,
                 max_p95_latency_ms: None,
                 estimated_input_tokens: 100,
@@ -1181,6 +1521,8 @@ mod tests {
                 quota_shadow_cash_micros_per_unit: 20,
                 max_expected_quota_milliunits: None,
                 authorized_checker_worker_ids: BTreeSet::new(),
+                failure_probability_basis: FailureProbabilityBasis::Mean,
+                max_attempts: 2,
             },
             candidates,
         }

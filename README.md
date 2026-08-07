@@ -9,9 +9,16 @@ The project is not a universal model leaderboard. Public benchmarks provide a
 weak starting prior. Verified results from your own tasks and repositories
 become the stronger, private signal.
 
-> **Status:** v0.1 decision kernel and storage foundation. The CLI demonstrates
-> quoting and evidence updates from fixtures; source ingestion, persisted
-> end-to-end decisions, provider execution, and repository writes are planned.
+> **Status:** v0.1 decision kernel, storage foundation, and a closed decision
+> loop. `owi seed → allocate → outcome → allocate` derives candidates from
+> stored evidence, records the decision, and lets verified local outcomes
+> change the next one.
+>
+> **What is not here yet: real data.** Every price and benchmark score in
+> `examples/` is a labelled placeholder. The project deliberately ships no
+> number it has not verified. Provider execution, source ingestion adapters,
+> and the benchmark runner that would produce real evidence are the v0.2 work,
+> and until they exist OWI is a mechanism without a measurement.
 
 ## Why OWI
 
@@ -78,6 +85,7 @@ See [Architecture](docs/ARCHITECTURE.md) and the
 | `workforce-domain` | Provider-neutral types and invariants |
 | `workforce-engine` | Confidence estimates, eligibility, ranking, Pareto set, explanations |
 | `workforce-store` | Physically separate public and private SQLite ledgers |
+| `workforce-allocator` | Calibrates stored evidence into candidates and records decisions back |
 | `workforce-kg` | Public-only graph boundary and ontology syntax gate |
 | `workforce-cli` | Executable demonstration of the decision kernel |
 
@@ -96,15 +104,57 @@ Prerequisites: Rust 1.87 or newer.
 ```bash
 cargo test --workspace
 cargo run -p workforce-cli -- ontology validate
-cargo run -p workforce-cli -- database init
 cargo run -p workforce-cli -- quote --input examples/quote-request.json
 cargo run -p workforce-cli -- quote --input examples/cad-quote-request.json
-cargo run -p workforce-cli -- learn --input examples/learning-request.json
 ```
 
 The quote output lists both eligible and rejected workers, the hard constraint
 behind every rejection, confidence bounds, expected accepted-result cost, the
 Pareto frontier, and why the winner was selected.
+
+`quote` takes candidate estimates as input, which is useful for exercising the
+engine in isolation but means the caller supplies the success probabilities the
+engine is supposed to be reasoning about. `allocate` derives them instead:
+
+```bash
+owi seed     --index .data/index.sqlite --input examples/index-seed.json
+owi allocate --index .data/index.sqlite --local .data/local.sqlite \
+             --input examples/allocation-request.json --record
+owi outcome  --local .data/local.sqlite --input examples/outcome-rejected.json
+owi allocate --index .data/index.sqlite --local .data/local.sqlite \
+             --input examples/allocation-request.json
+```
+
+`examples/allocation-request.json` contains no success probabilities, no
+confidence bounds, and no per-worker abilities. Those come from the seeded
+evidence and the private outcome history. What the request does carry is named
+explicitly as `assumptions`: retry cost, latency, and tool spend describe your
+workflow, not the worker.
+
+### The loop, and why it matters
+
+Run the sequence above and the selected worker changes. With only public
+evidence, the cheap worker wins:
+
+```text
+#1 worker:compact-agent-v1   mean=0.540  run=9000   retry=69000  total=78000
+#2 worker:balanced-agent-v1  mean=0.820  run=72000  retry=27001  total=99001
+```
+
+After six verified local failures on the cheap worker, it loses:
+
+```text
+#1 worker:balanced-agent-v1  mean=0.820  run=72000  retry=27001  total=99001
+#2 worker:compact-agent-v1   mean=0.338  run=9000   retry=99375  total=108375
+```
+
+The cheap worker never stopped being eight times cheaper per run. It stopped
+being cheaper per *accepted result*, and only local evidence could show that.
+Note also that the chat worker's 0.97 conversation score contributes nothing to
+its debugging estimate — it stays at the bare `Beta(1, 1)` prior, because that
+evidence measured a different skill.
+
+CI asserts this flip on every push, so the loop cannot silently rot.
 
 CAD is only one fixture for the general rule. It demonstrates
 application-aware routing by rejecting a cheap, strong conversation worker that
@@ -122,73 +172,16 @@ artifact skill—for example, legal factuality is not CAD generation ability.
 The person chooses the optimization policy and limits; OWI recommends the
 eligible worker and explains the trade-off.
 
-## Browser advisor (planned)
+## Deferred designs
 
-A planned Chrome Manifest V3 client will put OWI in a side panel and an explicit
-“recommend selected text” context-menu action. It will offer three modes:
+Three designed-but-unbuilt products live in [`docs/future/`](docs/future/): a
+browser advisor, private Git-project cost accounting, and environmental impact
+accounting. They were moved out of the ADR directory because an ADR is a
+commitment, and none of them changes whether the routing thesis is true.
 
-- `recommend` classifies the requested work product into a reviewable task
-  contract, then explains the best configured workers, better alternatives that
-  require setup, and excluded workers;
-- `run` executes only an explicitly approved direct-API or local worker under a
-  maximum-spend lease and hard task/project/provider caps; and
-- `project` shows private Git-project usage, cost, environmental coverage, and
-  the separately labeled counterfactual optimization estimate.
-
-Application fit comes before ranking. The same page can produce a conversation
-task or a CAD task depending on the requested artifact and acceptance checks;
-the browser brand or website does not decide the model. Detection confidence,
-adapter version, required skills/tools, and exclusions remain visible and
-correctable.
-
-The extension will be a thin client of the local Rust service, preferably over
-Native Messaging. It will not request access to all sites by default, extract
-consumer AI sessions, or keep provider credentials. Page or selected-text
-context is shared only after an explicit preview. Provider websites use a
-copy/deep-link/manual-import path; automatic `run` uses an official API or local
-adapter with credentials held locally.
-
-For a direct run, the panel will show a pre-run quote and approval, a live
-planner/maker/checker/retry/tool timeline, streamed output or local artifact
-references, and an actual-versus-estimated receipt by model and project. OWI
-will never auto-buy credits or top up an account. Raw prompt/output display,
-local persistence, redaction, and export are separate consent choices. Chrome
-is the first target; Edge and Brave packages follow compatibility testing.
-The client and all advisor/run/project interfaces are planned and are not part
-of v0.1. See [ADR 0008](docs/adr/0008-browser-advisor-and-execution-boundary.md).
-
-## Project cost reporting (planned v0.2)
-
-OWI will attribute model calls, retries, independent checks, paid tools, and
-explicit subscription shares to private Git project IDs. Each report will be
-derived from one append-only usage ledger and will include a zero-difference
-reconciliation check. Unknown historical attribution stays visible instead of
-being guessed.
-
-The intended local commands are shown below; they are design targets and are
-not implemented in v0.1:
-
-```bash
-# Planned v0.2 commands
-owi project register --repo . --name open-workforce-index
-owi usage ingest --adapter generic-json --input usage.json
-owi report project --project-id PROJECT_ID --from 2026-08-01 --to 2026-09-01
-owi report reconcile
-owi report savings --project-id PROJECT_ID --baseline-policy POLICY_ID
-```
-
-Spend and resource usage will be broken down by exact worker/model, task,
-provider, and attempt role. Subscription attribution will be separate from
-direct cash. Optimization benefit will be labeled a counterfactual estimate
-with its baseline and coverage—not reported as cash that was definitely saved.
-
-The same report contract keeps energy, location-based and market-based CO2e,
-water consumption, and water withdrawal separate. Every estimate carries a
-measurement boundary, source, date, uncertainty or quality grade, and coverage.
-Missing provider data is `unknown`, never zero, and provider-wide figures are
-not silently assigned to a specific model. See the illustrative
-[`project-report.json`](examples/project-report.json) and
-[ADR 0007](docs/adr/0007-environmental-impact-accounting.md).
+They come back when the thing they account for exists. See
+[`docs/future/README.md`](docs/future/README.md) for the invariants worth
+keeping in the meantime.
 
 ## Selection policy
 

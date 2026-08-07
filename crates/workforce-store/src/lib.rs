@@ -2327,7 +2327,12 @@ fn worker_identity(
     }
 }
 
-fn worker_configuration_sha256(identity: &WorkerIdentity) -> String {
+/// SHA-256 over a worker identity's canonical configuration key.
+///
+/// Exposed because any source adapter that appends a [`WorkerProfileRecord`]
+/// must supply this digest, and the store rejects a record whose digest it
+/// cannot reproduce.
+pub fn worker_configuration_sha256(identity: &WorkerIdentity) -> String {
     lower_hex(&Sha256::digest(identity.configuration_key().as_bytes()))
 }
 

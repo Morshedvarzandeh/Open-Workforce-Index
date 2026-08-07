@@ -1,27 +1,21 @@
 [package]
-name = "workforce-cli"
-description = "Command-line interface for the Open Workforce Index"
+name = "workforce-allocator"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-
-[[bin]]
-name = "owi"
-path = "src/main.rs"
+description = "Calibrates stored evidence into engine candidates and records decisions back to the private ledger"
 
 [dependencies]
-anyhow.workspace = true
-clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
 workforce-domain = { path = "../workforce-domain" }
 workforce-engine = { path = "../workforce-engine" }
-workforce-kg = { path = "../workforce-kg" }
 workforce-store = { path = "../workforce-store" }
-workforce-allocator = { path = "../workforce-allocator" }
 
 [lints]
 workspace = true
