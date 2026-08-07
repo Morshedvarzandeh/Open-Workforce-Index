@@ -264,9 +264,20 @@
       })() : ""}
       <div class="verdict"><span>${LIVE ? "then:" : "after you run it:"}</span>
         <button type="button" id="yes">worked</button>
-        <button type="button" class="no" id="no">didn't</button></div>`;
+        <button type="button" class="no" id="no">didn't</button></div>
+      <div class="verdict" id="causes" hidden>
+        <span>why? — only "the model" counts against it:</span>
+        <button type="button" data-cause="worker">the model</button>
+        <button type="button" class="no" data-cause="task_spec">unclear task</button>
+        <button type="button" class="no" data-cause="environment">my setup</button>
+      </div>`;
     document.getElementById("yes").onclick = () => verdict(true);
-    document.getElementById("no").onclick = () => verdict(false);
+    document.getElementById("no").onclick = () => {
+      document.getElementById("causes").hidden = false;
+    };
+    document.getElementById("causes").addEventListener("click", (e) => {
+      if (e.target.dataset.cause) verdict(false, e.target.dataset.cause);
+    });
     if (LIVE && document.getElementById("go"))
       document.getElementById("go").onclick = () => {
         last = { skill, id: window.__runTarget }; runIt(text); };
@@ -289,14 +300,14 @@
     } catch (error) { state.textContent = "server went away"; }
   }
 
-  async function verdict(worked) {
+  async function verdict(worked, cause) {
     if (!last) return;
     if (LIVE) {
       try {
         const response = await fetch("/api/outcome", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ worker: last.id, skill: last.skill,
-                                 accepted: worked }) });
+                                 accepted: worked, cause }) });
         const result = await response.json();
         if (result.ok) { LIVE = result.data;
           render({ cls: worked ? "up" : "down",
@@ -308,7 +319,9 @@
     const store = local();
     store[last.skill] = store[last.skill] || {};
     const mine = store[last.skill][last.id] || { s: 0, f: 0 };
-    if (worked) mine.s += 1; else mine.f += 1;
+    // Only worker-caused failures count against the model, here too.
+    if (worked) mine.s += 1;
+    else if (!cause || cause === "worker") mine.f += 1;
     store[last.skill][last.id] = mine;
     save(store);
     const p = posterior(last.skill, last.id);

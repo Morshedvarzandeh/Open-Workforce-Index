@@ -172,20 +172,41 @@ def pick(home: Path, task: str, skill: str, tokens_in: int, tokens_out: int,
                "--input", str(request_path), "--record")
 
 
-def record_outcome(home: Path, worker: str, skill: str, accepted: bool) -> None:
-    record = {"event": {
+def record_outcome(home: Path, worker: str, skill: str, accepted: bool,
+                   cause: str | None = None) -> None:
+    """Record a verified outcome. On rejection, `cause` names the root cause;
+    only 'worker' (the default) counts against the model's evidence."""
+    event = {
         "id": f"outcome:do-{int(time.time())}",
         "task_id": f"task:do-{int(time.time())}",
         "worker_id": worker, "skill_id": skill, "accepted": accepted,
         "validation_kind": "human",
         "actual_cash_micros": 0, "actual_quota_milliunits": 0,
         "latency_ms": 0,
-        "observed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}}
+        "observed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    if not accepted and cause:
+        event["metadata"] = {"root_cause": cause}
     path = home / "last-outcome.json"
-    path.write_text(json.dumps(record, indent=2))
+    path.write_text(json.dumps({"event": event}, indent=2))
     owi("outcome", "--local", str(home / "local.sqlite"), "--input", str(path))
-    print(f"recorded: {'accepted' if accepted else 'rejected'} — "
+    blame = "" if accepted else (
+        " (held against the model)" if (cause or "worker") == "worker"
+        else f" (root cause: {cause} — not held against the model)")
+    print(f"recorded: {'accepted' if accepted else 'rejected'}{blame} — "
           "the next pick will know", file=sys.stderr)
+
+
+CAUSES = {"m": "worker", "t": "task_spec", "s": "environment", "h": "harness"}
+
+
+def ask_cause() -> str:
+    try:
+        answer = input(
+            "why? [m]odel's fault / [t]ask unclear / my [s]etup / "
+            "[h]arness (enter = model) ").strip().lower()
+    except EOFError:
+        return "worker"
+    return CAUSES.get(answer[:1], "worker") if answer else "worker"
 
 
 def main() -> int:
@@ -201,6 +222,10 @@ def main() -> int:
                         help="execute via your configured runner and record the outcome")
     parser.add_argument("--accepted", choices=["y", "n"],
                         help="record the result without prompting (for scripts)")
+    parser.add_argument("--cause",
+                        choices=["worker", "task_spec", "harness", "environment"],
+                        help="root cause when rejecting; only 'worker' counts "
+                             "against the model (default: worker)")
     parser.add_argument("--home", type=Path, default=REPO / ".owi-quick")
     arguments = parser.parse_args()
 
@@ -275,12 +300,16 @@ def main() -> int:
     print("-" * 60)
 
     if arguments.accepted:
-        record_outcome(arguments.home, worker, skill, arguments.accepted == "y")
-    elif sys.stdin.isatty() or True:
+        record_outcome(arguments.home, worker, skill, arguments.accepted == "y",
+                       arguments.cause if arguments.accepted == "n" else None)
+    else:
         try:
             answer = input("accepted? [y/n] ").strip().lower()
-            if answer in ("y", "n"):
-                record_outcome(arguments.home, worker, skill, answer == "y")
+            if answer == "y":
+                record_outcome(arguments.home, worker, skill, True)
+            elif answer == "n":
+                record_outcome(arguments.home, worker, skill, False,
+                               arguments.cause or ask_cause())
             else:
                 print("not recorded (answer y or n next time)", file=sys.stderr)
         except EOFError:

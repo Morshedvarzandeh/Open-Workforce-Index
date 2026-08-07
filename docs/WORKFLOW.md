@@ -122,6 +122,24 @@ Deterministic tasks from your own test suite, calibrated both ways before a
 cent is spent, outcomes fed straight into the same ledger every level above
 reads. Full detail: [BENCHMARKING.md](BENCHMARKING.md).
 
+## When it fails: root cause before blame
+
+A rejection is not automatically the model's fault. When you answer `n`, the
+tools ask *why* — and only one answer counts against the worker:
+
+| root cause | meaning | held against the model? |
+|---|---|---|
+| `worker` (default) | the model's output was wrong | **yes** |
+| `task_spec` | the task was ambiguous or wrong | no — fix the manifest |
+| `harness` | the plumbing mangled it | no — fix the tooling |
+| `environment` | your setup broke it | no — fix the setup |
+
+Excused failures stay in the ledger (reported as `excused_outcome_count`) but
+never enter the worker's posterior. When the root cause *is* the model, the
+ordinary mechanism does the rest: its estimate drops, it re-ranks, and below
+the quality floor it is retired — the model gets changed by evidence, and only
+for failures that were actually its own.
+
 ## What lives where
 
 | file | what it is |

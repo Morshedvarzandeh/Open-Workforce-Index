@@ -166,7 +166,12 @@ class Handler(BaseHTTPRequestHandler):
             if not worker.startswith("worker:") or not skill.startswith("skill:"):
                 self._json(400, {"error": "bad worker or skill"})
                 return
-            owi_do.record_outcome(self.home, worker, skill, accepted)
+            cause = body.get("cause")
+            if cause not in (None, "worker", "task_spec", "harness", "environment"):
+                self._json(400, {"error": "bad cause"})
+                return
+            owi_do.record_outcome(self.home, worker, skill, accepted,
+                                  None if accepted else cause)
             with self.lock:
                 Handler.data = harvest(self.home)
                 self._json(200, {"ok": True, "data": self.data})

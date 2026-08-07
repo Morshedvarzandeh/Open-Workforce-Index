@@ -126,6 +126,11 @@ pub struct SkillCalibration {
     /// Observations skipped because no score in `[0, 1]` could be read without
     /// inventing a normalization. Surfaced rather than silently dropped.
     pub unusable_observation_count: u64,
+    /// Rejections excluded from this worker's evidence because their recorded
+    /// root cause was the task spec, the harness, or the environment — someone
+    /// else's failure, kept in the ledger but not held against the worker.
+    #[serde(default)]
+    pub excused_outcome_count: u64,
 }
 
 /// A candidate plus the derivation of every number in it.
@@ -540,9 +545,14 @@ fn calibrate_skill(
     }
 
     let mut private_outcome_count = 0_u64;
+    let mut excused_outcome_count = 0_u64;
     for outcome in outcomes {
         let event = &outcome.event;
         if &event.worker_id != worker_id || &event.skill_id != skill_id {
+            continue;
+        }
+        if !attributable_to_worker(outcome) {
+            excused_outcome_count += 1;
             continue;
         }
         posterior.observe_outcome(event.accepted, calibration.private_outcome_weight)?;
@@ -559,7 +569,33 @@ fn calibrate_skill(
         public_observation_count,
         private_outcome_count,
         unusable_observation_count,
+        excused_outcome_count,
     })
+}
+
+/// Whether a recorded outcome is admissible as evidence about the worker.
+///
+/// A failure is only the worker's failure when its root cause was the worker.
+/// Task-spec, harness, and environment failures are real events worth keeping
+/// in the ledger, but folding them into the worker's posterior would punish a
+/// model for someone else's bug and corrupt every later routing decision.
+/// The cause rides in `OutcomeEvent::metadata` as `{"root_cause": "..."}`;
+/// an absent or unrecognised cause defaults to `worker`, preserving the
+/// original conservative behaviour. Accepted outcomes always count — a
+/// success is a success regardless of whose pipeline carried it.
+fn attributable_to_worker(outcome: &PrivateOutcomeRecord) -> bool {
+    if outcome.event.accepted {
+        return true;
+    }
+    match outcome
+        .event
+        .metadata
+        .get("root_cause")
+        .and_then(|v| v.as_str())
+    {
+        Some("task_spec" | "harness" | "environment") => false,
+        _ => true,
+    }
 }
 
 /// A benchmark score is usable as a pass rate only if it already lies in
@@ -587,7 +623,7 @@ fn task_estimate(
         let mut posterior = BetaPosterior::new(calibration.prior_alpha, calibration.prior_beta)?;
         let mut count = 0_u64;
         for outcome in outcomes {
-            if &outcome.event.worker_id != worker_id {
+            if &outcome.event.worker_id != worker_id || !attributable_to_worker(outcome) {
                 continue;
             }
             posterior
@@ -1388,6 +1424,50 @@ mod tests {
             assumptions.expected_review_cash_micros(&WorkerId::new("w"), 0.9, 30_000),
             500
         );
+    }
+
+    /// A failure whose root cause was not the worker must not lower the
+    /// worker's estimate — blaming a model for a harness bug corrupts every
+    /// later routing decision. A worker-caused failure still counts, and an
+    /// absent cause conservatively defaults to the worker.
+    #[test]
+    fn only_worker_caused_failures_count_against_the_worker() {
+        let (public, snapshot_id) = seeded_index();
+        let private = PrivateLocalStore::in_memory().expect("open private ledger");
+        let (_, _, before) = run_quote(&public, &private, &snapshot_id, &task(0));
+        let baseline = before[0].estimate.success.success_mean;
+
+        // Three failures excused to other causes, one blamed on the worker,
+        // one with no recorded cause (defaults to the worker).
+        for (index, cause) in [
+            (0, Some("environment")),
+            (1, Some("harness")),
+            (2, Some("task_spec")),
+            (3, Some("worker")),
+            (4, None),
+        ] {
+            let mut record = failure(&format!("outcome:rc-{index}"), "worker:cheap");
+            // No quote was recorded in this test; an unlinked outcome is valid.
+            record.decision_id = None;
+            if let Some(cause) = cause {
+                record.event.metadata = serde_json::json!({ "root_cause": cause });
+            }
+            private.append_outcome(&record).expect("append outcome");
+        }
+
+        let (_, _, after) = run_quote(&public, &private, &snapshot_id, &task(0));
+        let calibrated = &after[0].skill_calibrations[0];
+
+        // Exactly two failures were admissible evidence; three were excused.
+        assert_eq!(calibrated.private_outcome_count, 2);
+        assert_eq!(calibrated.excused_outcome_count, 3);
+        let expected = {
+            let mut posterior = before[0].skill_calibrations[0].posterior;
+            posterior.observe(0.0, 2.0).expect("two failures");
+            posterior.mean()
+        };
+        assert!((after[0].estimate.success.success_mean - expected).abs() < 1e-9);
+        assert!(after[0].estimate.success.success_mean < baseline);
     }
 
     /// A snapshot whose digest no longer matches must not produce candidates.
