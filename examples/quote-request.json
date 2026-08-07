@@ -17,7 +17,7 @@
     "risk": "low",
     "verification": "deterministic",
     "minimum_success_probability": 0.72,
-    "max_expected_cash_micros": 12000,
+    "max_expected_cash_micros": 20000,
     "max_p95_latency_ms": 30000,
     "estimated_input_tokens": 8000,
     "estimated_output_tokens": 2000
@@ -26,7 +26,8 @@
     "policy_id": "policy:balanced-demo-v1",
     "currency": "USD",
     "quota_shadow_cash_micros_per_unit": 0,
-    "max_expected_quota_milliunits": null
+    "max_expected_quota_milliunits": null,
+    "authorized_checker_worker_ids": []
   },
   "candidates": [
     {
@@ -69,10 +70,11 @@
           "evidence_count": 18
         }
       },
-      "expected_run_cash_micros": 1000,
+      "expected_tool_cash_micros": 0,
       "expected_review_cash_micros": 500,
       "expected_fallback_cash_micros": 6000,
-      "expected_quota_milliunits": 0,
+      "expected_additional_quota_milliunits": 0,
+      "checker_worker_id": null,
       "p95_latency_ms": 9000,
       "evidence_snapshot_id": "snapshot:demo-v1"
     },
@@ -116,10 +118,11 @@
           "evidence_count": 28
         }
       },
-      "expected_run_cash_micros": 8000,
+      "expected_tool_cash_micros": 0,
       "expected_review_cash_micros": 1000,
       "expected_fallback_cash_micros": 2000,
-      "expected_quota_milliunits": 0,
+      "expected_additional_quota_milliunits": 0,
+      "checker_worker_id": null,
       "p95_latency_ms": 18000,
       "evidence_snapshot_id": "snapshot:demo-v1"
     },
@@ -163,10 +166,11 @@
           "evidence_count": 10
         }
       },
-      "expected_run_cash_micros": 200,
+      "expected_tool_cash_micros": 0,
       "expected_review_cash_micros": 500,
       "expected_fallback_cash_micros": 8000,
-      "expected_quota_milliunits": 0,
+      "expected_additional_quota_milliunits": 0,
+      "checker_worker_id": null,
       "p95_latency_ms": 5000,
       "evidence_snapshot_id": "snapshot:demo-v1"
     }

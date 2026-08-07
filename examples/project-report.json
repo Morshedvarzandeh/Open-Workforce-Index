@@ -1,0 +1,1342 @@
+{
+  "schema_version": "owi.project-report.v1",
+  "report_id": "report_example_2026_08",
+  "illustrative_only": true,
+  "generated_at": "2026-08-07T12:00:00Z",
+  "project": {
+    "project_id": "project_local_example",
+    "display_name": "example/private-repository",
+    "forge": "github",
+    "repository_identity_private": true
+  },
+  "period": {
+    "occurred_from": "2026-08-01T00:00:00Z",
+    "occurred_until": "2026-08-07T00:00:00Z",
+    "posting_sequence_watermark": 42
+  },
+  "functional_unit": {
+    "name": "verified_accepted_task",
+    "quantity": 5,
+    "risk_and_quality_policy_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "content_handling": {
+    "artifact_references_are_opaque": true,
+    "artifact_references_expose_local_paths": false,
+    "raw_prompts_persisted": false,
+    "raw_outputs_persisted": false,
+    "raw_content_exported": false,
+    "display_consent": "per_run",
+    "persistence_consent": "not_granted",
+    "export_consent": "not_granted",
+    "report_contains_metadata_only": true
+  },
+  "usage": {
+    "runs": 5,
+    "tasks": {
+      "total": 5,
+      "verified_accepted": 5,
+      "failed": 0
+    },
+    "attempts": {
+      "model_invocations": 12,
+      "failed_model_attempts": 2,
+      "planner": 1,
+      "maker": 5,
+      "retry": 2,
+      "checker": 4
+    },
+    "tokens": {
+      "input": 48000,
+      "cache_read": 12000,
+      "cache_write": 3000,
+      "output": 9000
+    },
+    "provider_quota": {
+      "unit": "provider_milliunit",
+      "value": 12000
+    }
+  },
+  "cost": {
+    "currency": "USD",
+    "provisional_tariff_estimate_cash_micros": 700000,
+    "reconciled_direct_billed_cash_micros": 680000,
+    "allocated_subscription_chargeback_cash_micros": 200000,
+    "fully_loaded_project_cash_micros": 880000,
+    "subscription_allocation_is_chargeback_not_new_cash": true,
+    "quota_is_not_reported_as_cash": true,
+    "cash_reconciled_invocations_ppm": 1000000
+  },
+  "attempt_records": [
+    {
+      "attempt_id": "attempt_001",
+      "task_id": "task_conversation",
+      "role": "maker",
+      "worker_id": "worker_text_efficient_2026_07",
+      "status": "accepted",
+      "tokens": {
+        "input": 4000,
+        "cache_read": 1000,
+        "cache_write": 300,
+        "output": 800
+      },
+      "provisional_tariff_cash_micros": 25000,
+      "reconciled_direct_billed_cash_micros": 22000,
+      "allocated_subscription_chargeback_cash_micros": 15000,
+      "quota_milliunits": 1000,
+      "environmental_profile_id": "environmental_profile_text_a_v1",
+      "output_ref": "urn:owi:artifact:7f1a0f01-0001-4b01-9001-000000000001"
+    },
+    {
+      "attempt_id": "attempt_002",
+      "task_id": "task_conversation",
+      "role": "checker",
+      "worker_id": "worker_text_efficient_2026_07",
+      "status": "accepted",
+      "tokens": {
+        "input": 3000,
+        "cache_read": 1000,
+        "cache_write": 200,
+        "output": 500
+      },
+      "provisional_tariff_cash_micros": 15000,
+      "reconciled_direct_billed_cash_micros": 14000,
+      "allocated_subscription_chargeback_cash_micros": 15000,
+      "quota_milliunits": 1000,
+      "environmental_profile_id": "environmental_profile_text_a_v1",
+      "output_ref": "urn:owi:artifact:7f1a0f01-0002-4b01-9001-000000000002"
+    },
+    {
+      "attempt_id": "attempt_003",
+      "task_id": "task_code_change",
+      "role": "maker",
+      "worker_id": "worker_code_agent_2026_08",
+      "status": "failed_quality_gate",
+      "tokens": {
+        "input": 4000,
+        "cache_read": 1000,
+        "cache_write": 250,
+        "output": 800
+      },
+      "provisional_tariff_cash_micros": 25000,
+      "reconciled_direct_billed_cash_micros": 22000,
+      "allocated_subscription_chargeback_cash_micros": 15000,
+      "quota_milliunits": 1000,
+      "environmental_profile_id": "environmental_profile_code_d_v1",
+      "output_ref": "urn:owi:artifact:7f1a0f01-0003-4b01-9001-000000000003"
+    },
+    {
+      "attempt_id": "attempt_004",
+      "task_id": "task_code_change",
+      "role": "retry",
+      "worker_id": "worker_code_agent_2026_08",
+      "status": "accepted",
+      "tokens": {
+        "input": 3500,
+        "cache_read": 1000,
+        "cache_write": 200,
+        "output": 800
+      },
+      "provisional_tariff_cash_micros": 20000,
+      "reconciled_direct_billed_cash_micros": 18000,
+      "allocated_subscription_chargeback_cash_micros": 15000,
+      "quota_milliunits": 1000,
+      "environmental_profile_id": "environmental_profile_code_d_v1",
+      "output_ref": "urn:owi:artifact:7f1a0f01-0004-4b01-9001-000000000004"
+    },
+    {
+      "attempt_id": "attempt_005",
+      "task_id": "task_code_change",
+      "role": "checker",
+      "worker_id": "worker_code_agent_2026_08",
+      "status": "accepted",
+      "tokens": {
+        "input": 2500,
+        "cache_read": 500,
+        "cache_write": 150,
+        "output": 400
+      },
+      "provisional_tariff_cash_micros": 15000,
+      "reconciled_direct_billed_cash_micros": 14000,
+      "allocated_subscription_chargeback_cash_micros": 10000,
+      "quota_milliunits": 1000,
+      "environmental_profile_id": "environmental_profile_code_d_v1",
+      "output_ref": "urn:owi:artifact:7f1a0f01-0005-4b01-9001-000000000005"
+    },
+    {
+      "attempt_id": "attempt_006",
+      "task_id": "task_legal_review",
+      "role": "maker",
+      "worker_id": "worker_legal_review_2026_07",
+      "status": "accepted",
+      "tokens": {
+        "input": 5000,
+        "cache_read": 1000,
+        "cache_write": 300,
+        "output": 900
+      },
+      "provisional_tariff_cash_micros": 150000,
+      "reconciled_direct_billed_cash_micros": 145000,
+      "allocated_subscription_chargeback_cash_micros": 20000,
+      "quota_milliunits": 1000,
+      "environmental_profile_id": null,
+      "environmental_unknown_reason": "serving_region_hidden",
+      "output_ref": "urn:owi:artifact:7f1a0f01-0006-4b01-9001-000000000006"
+    },
+    {
+      "attempt_id": "attempt_007",
+      "task_id": "task_legal_review",
+      "role": "checker",
+      "worker_id": "worker_legal_review_2026_07",
+      "status": "accepted",
+      "tokens": {
+        "input": 4000,
+        "cache_read": 1000,
+        "cache_write": 200,
+        "output": 600
+      },
+      "provisional_tariff_cash_micros": 110000,
+      "reconciled_direct_billed_cash_micros": 105000,
+      "allocated_subscription_chargeback_cash_micros": 20000,
+      "quota_milliunits": 1000,
+      "environmental_profile_id": null,
+      "environmental_unknown_reason": "serving_region_hidden",
+      "output_ref": "urn:owi:artifact:7f1a0f01-0007-4b01-9001-000000000007"
+    },
+    {
+      "attempt_id": "attempt_008",
+      "task_id": "task_cad_artifact",
+      "role": "maker",
+      "worker_id": "worker_cad_tool_2026_06",
+      "status": "accepted",
+      "tokens": {
+        "input": 5000,
+        "cache_read": 1000,
+        "cache_write": 300,
+        "output": 900
+      },
+      "provisional_tariff_cash_micros": 150000,
+      "reconciled_direct_billed_cash_micros": 145000,
+      "allocated_subscription_chargeback_cash_micros": 20000,
+      "quota_milliunits": 1000,
+      "environmental_profile_id": null,
+      "environmental_unknown_reason": "provider_not_disclosed",
+      "output_ref": "urn:owi:artifact:7f1a0f01-0008-4b01-9001-000000000008"
+    },
+    {
+      "attempt_id": "attempt_009",
+      "task_id": "task_cad_artifact",
+      "role": "checker",
+      "worker_id": "worker_cad_tool_2026_06",
+      "status": "accepted",
+      "tokens": {
+        "input": 4000,
+        "cache_read": 1000,
+        "cache_write": 200,
+        "output": 600
+      },
+      "provisional_tariff_cash_micros": 110000,
+      "reconciled_direct_billed_cash_micros": 105000,
+      "allocated_subscription_chargeback_cash_micros": 20000,
+      "quota_milliunits": 1000,
+      "environmental_profile_id": null,
+      "environmental_unknown_reason": "provider_not_disclosed",
+      "output_ref": "urn:owi:artifact:7f1a0f01-0009-4b01-9001-000000000009"
+    },
+    {
+      "attempt_id": "attempt_010",
+      "task_id": "task_data_extraction",
+      "role": "planner",
+      "worker_id": "worker_text_efficient_2026_07",
+      "status": "completed",
+      "tokens": {
+        "input": 3000,
+        "cache_read": 1000,
+        "cache_write": 200,
+        "output": 400
+      },
+      "provisional_tariff_cash_micros": 20000,
+      "reconciled_direct_billed_cash_micros": 18000,
+      "allocated_subscription_chargeback_cash_micros": 10000,
+      "quota_milliunits": 1000,
+      "environmental_profile_id": "environmental_profile_text_a_v1",
+      "output_ref": "urn:owi:artifact:7f1a0f01-0010-4b01-9001-000000000010"
+    },
+    {
+      "attempt_id": "attempt_011",
+      "task_id": "task_data_extraction",
+      "role": "maker",
+      "worker_id": "worker_text_efficient_2026_07",
+      "status": "failed_quality_gate",
+      "tokens": {
+        "input": 5000,
+        "cache_read": 1500,
+        "cache_write": 300,
+        "output": 1100
+      },
+      "provisional_tariff_cash_micros": 30000,
+      "reconciled_direct_billed_cash_micros": 35000,
+      "allocated_subscription_chargeback_cash_micros": 20000,
+      "quota_milliunits": 1000,
+      "environmental_profile_id": "environmental_profile_text_a_v1",
+      "output_ref": "urn:owi:artifact:7f1a0f01-0011-4b01-9001-000000000011"
+    },
+    {
+      "attempt_id": "attempt_012",
+      "task_id": "task_data_extraction",
+      "role": "retry",
+      "worker_id": "worker_text_efficient_2026_07",
+      "status": "accepted",
+      "tokens": {
+        "input": 5000,
+        "cache_read": 1000,
+        "cache_write": 400,
+        "output": 1200
+      },
+      "provisional_tariff_cash_micros": 30000,
+      "reconciled_direct_billed_cash_micros": 37000,
+      "allocated_subscription_chargeback_cash_micros": 20000,
+      "quota_milliunits": 1000,
+      "environmental_profile_id": "environmental_profile_text_a_v1",
+      "output_ref": "urn:owi:artifact:7f1a0f01-0012-4b01-9001-000000000012"
+    }
+  ],
+  "by_task": [
+    {
+      "task_id": "task_conversation",
+      "task_class": "conversation_and_summary",
+      "requested_artifact": "reviewed_text_response",
+      "status": "verified_accepted",
+      "worker_invocations": [
+        {
+          "worker_id": "worker_text_efficient_2026_07",
+          "invocations": 2
+        }
+      ],
+      "attempt_roles": {
+        "maker": 1,
+        "checker": 1
+      },
+      "failed_attempts": 0,
+      "tokens": {
+        "input": 7000,
+        "cache_read": 2000,
+        "cache_write": 500,
+        "output": 1300
+      },
+      "provisional_tariff_cash_micros": 40000,
+      "reconciled_direct_billed_cash_micros": 36000,
+      "allocated_subscription_chargeback_cash_micros": 30000,
+      "fully_loaded_cash_micros": 66000,
+      "quota_milliunits": 2000,
+      "environmental_impact": {
+        "status": "known",
+        "covered_invocations": 2,
+        "total_invocations": 2,
+        "energy_uwh": 300000,
+        "co2e_location_based_ug": 105000,
+        "co2e_market_based_ug": 37500,
+        "water_consumption_ul": 2250,
+        "water_withdrawal_ul": 3000
+      },
+      "final_output_ref": "urn:owi:artifact:7f1a0f01-0002-4b01-9001-000000000002"
+    },
+    {
+      "task_id": "task_code_change",
+      "task_class": "repository_code_change",
+      "requested_artifact": "tested_source_patch",
+      "status": "verified_accepted",
+      "worker_invocations": [
+        {
+          "worker_id": "worker_code_agent_2026_08",
+          "invocations": 3
+        }
+      ],
+      "attempt_roles": {
+        "maker": 1,
+        "retry": 1,
+        "checker": 1
+      },
+      "failed_attempts": 1,
+      "tokens": {
+        "input": 10000,
+        "cache_read": 2500,
+        "cache_write": 600,
+        "output": 2000
+      },
+      "provisional_tariff_cash_micros": 60000,
+      "reconciled_direct_billed_cash_micros": 54000,
+      "allocated_subscription_chargeback_cash_micros": 40000,
+      "fully_loaded_cash_micros": 94000,
+      "quota_milliunits": 3000,
+      "environmental_impact": {
+        "status": "known",
+        "covered_invocations": 3,
+        "total_invocations": 3,
+        "energy_uwh": 450000,
+        "co2e_location_based_ug": 157500,
+        "co2e_market_based_ug": 56250,
+        "water_consumption_ul": 3375,
+        "water_withdrawal_ul": 4500
+      },
+      "final_output_ref": "urn:owi:artifact:7f1a0f01-0005-4b01-9001-000000000005"
+    },
+    {
+      "task_id": "task_legal_review",
+      "task_class": "legal_factual_review",
+      "requested_artifact": "cited_review_memo",
+      "status": "verified_accepted",
+      "worker_invocations": [
+        {
+          "worker_id": "worker_legal_review_2026_07",
+          "invocations": 2
+        }
+      ],
+      "attempt_roles": {
+        "maker": 1,
+        "checker": 1
+      },
+      "failed_attempts": 0,
+      "tokens": {
+        "input": 9000,
+        "cache_read": 2000,
+        "cache_write": 500,
+        "output": 1500
+      },
+      "provisional_tariff_cash_micros": 260000,
+      "reconciled_direct_billed_cash_micros": 250000,
+      "allocated_subscription_chargeback_cash_micros": 40000,
+      "fully_loaded_cash_micros": 290000,
+      "quota_milliunits": 2000,
+      "environmental_impact": {
+        "status": "unknown",
+        "covered_invocations": 0,
+        "total_invocations": 2,
+        "energy_uwh": null,
+        "co2e_location_based_ug": null,
+        "co2e_market_based_ug": null,
+        "water_consumption_ul": null,
+        "water_withdrawal_ul": null,
+        "reason": "serving_region_hidden"
+      },
+      "final_output_ref": "urn:owi:artifact:7f1a0f01-0007-4b01-9001-000000000007"
+    },
+    {
+      "task_id": "task_cad_artifact",
+      "task_class": "parametric_cad_artifact",
+      "requested_artifact": "validated_step_model",
+      "status": "verified_accepted",
+      "worker_invocations": [
+        {
+          "worker_id": "worker_cad_tool_2026_06",
+          "invocations": 2
+        }
+      ],
+      "attempt_roles": {
+        "maker": 1,
+        "checker": 1
+      },
+      "failed_attempts": 0,
+      "tokens": {
+        "input": 9000,
+        "cache_read": 2000,
+        "cache_write": 500,
+        "output": 1500
+      },
+      "provisional_tariff_cash_micros": 260000,
+      "reconciled_direct_billed_cash_micros": 250000,
+      "allocated_subscription_chargeback_cash_micros": 40000,
+      "fully_loaded_cash_micros": 290000,
+      "quota_milliunits": 2000,
+      "environmental_impact": {
+        "status": "unknown",
+        "covered_invocations": 0,
+        "total_invocations": 2,
+        "energy_uwh": null,
+        "co2e_location_based_ug": null,
+        "co2e_market_based_ug": null,
+        "water_consumption_ul": null,
+        "water_withdrawal_ul": null,
+        "reason": "provider_not_disclosed"
+      },
+      "final_output_ref": "urn:owi:artifact:7f1a0f01-0009-4b01-9001-000000000009"
+    },
+    {
+      "task_id": "task_data_extraction",
+      "task_class": "structured_data_extraction",
+      "requested_artifact": "schema_validated_records",
+      "status": "verified_accepted",
+      "worker_invocations": [
+        {
+          "worker_id": "worker_text_efficient_2026_07",
+          "invocations": 3
+        }
+      ],
+      "attempt_roles": {
+        "planner": 1,
+        "maker": 1,
+        "retry": 1
+      },
+      "failed_attempts": 1,
+      "tokens": {
+        "input": 13000,
+        "cache_read": 3500,
+        "cache_write": 900,
+        "output": 2700
+      },
+      "provisional_tariff_cash_micros": 80000,
+      "reconciled_direct_billed_cash_micros": 90000,
+      "allocated_subscription_chargeback_cash_micros": 50000,
+      "fully_loaded_cash_micros": 140000,
+      "quota_milliunits": 3000,
+      "environmental_impact": {
+        "status": "known",
+        "covered_invocations": 3,
+        "total_invocations": 3,
+        "energy_uwh": 450000,
+        "co2e_location_based_ug": 157500,
+        "co2e_market_based_ug": 56250,
+        "water_consumption_ul": 3375,
+        "water_withdrawal_ul": 4500
+      },
+      "final_output_ref": "urn:owi:artifact:7f1a0f01-0012-4b01-9001-000000000012"
+    }
+  ],
+  "by_attempt_role": [
+    {
+      "role": "planner",
+      "invocations": 1,
+      "failed_attempts": 0,
+      "tokens": {
+        "input": 3000,
+        "cache_read": 1000,
+        "cache_write": 200,
+        "output": 400
+      },
+      "provisional_tariff_cash_micros": 20000,
+      "reconciled_direct_billed_cash_micros": 18000,
+      "allocated_subscription_chargeback_cash_micros": 10000,
+      "fully_loaded_cash_micros": 28000,
+      "quota_milliunits": 1000,
+      "environmental_impact": {
+        "status": "known",
+        "covered_invocations": 1,
+        "total_invocations": 1,
+        "energy_uwh": 150000,
+        "co2e_location_based_ug": 52500,
+        "co2e_market_based_ug": 18750,
+        "water_consumption_ul": 1125,
+        "water_withdrawal_ul": 1500
+      }
+    },
+    {
+      "role": "maker",
+      "invocations": 5,
+      "failed_attempts": 2,
+      "tokens": {
+        "input": 23000,
+        "cache_read": 5500,
+        "cache_write": 1450,
+        "output": 4500
+      },
+      "provisional_tariff_cash_micros": 380000,
+      "reconciled_direct_billed_cash_micros": 369000,
+      "allocated_subscription_chargeback_cash_micros": 90000,
+      "fully_loaded_cash_micros": 459000,
+      "quota_milliunits": 5000,
+      "environmental_impact": {
+        "status": "known_partial",
+        "covered_invocations": 3,
+        "total_invocations": 5,
+        "energy_uwh": 450000,
+        "co2e_location_based_ug": 157500,
+        "co2e_market_based_ug": 56250,
+        "water_consumption_ul": 3375,
+        "water_withdrawal_ul": 4500,
+        "unknown_invocations": 2
+      }
+    },
+    {
+      "role": "retry",
+      "invocations": 2,
+      "failed_attempts": 0,
+      "tokens": {
+        "input": 8500,
+        "cache_read": 2000,
+        "cache_write": 600,
+        "output": 2000
+      },
+      "provisional_tariff_cash_micros": 50000,
+      "reconciled_direct_billed_cash_micros": 55000,
+      "allocated_subscription_chargeback_cash_micros": 35000,
+      "fully_loaded_cash_micros": 90000,
+      "quota_milliunits": 2000,
+      "environmental_impact": {
+        "status": "known",
+        "covered_invocations": 2,
+        "total_invocations": 2,
+        "energy_uwh": 300000,
+        "co2e_location_based_ug": 105000,
+        "co2e_market_based_ug": 37500,
+        "water_consumption_ul": 2250,
+        "water_withdrawal_ul": 3000
+      }
+    },
+    {
+      "role": "checker",
+      "invocations": 4,
+      "failed_attempts": 0,
+      "tokens": {
+        "input": 13500,
+        "cache_read": 3500,
+        "cache_write": 750,
+        "output": 2100
+      },
+      "provisional_tariff_cash_micros": 250000,
+      "reconciled_direct_billed_cash_micros": 238000,
+      "allocated_subscription_chargeback_cash_micros": 65000,
+      "fully_loaded_cash_micros": 303000,
+      "quota_milliunits": 4000,
+      "environmental_impact": {
+        "status": "known_partial",
+        "covered_invocations": 2,
+        "total_invocations": 4,
+        "energy_uwh": 300000,
+        "co2e_location_based_ug": 105000,
+        "co2e_market_based_ug": 37500,
+        "water_consumption_ul": 2250,
+        "water_withdrawal_ul": 3000,
+        "unknown_invocations": 2
+      }
+    }
+  ],
+  "by_worker": [
+    {
+      "worker_id": "worker_text_efficient_2026_07",
+      "provider_id": "example-provider-a",
+      "offering_id": "offering_example_text_efficient",
+      "resolved_model_release_id": "example-text-model-small-2026-07-15",
+      "agent_harness_id": "example-harness-0.1.0",
+      "system_and_skill_pack_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "reasoning_configuration": "standard",
+      "tool_profile_id": "tools_text_and_schema_v1",
+      "invocations": 5,
+      "tokens": {
+        "input": 20000,
+        "cache_read": 5500,
+        "cache_write": 1400,
+        "output": 4000
+      },
+      "provisional_tariff_cash_micros": 120000,
+      "reconciled_direct_billed_cash_micros": 126000,
+      "allocated_subscription_chargeback_cash_micros": 80000,
+      "fully_loaded_cash_micros": 206000,
+      "quota_milliunits": 5000,
+      "environmental_profile_id": "environmental_profile_text_a_v1",
+      "environmental_impact": {
+        "status": "known",
+        "energy_uwh": 750000,
+        "co2e_location_based_ug": 262500,
+        "co2e_market_based_ug": 93750,
+        "water_consumption_ul": 5625,
+        "water_withdrawal_ul": 7500
+      }
+    },
+    {
+      "worker_id": "worker_code_agent_2026_08",
+      "provider_id": "example-provider-d",
+      "offering_id": "offering_example_code_agent",
+      "resolved_model_release_id": "example-code-model-2026-08-01",
+      "agent_harness_id": "example-code-harness-0.4.0",
+      "system_and_skill_pack_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "reasoning_configuration": "tool_reasoning_medium",
+      "tool_profile_id": "tools_repository_sandbox_v2",
+      "invocations": 3,
+      "tokens": {
+        "input": 10000,
+        "cache_read": 2500,
+        "cache_write": 600,
+        "output": 2000
+      },
+      "provisional_tariff_cash_micros": 60000,
+      "reconciled_direct_billed_cash_micros": 54000,
+      "allocated_subscription_chargeback_cash_micros": 40000,
+      "fully_loaded_cash_micros": 94000,
+      "quota_milliunits": 3000,
+      "environmental_profile_id": "environmental_profile_code_d_v1",
+      "environmental_impact": {
+        "status": "known",
+        "energy_uwh": 450000,
+        "co2e_location_based_ug": 157500,
+        "co2e_market_based_ug": 56250,
+        "water_consumption_ul": 3375,
+        "water_withdrawal_ul": 4500
+      }
+    },
+    {
+      "worker_id": "worker_legal_review_2026_07",
+      "provider_id": "example-provider-b",
+      "offering_id": "offering_example_legal_review",
+      "resolved_model_release_id": "example-legal-model-2026-07-20",
+      "agent_harness_id": "example-legal-harness-0.2.0",
+      "system_and_skill_pack_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "reasoning_configuration": "citation_review_high",
+      "tool_profile_id": "tools_legal_sources_v1",
+      "invocations": 2,
+      "tokens": {
+        "input": 9000,
+        "cache_read": 2000,
+        "cache_write": 500,
+        "output": 1500
+      },
+      "provisional_tariff_cash_micros": 260000,
+      "reconciled_direct_billed_cash_micros": 250000,
+      "allocated_subscription_chargeback_cash_micros": 40000,
+      "fully_loaded_cash_micros": 290000,
+      "quota_milliunits": 2000,
+      "environmental_profile_id": null,
+      "environmental_impact": {
+        "status": "unknown",
+        "energy_uwh": null,
+        "co2e_location_based_ug": null,
+        "co2e_market_based_ug": null,
+        "water_consumption_ul": null,
+        "water_withdrawal_ul": null,
+        "reason": "serving_region_hidden"
+      }
+    },
+    {
+      "worker_id": "worker_cad_tool_2026_06",
+      "provider_id": "example-provider-c",
+      "offering_id": "offering_example_cad_tool",
+      "resolved_model_release_id": "example-cad-model-2026-06-30",
+      "agent_harness_id": "example-cad-harness-0.3.0",
+      "system_and_skill_pack_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "reasoning_configuration": "geometry_tool_loop",
+      "tool_profile_id": "tools_parametric_cad_v3",
+      "invocations": 2,
+      "tokens": {
+        "input": 9000,
+        "cache_read": 2000,
+        "cache_write": 500,
+        "output": 1500
+      },
+      "provisional_tariff_cash_micros": 260000,
+      "reconciled_direct_billed_cash_micros": 250000,
+      "allocated_subscription_chargeback_cash_micros": 40000,
+      "fully_loaded_cash_micros": 290000,
+      "quota_milliunits": 2000,
+      "environmental_profile_id": null,
+      "environmental_impact": {
+        "status": "unknown",
+        "energy_uwh": null,
+        "co2e_location_based_ug": null,
+        "co2e_market_based_ug": null,
+        "water_consumption_ul": null,
+        "water_withdrawal_ul": null,
+        "reason": "provider_not_disclosed"
+      }
+    }
+  ],
+  "environmental_inventory": {
+    "inventory_net_of_avoided_impacts": false,
+    "operational": {
+      "energy_uwh": {
+        "status": "known_partial",
+        "value": 1200000,
+        "uncertainty_lower": 960000,
+        "uncertainty_upper": 1500000
+      },
+      "co2e_location_based_ug": {
+        "status": "known_partial",
+        "value": 420000,
+        "uncertainty_lower": 336000,
+        "uncertainty_upper": 525000
+      },
+      "co2e_market_based_ug": {
+        "status": "known_partial",
+        "value": 150000,
+        "uncertainty_lower": 120000,
+        "uncertainty_upper": 187500
+      },
+      "water_consumption_ul": {
+        "status": "known_partial",
+        "value": 9000,
+        "uncertainty_lower": 7200,
+        "uncertainty_upper": 11250
+      },
+      "water_withdrawal_ul": {
+        "status": "known_partial",
+        "value": 12000,
+        "uncertainty_lower": 9600,
+        "uncertainty_upper": 15000
+      }
+    },
+    "embodied": {
+      "co2e_ug": {
+        "status": "unknown",
+        "value": null,
+        "reason": "provider_not_disclosed"
+      },
+      "water_consumption_ul": {
+        "status": "unknown",
+        "value": null,
+        "reason": "no_compatible_lifecycle_factor"
+      }
+    },
+    "training": {
+      "allocated_to_project": false,
+      "reason": "no_provider_allocation_denominator"
+    },
+    "intensity_per_verified_accepted_task": {
+      "energy_uwh": 240000,
+      "co2e_location_based_ug": 84000,
+      "co2e_market_based_ug": 30000,
+      "water_consumption_ul": 1800,
+      "water_withdrawal_ul": 2400,
+      "denominator_includes_tasks_with_unknown_impact": true
+    },
+    "coverage": {
+      "covered_invocations": 8,
+      "total_invocations": 12,
+      "invocations_ppm": 666667,
+      "covered_tasks": 3,
+      "total_tasks": 5,
+      "tasks_ppm": 600000,
+      "input_tokens_ppm": 625000,
+      "cache_read_tokens_ppm": 666667,
+      "cache_write_tokens_ppm": 666667,
+      "output_tokens_ppm": 666667,
+      "unknown_invocations_by_reason": {
+        "serving_region_hidden": 2,
+        "provider_not_disclosed": 2
+      }
+    },
+    "factor_profiles": [
+      {
+        "environmental_profile_id": "environmental_profile_text_a_v1",
+        "provider_id": "example-provider-a",
+        "offering_id": "offering_example_text_efficient",
+        "resolved_model_release_id": "example-text-model-small-2026-07-15",
+        "observed_from": "2026-07-01T00:00:00Z",
+        "observed_until": "2026-07-15T23:59:59Z",
+        "effective_from": "2026-07-16T00:00:00Z",
+        "effective_until": "2026-09-30T23:59:59Z",
+        "measurement_boundary": {
+          "name": "operational_inference_full_stack",
+          "includes": [
+            "accelerator",
+            "host_cpu_and_memory",
+            "allocated_idle_capacity",
+            "facility_overhead",
+            "direct_cooling_water"
+          ],
+          "excludes": [
+            "training",
+            "embodied_hardware",
+            "network",
+            "end_user_device"
+          ]
+        },
+        "functional_unit": {
+          "name": "provider_api_invocation_at_declared_workload_mix",
+          "activity_unit": "invocation",
+          "quantity": 1,
+          "scaling_outside_declared_mix_allowed": false
+        },
+        "source": {
+          "source_uri": "https://environment.example.invalid/providers/a/operational-factor-v1",
+          "publisher": "Example Provider A",
+          "published_at": "2026-07-16T00:00:00Z",
+          "retrieved_at": "2026-07-18T09:00:00Z",
+          "content_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+          "methodology_version": "example-method-1.0",
+          "provider_authored": true,
+          "assurance_status": "unassured",
+          "license": "illustrative-fixture-only"
+        },
+        "uncertainty": {
+          "method": "illustrative_bounded_factor",
+          "lower_multiplier_ppm": 800000,
+          "upper_multiplier_ppm": 1250000,
+          "confidence_level_ppm": null,
+          "is_empirical_confidence_interval": false
+        },
+        "quality": {
+          "overall_grade": "illustrative_low",
+          "technological": "exact_offering",
+          "temporal": "current_for_report_period",
+          "geographical": "declared_serving_region_mix",
+          "completeness": "operational_only",
+          "reliability": "provider_authored_unassured"
+        },
+        "coverage": {
+          "applicable_invocations": 5,
+          "covered_invocations": 5,
+          "coverage_ppm": 1000000
+        },
+        "impact_terms": [
+          {
+            "metric": "energy",
+            "lifecycle_phase": "inference_operations",
+            "activity_unit": "invocation",
+            "result_unit": "uWh",
+            "numerator": 150000,
+            "denominator": 1
+          },
+          {
+            "metric": "co2e_location_based",
+            "lifecycle_phase": "inference_operations",
+            "activity_unit": "invocation",
+            "result_unit": "ugCO2e",
+            "numerator": 52500,
+            "denominator": 1
+          },
+          {
+            "metric": "co2e_market_based",
+            "lifecycle_phase": "inference_operations",
+            "activity_unit": "invocation",
+            "result_unit": "ugCO2e",
+            "numerator": 18750,
+            "denominator": 1
+          },
+          {
+            "metric": "water_consumption",
+            "lifecycle_phase": "inference_operations",
+            "activity_unit": "invocation",
+            "result_unit": "uL",
+            "numerator": 1125,
+            "denominator": 1
+          },
+          {
+            "metric": "water_withdrawal",
+            "lifecycle_phase": "inference_operations",
+            "activity_unit": "invocation",
+            "result_unit": "uL",
+            "numerator": 1500,
+            "denominator": 1
+          }
+        ]
+      },
+      {
+        "environmental_profile_id": "environmental_profile_code_d_v1",
+        "provider_id": "example-provider-d",
+        "offering_id": "offering_example_code_agent",
+        "resolved_model_release_id": "example-code-model-2026-08-01",
+        "observed_from": "2026-07-20T00:00:00Z",
+        "observed_until": "2026-08-01T23:59:59Z",
+        "effective_from": "2026-08-02T00:00:00Z",
+        "effective_until": "2026-09-30T23:59:59Z",
+        "measurement_boundary": {
+          "name": "operational_inference_full_stack",
+          "includes": [
+            "accelerator",
+            "host_cpu_and_memory",
+            "allocated_idle_capacity",
+            "facility_overhead",
+            "direct_cooling_water"
+          ],
+          "excludes": [
+            "training",
+            "embodied_hardware",
+            "network",
+            "end_user_device"
+          ]
+        },
+        "functional_unit": {
+          "name": "provider_api_invocation_at_declared_workload_mix",
+          "activity_unit": "invocation",
+          "quantity": 1,
+          "scaling_outside_declared_mix_allowed": false
+        },
+        "source": {
+          "source_uri": "https://environment.example.invalid/providers/d/operational-factor-v1",
+          "publisher": "Example Provider D",
+          "published_at": "2026-08-02T00:00:00Z",
+          "retrieved_at": "2026-08-03T09:00:00Z",
+          "content_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "methodology_version": "example-method-1.0",
+          "provider_authored": true,
+          "assurance_status": "unassured",
+          "license": "illustrative-fixture-only"
+        },
+        "uncertainty": {
+          "method": "illustrative_bounded_factor",
+          "lower_multiplier_ppm": 800000,
+          "upper_multiplier_ppm": 1250000,
+          "confidence_level_ppm": null,
+          "is_empirical_confidence_interval": false
+        },
+        "quality": {
+          "overall_grade": "illustrative_low",
+          "technological": "exact_offering",
+          "temporal": "current_for_report_period",
+          "geographical": "declared_serving_region_mix",
+          "completeness": "operational_only",
+          "reliability": "provider_authored_unassured"
+        },
+        "coverage": {
+          "applicable_invocations": 3,
+          "covered_invocations": 3,
+          "coverage_ppm": 1000000
+        },
+        "impact_terms": [
+          {
+            "metric": "energy",
+            "lifecycle_phase": "inference_operations",
+            "activity_unit": "invocation",
+            "result_unit": "uWh",
+            "numerator": 150000,
+            "denominator": 1
+          },
+          {
+            "metric": "co2e_location_based",
+            "lifecycle_phase": "inference_operations",
+            "activity_unit": "invocation",
+            "result_unit": "ugCO2e",
+            "numerator": 52500,
+            "denominator": 1
+          },
+          {
+            "metric": "co2e_market_based",
+            "lifecycle_phase": "inference_operations",
+            "activity_unit": "invocation",
+            "result_unit": "ugCO2e",
+            "numerator": 18750,
+            "denominator": 1
+          },
+          {
+            "metric": "water_consumption",
+            "lifecycle_phase": "inference_operations",
+            "activity_unit": "invocation",
+            "result_unit": "uL",
+            "numerator": 1125,
+            "denominator": 1
+          },
+          {
+            "metric": "water_withdrawal",
+            "lifecycle_phase": "inference_operations",
+            "activity_unit": "invocation",
+            "result_unit": "uL",
+            "numerator": 1500,
+            "denominator": 1
+          }
+        ]
+      }
+    ],
+    "unavailable_factor_applications": [
+      {
+        "worker_id": "worker_legal_review_2026_07",
+        "provider_id": "example-provider-b",
+        "offering_id": "offering_example_legal_review",
+        "resolved_model_release_id": "example-legal-model-2026-07-20",
+        "invocations": 2,
+        "reason": "serving_region_hidden",
+        "numeric_value_assumed": false
+      },
+      {
+        "worker_id": "worker_cad_tool_2026_06",
+        "provider_id": "example-provider-c",
+        "offering_id": "offering_example_cad_tool",
+        "resolved_model_release_id": "example-cad-model-2026-06-30",
+        "invocations": 2,
+        "reason": "provider_not_disclosed",
+        "numeric_value_assumed": false
+      }
+    ]
+  },
+  "source_total_reconciliation": {
+    "scope": "all_posted_source_totals_and_allocations_at_watermark_42",
+    "all_source_totals_equal_allocations": true,
+    "rows": [
+      {
+        "resource": "provisional_tariff_cash",
+        "unit": "cash_micro",
+        "currency": "USD",
+        "source_total": 700000,
+        "project_allocations": [
+          {
+            "project_id": "project_local_example",
+            "amount": 700000
+          }
+        ],
+        "allocation_total": 700000,
+        "reconciliation_delta": 0
+      },
+      {
+        "resource": "reconciled_direct_billed_cash",
+        "unit": "cash_micro",
+        "currency": "USD",
+        "source_total": 680000,
+        "project_allocations": [
+          {
+            "project_id": "project_local_example",
+            "amount": 680000
+          }
+        ],
+        "allocation_total": 680000,
+        "reconciliation_delta": 0
+      },
+      {
+        "resource": "allocated_subscription_chargeback_cash",
+        "unit": "cash_micro",
+        "currency": "USD",
+        "source_total": 200000,
+        "project_allocations": [
+          {
+            "project_id": "project_local_example",
+            "amount": 200000
+          }
+        ],
+        "allocation_total": 200000,
+        "reconciliation_delta": 0
+      },
+      {
+        "resource": "input_tokens",
+        "unit": "token",
+        "source_total": 48000,
+        "project_allocations": [
+          {
+            "project_id": "project_local_example",
+            "amount": 48000
+          }
+        ],
+        "allocation_total": 48000,
+        "reconciliation_delta": 0
+      },
+      {
+        "resource": "cache_read_tokens",
+        "unit": "token",
+        "source_total": 12000,
+        "project_allocations": [
+          {
+            "project_id": "project_local_example",
+            "amount": 12000
+          }
+        ],
+        "allocation_total": 12000,
+        "reconciliation_delta": 0
+      },
+      {
+        "resource": "cache_write_tokens",
+        "unit": "token",
+        "source_total": 3000,
+        "project_allocations": [
+          {
+            "project_id": "project_local_example",
+            "amount": 3000
+          }
+        ],
+        "allocation_total": 3000,
+        "reconciliation_delta": 0
+      },
+      {
+        "resource": "output_tokens",
+        "unit": "token",
+        "source_total": 9000,
+        "project_allocations": [
+          {
+            "project_id": "project_local_example",
+            "amount": 9000
+          }
+        ],
+        "allocation_total": 9000,
+        "reconciliation_delta": 0
+      },
+      {
+        "resource": "provider_quota",
+        "unit": "provider_milliunit",
+        "source_total": 12000,
+        "project_allocations": [
+          {
+            "project_id": "project_local_example",
+            "amount": 12000
+          }
+        ],
+        "allocation_total": 12000,
+        "reconciliation_delta": 0
+      },
+      {
+        "resource": "operational_energy",
+        "unit": "uWh",
+        "source_total": 1200000,
+        "project_allocations": [
+          {
+            "project_id": "project_local_example",
+            "amount": 1200000
+          }
+        ],
+        "allocation_total": 1200000,
+        "reconciliation_delta": 0
+      },
+      {
+        "resource": "operational_co2e_location_based",
+        "unit": "ugCO2e",
+        "source_total": 420000,
+        "project_allocations": [
+          {
+            "project_id": "project_local_example",
+            "amount": 420000
+          }
+        ],
+        "allocation_total": 420000,
+        "reconciliation_delta": 0
+      },
+      {
+        "resource": "operational_co2e_market_based",
+        "unit": "ugCO2e",
+        "source_total": 150000,
+        "project_allocations": [
+          {
+            "project_id": "project_local_example",
+            "amount": 150000
+          }
+        ],
+        "allocation_total": 150000,
+        "reconciliation_delta": 0
+      },
+      {
+        "resource": "operational_water_consumption",
+        "unit": "uL",
+        "source_total": 9000,
+        "project_allocations": [
+          {
+            "project_id": "project_local_example",
+            "amount": 9000
+          }
+        ],
+        "allocation_total": 9000,
+        "reconciliation_delta": 0
+      },
+      {
+        "resource": "operational_water_withdrawal",
+        "unit": "uL",
+        "source_total": 12000,
+        "project_allocations": [
+          {
+            "project_id": "project_local_example",
+            "amount": 12000
+          }
+        ],
+        "allocation_total": 12000,
+        "reconciliation_delta": 0
+      }
+    ],
+    "unallocated": {
+      "model_invocations": 0,
+      "cash_micros": 0,
+      "tokens": 0,
+      "quota_milliunits": 0
+    }
+  },
+  "optimization_savings": {
+    "classification": "counterfactual_estimate_not_observed_savings",
+    "observed_baseline_execution": false,
+    "observed_cost_difference": null,
+    "do_not_report_as_observed_cash_saved": true,
+    "not_observed_reason": "baseline_strategy_was_frozen_but_not_executed_for_these_tasks",
+    "baseline": {
+      "baseline_id": "baseline_example_fixed_premium_v1",
+      "design": "fixed_business_as_usual_offering",
+      "project_id": "project_local_example",
+      "frozen_at": "2026-07-31T12:00:00Z",
+      "frozen_before_report_period": true,
+      "mutated_after_freeze": false,
+      "valid_from": "2026-08-01T00:00:00Z",
+      "valid_until": "2026-08-07T00:00:00Z",
+      "functional_unit": "verified_accepted_task",
+      "task_and_quality_contract_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+      "policy_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "verification_policy_id": "verification_policy_example_v1",
+      "fallback_policy_id": "fallback_policy_example_v1",
+      "price_snapshot_id": "price_snapshot_example_2026_07_31",
+      "environmental_snapshot_id": "environmental_snapshot_example_2026_07_31",
+      "currency": "USD",
+      "business_as_usual_worker": {
+        "worker_id": "worker_fixed_premium_baseline_2026_07",
+        "provider_id": "example-provider-z",
+        "offering_id": "offering_example_fixed_premium",
+        "resolved_model_release_id": "example-premium-model-2026-07-10",
+        "reasoning_configuration": "maximum",
+        "agent_harness_id": "example-harness-0.1.0"
+      }
+    },
+    "coverage": {
+      "cash_eligible_tasks": 5,
+      "cash_total_tasks": 5,
+      "cash_tasks_ppm": 1000000,
+      "environmental_eligible_tasks": 3,
+      "environmental_total_tasks": 5,
+      "environmental_tasks_ppm": 600000,
+      "environmental_excluded_tasks": 2,
+      "environmental_exclusion_reason": "no_boundary_compatible_factor_for_actual_and_baseline"
+    },
+    "cash": {
+      "currency": "USD",
+      "comparison_basis": "frozen_baseline_expected_direct_cash_vs_reconciled_optimized_direct_cash",
+      "baseline_counterfactual_micros": 2400000,
+      "optimized_actual_micros": 680000,
+      "estimated_avoided_micros": 1720000,
+      "uncertainty_lower_micros": 1300000,
+      "uncertainty_upper_micros": 1950000,
+      "probability_positive_ppm": 995000,
+      "allocated_subscription_chargeback_excluded": true
+    },
+    "tokens": {
+      "comparison_is_counterfactual": true,
+      "baseline_input": 90000,
+      "optimized_actual_input": 48000,
+      "estimated_input_reduction": 42000,
+      "baseline_output": 20000,
+      "optimized_actual_output": 9000,
+      "estimated_output_reduction": 11000,
+      "cache_tokens_not_collapsed_into_input_or_output": true
+    },
+    "quota": {
+      "unit": "provider_milliunit",
+      "baseline_counterfactual": 30000,
+      "optimized_actual": 12000,
+      "estimated_preserved": 18000,
+      "reported_as_cash_saved": false
+    },
+    "estimated_avoided_impacts": {
+      "inventory_netting_allowed": false,
+      "comparison_is_counterfactual": true,
+      "energy_uwh": {
+        "baseline_counterfactual": 3200000,
+        "optimized_actual_partial_inventory": 1200000,
+        "estimated_avoided": 2000000
+      },
+      "co2e_location_based_ug": {
+        "baseline_counterfactual": 1100000,
+        "optimized_actual_partial_inventory": 420000,
+        "estimated_avoided": 680000
+      },
+      "co2e_market_based_ug": {
+        "baseline_counterfactual": 400000,
+        "optimized_actual_partial_inventory": 150000,
+        "estimated_avoided": 250000
+      },
+      "water_consumption_ul": {
+        "baseline_counterfactual": 30000,
+        "optimized_actual_partial_inventory": 9000,
+        "estimated_avoided": 21000
+      },
+      "water_withdrawal_ul": {
+        "baseline_counterfactual": 40000,
+        "optimized_actual_partial_inventory": 12000,
+        "estimated_avoided": 28000
+      }
+    }
+  },
+  "methodology": {
+    "router_version": "example-router-0.1.0",
+    "price_snapshot_id": "price_snapshot_example_2026_07_31",
+    "environmental_snapshot_id": "environmental_snapshot_example_2026_07_31",
+    "calculator_version": "example-calculator-0.1.0",
+    "location_and_market_co2e_are_not_additive": true,
+    "water_withdrawal_and_consumption_are_distinct": true,
+    "unknown_is_never_zero": true,
+    "counterfactual_savings_are_not_observed_transactions": true,
+    "report_digest": "3333333333333333333333333333333333333333333333333333333333333333"
+  }
+}

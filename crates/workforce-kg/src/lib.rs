@@ -29,8 +29,12 @@ impl PublicGraph {
         })
     }
 
-    /// Parses Turtle into the default graph atomically.
-    pub fn load_turtle(&self, turtle: &str) -> Result<()> {
+    /// Parses trusted, bundled Turtle into the default graph atomically.
+    ///
+    /// This stays private: public callers cannot inject arbitrary RDF and then
+    /// route it through the export surface. Catalog projection will accept only
+    /// the typed public-index DTO in a later adapter.
+    fn load_turtle(&self, turtle: &str) -> Result<()> {
         self.store
             .load_from_slice(RdfFormat::Turtle, turtle)
             .context("parse Turtle into public graph")

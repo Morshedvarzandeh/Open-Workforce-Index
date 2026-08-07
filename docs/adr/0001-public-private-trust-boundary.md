@@ -13,11 +13,16 @@ Run two physically separate stores and expose narrow interfaces:
 
 - `index.sqlite` is public, rebuildable, and may be exported as RDF or a signed snapshot.
 - `local.sqlite` contains task metadata, budgets, decisions, usage, and outcomes. It is private by default and created with owner-only permissions where the platform supports them.
-- Credentials and secret-class content are never persisted in either store. Provider SDKs receive credentials through their normal runtime secret mechanism.
+- Credentials and secret-class content are forbidden from both stores. The
+  v0.1 private API still contains trusted-adapter, free-form metadata fields, so
+  this is currently an input contract rather than a complete type-level
+  guarantee. Execution cannot be enabled until those fields are restricted or
+  redacted and credentials are supplied only through the operating system's
+  runtime secret mechanism.
 - Public export code depends only on a `PublicIndexRead` capability. It cannot accept a local-store handle or private domain types.
 - SHACL privacy validation and forbidden-predicate queries are release gates, but are defense in depth rather than the security boundary.
 
-Privacy classes are monotonic: `Public < PrivateMetadata < ConfidentialContent < Secret`. A worker is eligible only when its clearance and provider policy permit the task class. `Secret` data is not transmitted or persisted.
+Privacy classes are monotonic: `Public < PrivateMetadata < ConfidentialContent < Secret`. A worker is eligible only when its clearance and provider policy permit the task class. Because v0.1 does not model a verifiable local execution boundary, `Secret` tasks fail closed before routing.
 
 ## Consequences
 

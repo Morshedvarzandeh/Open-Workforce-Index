@@ -11,20 +11,24 @@ A model label alone does not determine capability or cost. Provider endpoint, ex
 
 `WorkerProfile` is the atomic labor-market identity. Its canonical representation includes:
 
-- provider offering and immutable model release identifier;
+- provider offering, its canonical provider, and immutable model release identifier;
 - harness and harness version;
-- ordered, versioned tool capabilities and permission policy;
 - execution-relevant inference configuration;
-- data clearance and locality constraints.
+- system-prompt digest, skill-pack version, toolset version, and execution-policy digest.
 
-The canonical representation is hashed into `configurationDigest`. Equality for evidence, estimates, quotas, decisions, and outcomes uses this exact identity. Human-readable aliases resolve through time-bounded revision records and are never substituted for the stored identity. Uncertain cross-provider matches use `skos:closeMatch`, not `owl:sameAs`.
+The canonical representation is hashed into `configurationDigest`. The public store does not trust that caller-supplied digest: it joins the referenced offering to recover the authoritative release and provider, reconstructs and validates the domain `WorkerIdentity`, recomputes SHA-256 over its canonical configuration key, and rejects a mismatch before insertion.
+
+`supportedSkillIds`, the concrete `tools` set, and `privacyClearance` are profile capability and authorization assertions used for routing eligibility. They are not copied into the execution digest as mutable sets. Execution identity instead binds `skillPackVersion`, `toolsetVersion`, and `executionPolicySha256`; changing the underlying capability manifest, tool manifest, or permission policy therefore requires a new version or digest. This keeps an authorization assertion separate from the immutable configuration that actually ran while still making execution-relevant changes identity changes.
+
+Equality for evidence, estimates, quotas, decisions, and outcomes uses this exact identity. Human-readable aliases resolve through time-bounded revision records and are never substituted for the stored identity. Uncertain cross-provider matches use `skos:closeMatch`, not `owl:sameAs`.
 
 ## Consequences
 
-The catalog contains more worker rows and providers need careful metadata import. Evidence does not silently transfer between configurations; an estimator may pool it only through an explicit, versioned statistical policy. Decisions remain reproducible after aliases or endpoints change.
+The catalog contains more worker rows and providers need careful metadata import. Evidence for a fully disclosed configuration targets the exact worker. Release-level evidence is also permitted when a source does not disclose a full worker configuration, but it enters worker estimates only through an explicit, versioned, uncertainty-increasing transfer policy. Unknown details are never fabricated. Decisions remain reproducible after aliases or endpoints change.
 
 ## Invariants
 
 1. An exact model release is distinct from a family, alias, and provider offering.
 2. Changing any execution-relevant setting creates a new worker identity.
 3. A recorded outcome always points to the exact worker that produced it.
+4. The provider and release bound into a worker digest come from its stored offering, not caller labels.

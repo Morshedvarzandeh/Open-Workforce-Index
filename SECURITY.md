@@ -13,12 +13,29 @@ or private repository content.
 
 ## Security invariants
 
+Implemented at the v0.1 decision and storage boundary:
+
 - Public index and private allocator data use physically separate databases.
 - Public export code depends only on a public read interface.
-- Credentials and secret values are never written to either database or RDF.
-- All consequential actions require deterministic permission and budget gates.
-- The planner cannot select its model, grant its tools, or increase its budget.
-- A critical maker and checker cannot be the same exact worker identity.
+- Public-export regression tests reject private task and repository markers.
+- A maker and checker cannot be the same exact worker identity, and a linked
+  outcome must use the checker selected by its recorded quote.
+- Secret-class tasks are classified but rejected by the v0.1 allocator; they
+  are not eligible for model routing.
+
+The v0.1 CLI is a decision-kernel demonstration, not an execution or credential
+boundary. Fixture/adaptor input is trusted. In particular, free-form private
+outcome metadata and repository-scope fields are not secret stores and must not
+contain credentials, prompt bodies, repository content, or other secret values.
+
+Required before OWI is allowed to execute model or repository work:
+
+- Credentials are held by the operating system's credential facility and are
+  never accepted through free-form task, outcome, database, or RDF fields.
+- A deterministic policy layer—not the planner—selects eligible workers,
+  grants tools and repository scope, and issues bounded spend leases.
+- All consequential actions require deterministic permission, human-approval,
+  and budget gates.
 - Prompts, repository files, web content, and tool output are untrusted input.
 - Network, repository paths, tools, spend, retries, wall time, and delegation
   depth are deny-by-default bounded leases.

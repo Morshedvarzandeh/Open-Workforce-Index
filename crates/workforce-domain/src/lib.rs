@@ -106,6 +106,28 @@ pub enum VerificationPolicy {
     HumanApproval,
 }
 
+impl RiskLevel {
+    /// The weakest verification policy that is acceptable for this risk level.
+    pub const fn minimum_verification(self) -> VerificationPolicy {
+        match self {
+            Self::Low | Self::Medium => VerificationPolicy::Deterministic,
+            Self::High => VerificationPolicy::MakerChecker,
+            Self::Consequential => VerificationPolicy::HumanApproval,
+        }
+    }
+}
+
+impl VerificationPolicy {
+    /// Whether this policy meets the minimum control required for `risk`.
+    pub const fn permits(self, risk: RiskLevel) -> bool {
+        match risk {
+            RiskLevel::Low | RiskLevel::Medium => true,
+            RiskLevel::High => matches!(self, Self::MakerChecker | Self::HumanApproval),
+            RiskLevel::Consequential => matches!(self, Self::HumanApproval),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SkillRequirement {
     pub skill_id: SkillId,
@@ -124,7 +146,8 @@ pub struct TaskSpec {
     pub required_skills: Vec<SkillRequirement>,
     #[serde(default)]
     pub required_tools: BTreeSet<String>,
-    /// Empty means every provider is eligible.
+    /// Exact, case-sensitive canonical provider identifiers. Empty means every
+    /// provider is eligible; blank or whitespace-padded identifiers are invalid.
     #[serde(default)]
     pub allowed_providers: BTreeSet<String>,
     pub privacy: PrivacyClass,
@@ -153,6 +176,13 @@ impl TaskSpec {
             "task.minimum_success_probability",
             self.minimum_success_probability,
         )?;
+        if !self.verification.permits(self.risk) {
+            return Err(DomainError::InsufficientVerification {
+                risk: self.risk,
+                required: self.risk.minimum_verification(),
+                actual: self.verification,
+            });
+        }
 
         let mut skills = BTreeSet::new();
         for requirement in &self.required_skills {
@@ -166,6 +196,10 @@ impl TaskSpec {
             if !skills.insert(requirement.skill_id.clone()) {
                 return Err(DomainError::DuplicateSkill(requirement.skill_id.clone()));
             }
+        }
+
+        for provider in &self.allowed_providers {
+            validate_provider_identifier("task.allowed_providers", provider)?;
         }
 
         self.required_context_tokens()?;
@@ -191,6 +225,10 @@ pub struct WorkerIdentity {
     pub worker_id: WorkerId,
     pub model_release_id: ModelReleaseId,
     pub offering_id: OfferingId,
+    /// Canonical, case-sensitive routing identity for the provider that serves
+    /// this offering. It is execution-relevant because provider allow-lists are
+    /// evaluated against it, so it is also bound into [`Self::configuration_key`].
+    /// A store may additionally verify it against the offering record.
     pub provider: String,
     pub harness_id: String,
     pub harness_version: String,
@@ -213,8 +251,9 @@ impl WorkerIdentity {
             return Err(DomainError::EmptyField("worker.offering_id"));
         }
 
+        validate_provider_identifier("worker.provider", &self.provider)?;
+
         for (field, value) in [
-            ("worker.provider", self.provider.as_str()),
             ("worker.harness_id", self.harness_id.as_str()),
             ("worker.harness_version", self.harness_version.as_str()),
             (
@@ -244,6 +283,9 @@ impl WorkerIdentity {
     ///
     /// Length prefixes prevent ambiguous concatenations and preserve exact
     /// version strings. Hash this UTF-8 value to create a content-addressed ID.
+    /// `provider` is included even though `offering_id` should be globally
+    /// unique: the routing engine evaluates provider allow-lists directly, and
+    /// changing that execution-relevant label must change canonical identity.
     pub fn configuration_key(&self) -> String {
         let components = [
             self.model_release_id.0.as_str(),
@@ -347,13 +389,21 @@ pub struct WorkerEstimate {
     /// Per-skill estimates used for hard requirement checks.
     #[serde(default)]
     pub skill_estimates: BTreeMap<SkillId, ProbabilityEstimate>,
-    pub expected_run_cash_micros: u64,
+    /// Expected non-model charges, such as search or sandbox fees. Model-token
+    /// and request charges are always derived from [`CostProfile`].
+    #[serde(default)]
+    pub expected_tool_cash_micros: u64,
     #[serde(default)]
     pub expected_review_cash_micros: u64,
     #[serde(default)]
     pub expected_fallback_cash_micros: u64,
+    /// Quota consumed in addition to the offering's per-request base quota.
     #[serde(default)]
-    pub expected_quota_milliunits: u64,
+    pub expected_additional_quota_milliunits: u64,
+    /// Required for maker-checker routing. The checker is part of the quoted
+    /// execution plan and must not be the maker itself.
+    #[serde(default)]
+    pub checker_worker_id: Option<WorkerId>,
     pub p95_latency_ms: u64,
     pub evidence_snapshot_id: String,
 }
@@ -364,6 +414,13 @@ impl WorkerEstimate {
         self.success.validate("estimate.success")?;
         if self.evidence_snapshot_id.trim().is_empty() {
             return Err(DomainError::EmptyField("estimate.evidence_snapshot_id"));
+        }
+        if self
+            .checker_worker_id
+            .as_ref()
+            .is_some_and(WorkerId::is_empty)
+        {
+            return Err(DomainError::EmptyField("estimate.checker_worker_id"));
         }
         for (skill_id, estimate) in &self.skill_estimates {
             if skill_id.is_empty() {
@@ -378,10 +435,14 @@ impl WorkerEstimate {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EvidenceObservation {
     pub id: String,
-    pub worker_id: WorkerId,
-    pub skill_id: SkillId,
+    pub model_release_id: ModelReleaseId,
+    /// Present only when the source discloses the complete worker
+    /// configuration. The store validates that such a worker uses
+    /// `model_release_id`; release-level evidence leaves this unset.
     #[serde(default)]
-    pub benchmark_id: Option<BenchmarkId>,
+    pub worker_id: Option<WorkerId>,
+    pub skill_id: SkillId,
+    pub benchmark_id: BenchmarkId,
     pub evidence_tier: EvidenceTier,
     /// Source-native value. Benchmarks with different metrics are never
     /// compared directly or silently collapsed into one global score.
@@ -392,7 +453,9 @@ pub struct EvidenceObservation {
     #[serde(default)]
     pub normalized_score: Option<f64>,
     pub adapter_version: String,
-    pub sample_count: u64,
+    /// `None` means that the source did not publish its sample size.
+    #[serde(default)]
+    pub sample_count: Option<u64>,
     pub observed_at: String,
     pub source_url: String,
     pub artifact_sha256: String,
@@ -401,6 +464,18 @@ pub struct EvidenceObservation {
 
 impl EvidenceObservation {
     pub fn validate(&self) -> Result<(), DomainError> {
+        if self.model_release_id.is_empty() {
+            return Err(DomainError::EmptyField("evidence.model_release_id"));
+        }
+        if self.worker_id.as_ref().is_some_and(WorkerId::is_empty) {
+            return Err(DomainError::EmptyField("evidence.worker_id"));
+        }
+        if self.skill_id.is_empty() {
+            return Err(DomainError::EmptyField("evidence.skill_id"));
+        }
+        if self.benchmark_id.is_empty() {
+            return Err(DomainError::EmptyField("evidence.benchmark_id"));
+        }
         for (field, value) in [
             ("evidence.id", self.id.as_str()),
             ("evidence.metric", self.metric.as_str()),
@@ -420,7 +495,7 @@ impl EvidenceObservation {
         if let Some(score) = self.normalized_score {
             validate_probability("evidence.normalized_score", score)?;
         }
-        if self.sample_count == 0 {
+        if self.sample_count == Some(0) {
             return Err(DomainError::ZeroSampleCount);
         }
         validate_sha256("evidence.artifact_sha256", &self.artifact_sha256)
@@ -459,6 +534,14 @@ pub enum DomainError {
     DuplicateSkill(SkillId),
     #[error("input and output token estimates overflow u64")]
     ContextTokenOverflow,
+    #[error(
+        "{risk:?} risk requires at least {required:?} verification, but the task requested {actual:?}"
+    )]
+    InsufficientVerification {
+        risk: RiskLevel,
+        required: VerificationPolicy,
+        actual: VerificationPolicy,
+    },
     #[error("worker context window must be greater than zero")]
     ZeroContextWindow,
     #[error("evidence sample count must be greater than zero")]
@@ -467,6 +550,8 @@ pub enum DomainError {
     NonFiniteMetric(&'static str),
     #[error("{0} must be a lowercase 64-character SHA-256 digest")]
     InvalidSha256(&'static str),
+    #[error("{0} must not have leading or trailing whitespace")]
+    NonCanonicalProviderIdentifier(&'static str),
 }
 
 fn validate_probability(field: &'static str, value: f64) -> Result<(), DomainError> {
@@ -486,6 +571,16 @@ fn validate_sha256(field: &'static str, value: &str) -> Result<(), DomainError> 
         Ok(())
     } else {
         Err(DomainError::InvalidSha256(field))
+    }
+}
+
+fn validate_provider_identifier(field: &'static str, value: &str) -> Result<(), DomainError> {
+    if value.trim().is_empty() {
+        Err(DomainError::EmptyField(field))
+    } else if value.trim() != value {
+        Err(DomainError::NonCanonicalProviderIdentifier(field))
+    } else {
+        Ok(())
     }
 }
 
@@ -510,6 +605,42 @@ mod tests {
 
         assert_ne!(identity, changed);
         assert_ne!(identity.configuration_key(), changed.configuration_key());
+    }
+
+    #[test]
+    fn configuration_key_binds_provider_routing_identity() {
+        let identity = sample_identity();
+        let mut changed = identity.clone();
+        changed.provider = "another-provider".to_owned();
+
+        assert_ne!(identity.configuration_key(), changed.configuration_key());
+    }
+
+    #[test]
+    fn provider_identifiers_must_be_nonblank_and_canonical() {
+        let mut identity = sample_identity();
+        identity.provider = " test".to_owned();
+        assert_eq!(
+            identity.validate(),
+            Err(DomainError::NonCanonicalProviderIdentifier(
+                "worker.provider"
+            ))
+        );
+
+        let mut task = sample_task();
+        task.allowed_providers = BTreeSet::from(["".to_owned()]);
+        assert_eq!(
+            task.validate(),
+            Err(DomainError::EmptyField("task.allowed_providers"))
+        );
+
+        task.allowed_providers = BTreeSet::from(["test ".to_owned()]);
+        assert_eq!(
+            task.validate(),
+            Err(DomainError::NonCanonicalProviderIdentifier(
+                "task.allowed_providers"
+            ))
+        );
     }
 
     #[test]
@@ -557,6 +688,35 @@ mod tests {
     }
 
     #[test]
+    fn risk_sets_a_minimum_verification_policy() {
+        let mut task = sample_task();
+        task.risk = RiskLevel::High;
+        task.verification = VerificationPolicy::Deterministic;
+        assert_eq!(
+            task.validate(),
+            Err(DomainError::InsufficientVerification {
+                risk: RiskLevel::High,
+                required: VerificationPolicy::MakerChecker,
+                actual: VerificationPolicy::Deterministic,
+            })
+        );
+
+        task.risk = RiskLevel::Consequential;
+        task.verification = VerificationPolicy::MakerChecker;
+        assert_eq!(
+            task.validate(),
+            Err(DomainError::InsufficientVerification {
+                risk: RiskLevel::Consequential,
+                required: VerificationPolicy::HumanApproval,
+                actual: VerificationPolicy::MakerChecker,
+            })
+        );
+
+        task.verification = VerificationPolicy::HumanApproval;
+        assert_eq!(task.validate(), Ok(()));
+    }
+
+    #[test]
     fn estimate_rejects_inverted_confidence_bounds() {
         let mut estimate = sample_estimate();
         estimate.success = ProbabilityEstimate {
@@ -574,16 +734,17 @@ mod tests {
     fn evidence_keeps_source_native_scores() {
         let mut observation = EvidenceObservation {
             id: "evidence:test".to_owned(),
-            worker_id: "worker:test".into(),
+            model_release_id: "model:test-2026-01-01".into(),
+            worker_id: Some("worker:test".into()),
             skill_id: "skill:rust".into(),
-            benchmark_id: Some("benchmark:test".into()),
+            benchmark_id: "benchmark:test".into(),
             evidence_tier: EvidenceTier::CommunityReproducible,
             raw_score: 1_247.5,
             metric: "elo".to_owned(),
             unit: "rating_points".to_owned(),
             normalized_score: None,
             adapter_version: "adapter:test-v1".to_owned(),
-            sample_count: 100,
+            sample_count: Some(100),
             observed_at: "2026-01-01T00:00:00Z".to_owned(),
             source_url: "https://example.invalid/evidence".to_owned(),
             artifact_sha256: EMPTY_SHA256.to_owned(),
@@ -596,6 +757,80 @@ mod tests {
             observation.validate(),
             Err(DomainError::InvalidProbability { .. })
         ));
+    }
+
+    #[test]
+    fn release_level_evidence_can_omit_worker_and_sample_count() {
+        let observation = EvidenceObservation {
+            id: "evidence:release-level".to_owned(),
+            model_release_id: "model:test-2026-01-01".into(),
+            worker_id: None,
+            skill_id: "skill:rust".into(),
+            benchmark_id: "benchmark:test".into(),
+            evidence_tier: EvidenceTier::VendorReported,
+            raw_score: 0.75,
+            metric: "pass_rate".to_owned(),
+            unit: "ratio".to_owned(),
+            normalized_score: None,
+            adapter_version: "adapter:test-v1".to_owned(),
+            sample_count: None,
+            observed_at: "2026-01-01T00:00:00Z".to_owned(),
+            source_url: "https://example.invalid/evidence".to_owned(),
+            artifact_sha256: EMPTY_SHA256.to_owned(),
+            license: "CC-BY-4.0".to_owned(),
+        };
+
+        assert_eq!(observation.validate(), Ok(()));
+        let mut encoded = serde_json::to_value(&observation).expect("serialize evidence");
+        let object = encoded.as_object_mut().expect("evidence JSON object");
+        object.remove("worker_id");
+        object.remove("sample_count");
+        assert_eq!(
+            serde_json::from_value::<EvidenceObservation>(encoded).expect("deserialize evidence"),
+            observation
+        );
+    }
+
+    #[test]
+    fn evidence_rejects_missing_required_identity_and_zero_known_sample_count() {
+        let mut observation = EvidenceObservation {
+            id: "evidence:test".to_owned(),
+            model_release_id: ModelReleaseId::from(""),
+            worker_id: None,
+            skill_id: "skill:rust".into(),
+            benchmark_id: "benchmark:test".into(),
+            evidence_tier: EvidenceTier::CommunityReproducible,
+            raw_score: 0.75,
+            metric: "pass_rate".to_owned(),
+            unit: "ratio".to_owned(),
+            normalized_score: None,
+            adapter_version: "adapter:test-v1".to_owned(),
+            sample_count: None,
+            observed_at: "2026-01-01T00:00:00Z".to_owned(),
+            source_url: "https://example.invalid/evidence".to_owned(),
+            artifact_sha256: EMPTY_SHA256.to_owned(),
+            license: "CC-BY-4.0".to_owned(),
+        };
+
+        assert_eq!(
+            observation.validate(),
+            Err(DomainError::EmptyField("evidence.model_release_id"))
+        );
+        observation.model_release_id = "model:test-2026-01-01".into();
+        observation.benchmark_id = BenchmarkId::from("");
+        assert_eq!(
+            observation.validate(),
+            Err(DomainError::EmptyField("evidence.benchmark_id"))
+        );
+        observation.benchmark_id = "benchmark:test".into();
+        observation.worker_id = Some(WorkerId::from(""));
+        assert_eq!(
+            observation.validate(),
+            Err(DomainError::EmptyField("evidence.worker_id"))
+        );
+        observation.worker_id = None;
+        observation.sample_count = Some(0);
+        assert_eq!(observation.validate(), Err(DomainError::ZeroSampleCount));
     }
 
     fn sample_identity() -> WorkerIdentity {
@@ -611,6 +846,25 @@ mod tests {
             skill_pack_version: "1".to_owned(),
             toolset_version: "1".to_owned(),
             execution_policy_sha256: EMPTY_SHA256.to_owned(),
+        }
+    }
+
+    fn sample_task() -> TaskSpec {
+        TaskSpec {
+            id: "task:test".into(),
+            summary: "test".to_owned(),
+            repository: None,
+            required_skills: Vec::new(),
+            required_tools: BTreeSet::new(),
+            allowed_providers: BTreeSet::new(),
+            privacy: PrivacyClass::Public,
+            risk: RiskLevel::Low,
+            verification: VerificationPolicy::Deterministic,
+            minimum_success_probability: 0.5,
+            max_expected_cash_micros: None,
+            max_p95_latency_ms: None,
+            estimated_input_tokens: 100,
+            estimated_output_tokens: 100,
         }
     }
 
@@ -637,10 +891,11 @@ mod tests {
                 evidence_count: 10,
             },
             skill_estimates: BTreeMap::new(),
-            expected_run_cash_micros: 0,
+            expected_tool_cash_micros: 0,
             expected_review_cash_micros: 0,
             expected_fallback_cash_micros: 0,
-            expected_quota_milliunits: 0,
+            expected_additional_quota_milliunits: 0,
+            checker_worker_id: None,
             p95_latency_ms: 0,
             evidence_snapshot_id: "snapshot:test".to_owned(),
         }

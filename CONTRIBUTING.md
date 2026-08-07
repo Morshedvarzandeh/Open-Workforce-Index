@@ -19,15 +19,28 @@ storage invariants. New architectural decisions belong in `docs/adr/`.
 
 Do not paste a leaderboard number without its protocol. A record must identify:
 
-- exact model release, provider offering, harness and tool permissions;
+- the exact model release and, when the source discloses it, the provider
+  offering, harness, inference configuration, and tool permissions;
 - benchmark/dataset and revision;
-- prompt/protocol digest, attempts or seeds, metric, unit, and sample count;
+- prompt/protocol digest, attempts or seeds, metric, unit, and sample count when
+  reported;
 - source URL, publication/retrieval time, content digest, and license;
 - whether the result is vendor-reported, independently reproduced, or signed.
+
+Unknown worker configuration or sample size stays unknown. Never fabricate an
+exact worker merely to make release-level evidence fit the schema; the
+estimator must transfer such evidence with lower confidence.
 
 Store a link and digest rather than copying a large third-party dataset unless
 its license explicitly permits redistribution. Apache-2.0 covers OWI code and
 project-authored data; it does not relicense imported benchmark material.
+
+Environmental factors additionally require an exact offering or deployment,
+functional unit, scaling rule, lifecycle phase, measurement boundary, units,
+geography/time applicability, and provenance. Do not convert a median prompt
+or provider fleet average into a per-token or model-specific factor without
+source-supported applicability. Unknown impact stays unknown; location- and
+market-based CO2e and water withdrawal/consumption remain separate.
 
 ## Design rules
 

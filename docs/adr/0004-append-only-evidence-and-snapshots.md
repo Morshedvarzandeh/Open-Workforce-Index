@@ -22,8 +22,22 @@ Treat raw evidence observations, verified outcome events, and published index sn
 
 Storage grows and consumers must select the latest valid revision rather than update rows. Rebuilding and audit are straightforward, rollbacks select an earlier snapshot, and benchmark freshness can be measured without erasing history.
 
+## Implementation status
+
+v0.1 implements append-only public records, a closed snapshot member manifest
+with a verified digest, and private quote audits containing candidates and
+exclusions. Its evidence record has an observation time but not yet distinct
+publication/retrieval/ingestion times or a typed protocol manifest. Complete
+decision replay is a v0.2 release gate: the snapshot still needs an estimator
+version, the private decision needs a local-state version, and the request
+fingerprint must be computed from canonical request bytes rather than accepted
+from an adapter. Until those fields exist, OWI can verify the public evidence
+view but does not claim full quote reconstruction.
+
 ## Invariants
 
 1. Published identifiers and snapshot digests are never reused for different bytes.
 2. Price and availability changes are time-bounded revisions, not overwrites.
-3. A routing decision can be replayed against the exact evidence view it used.
+3. Before persisted decisions are described as replayable, their snapshot,
+   estimator, ontology, private-state, policy, canonical request, and seed
+   versions must all be fixed and verified.

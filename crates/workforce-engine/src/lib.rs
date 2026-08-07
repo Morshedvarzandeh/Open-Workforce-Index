@@ -11,10 +11,11 @@ use std::{cmp::Ordering, collections::BTreeSet};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use workforce_domain::{
-    DecisionId, DomainError, PrivacyClass, ProbabilityEstimate, SkillId, TaskSpec, WorkerEstimate,
-    WorkerId,
+    DecisionId, DomainError, PrivacyClass, ProbabilityEstimate, SkillId, TaskSpec,
+    VerificationPolicy, WorkerEstimate, WorkerId,
 };
 
+const TOKENS_PER_MILLION: u128 = 1_000_000;
 const QUOTA_MILLIUNITS_PER_UNIT: u128 = 1_000;
 
 /// A transparent conjugate posterior for Bernoulli success observations.
@@ -118,6 +119,10 @@ pub struct RoutingPolicy {
     /// An optional hard quota ceiling, separate from the cash budget.
     #[serde(default)]
     pub max_expected_quota_milliunits: Option<u64>,
+    /// Checkers approved by the local policy owner. A maker cannot authorize
+    /// an arbitrary worker merely by naming it in its estimate.
+    #[serde(default)]
+    pub authorized_checker_worker_ids: BTreeSet<WorkerId>,
 }
 
 impl RoutingPolicy {
@@ -127,6 +132,15 @@ impl RoutingPolicy {
         }
         if self.currency.trim().is_empty() {
             return Err(EngineError::EmptyField("policy.currency"));
+        }
+        if self
+            .authorized_checker_worker_ids
+            .iter()
+            .any(WorkerId::is_empty)
+        {
+            return Err(EngineError::EmptyField(
+                "policy.authorized_checker_worker_ids",
+            ));
         }
         Ok(())
     }
@@ -149,6 +163,7 @@ pub struct RoutingQuote {
     pub evidence_snapshot_id: String,
     pub policy_id: String,
     pub selected_worker_id: Option<WorkerId>,
+    pub selected_checker_worker_id: Option<WorkerId>,
     pub eligible_candidates: Vec<CandidateQuote>,
     pub rejected_candidates: Vec<RejectedCandidate>,
     pub pareto_worker_ids: Vec<WorkerId>,
@@ -159,6 +174,7 @@ pub struct RoutingQuote {
 pub struct CandidateQuote {
     pub rank: usize,
     pub worker_id: WorkerId,
+    pub checker_worker_id: Option<WorkerId>,
     pub success_mean: f64,
     pub success_lower_bound: f64,
     pub p95_latency_ms: u64,
@@ -168,10 +184,21 @@ pub struct CandidateQuote {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CostBreakdown {
+    pub currency: String,
+    pub estimated_input_tokens: u64,
+    pub estimated_output_tokens: u64,
+    pub input_micros_per_million_tokens: u64,
+    pub output_micros_per_million_tokens: u64,
+    pub input_token_cash_micros: u64,
+    pub output_token_cash_micros: u64,
+    pub fixed_request_cash_micros: u64,
+    pub tool_cash_micros: u64,
     pub run_cash_micros: u64,
     pub review_cash_micros: u64,
     pub expected_failure_cash_micros: u64,
     pub expected_cash_micros: u64,
+    pub base_quota_milliunits: u64,
+    pub additional_quota_milliunits: u64,
     pub expected_quota_milliunits: u64,
     pub quota_shadow_cash_micros: u64,
     /// Cash plus the local shadow value of scarce quota.
@@ -189,6 +216,13 @@ pub struct RejectedCandidate {
 #[serde(tag = "code", rename_all = "snake_case")]
 pub enum IneligibilityReason {
     Unavailable,
+    MissingCheckerWorker,
+    CheckerMatchesMaker {
+        checker_worker_id: WorkerId,
+    },
+    UnauthorizedCheckerWorker {
+        checker_worker_id: WorkerId,
+    },
     EvidenceSnapshotMismatch {
         expected: String,
         actual: String,
@@ -260,7 +294,7 @@ pub fn quote(request: &QuoteRequest) -> Result<RoutingQuote, EngineError> {
     let mut rejected_candidates = Vec::new();
 
     for estimate in &request.candidates {
-        let cost = cost_breakdown(estimate, &request.policy);
+        let cost = cost_breakdown(estimate, &request.task, &request.policy)?;
         let reasons = ineligibility_reasons(
             estimate,
             &request.task,
@@ -274,6 +308,7 @@ pub fn quote(request: &QuoteRequest) -> Result<RoutingQuote, EngineError> {
             eligible_candidates.push(CandidateQuote {
                 rank: 0,
                 worker_id: estimate.worker.identity.worker_id.clone(),
+                checker_worker_id: estimate.checker_worker_id.clone(),
                 success_mean: estimate.success.success_mean,
                 success_lower_bound: estimate.success.success_lower_bound,
                 p95_latency_ms: estimate.p95_latency_ms,
@@ -303,6 +338,9 @@ pub fn quote(request: &QuoteRequest) -> Result<RoutingQuote, EngineError> {
     let selected_worker_id = eligible_candidates
         .first()
         .map(|candidate| candidate.worker_id.clone());
+    let selected_checker_worker_id = eligible_candidates
+        .first()
+        .and_then(|candidate| candidate.checker_worker_id.clone());
     let selection_explanation = eligible_candidates
         .first()
         .map(|selected| SelectionExplanation {
@@ -325,6 +363,7 @@ pub fn quote(request: &QuoteRequest) -> Result<RoutingQuote, EngineError> {
         evidence_snapshot_id: request.evidence_snapshot_id.clone(),
         policy_id: request.policy.policy_id.clone(),
         selected_worker_id,
+        selected_checker_worker_id,
         eligible_candidates,
         rejected_candidates,
         pareto_worker_ids,
@@ -340,7 +379,16 @@ fn validate_request(request: &QuoteRequest) -> Result<(), EngineError> {
         return Err(EngineError::EmptyField("evidence_snapshot_id"));
     }
     request.task.validate()?;
+    // v0.1 has no independently verified locality/deployment attribute. A
+    // clearance label alone cannot prove that a candidate is safe for secrets,
+    // so fail closed until a local-execution boundary can be enforced.
+    if request.task.privacy == PrivacyClass::Secret {
+        return Err(EngineError::SecretRoutingUnsupported);
+    }
     request.policy.validate()?;
+    if request.candidates.is_empty() {
+        return Err(EngineError::EmptyCandidates);
+    }
 
     let mut worker_ids = BTreeSet::new();
     for candidate in &request.candidates {
@@ -368,12 +416,35 @@ fn ineligibility_reasons(
     if !worker.available {
         reasons.push(IneligibilityReason::Unavailable);
     }
+    if task.verification == VerificationPolicy::MakerChecker {
+        match &estimate.checker_worker_id {
+            None => reasons.push(IneligibilityReason::MissingCheckerWorker),
+            Some(checker_worker_id) if checker_worker_id == &worker.identity.worker_id => {
+                reasons.push(IneligibilityReason::CheckerMatchesMaker {
+                    checker_worker_id: checker_worker_id.clone(),
+                });
+            }
+            Some(checker_worker_id)
+                if !policy
+                    .authorized_checker_worker_ids
+                    .contains(checker_worker_id) =>
+            {
+                reasons.push(IneligibilityReason::UnauthorizedCheckerWorker {
+                    checker_worker_id: checker_worker_id.clone(),
+                });
+            }
+            Some(_) => {}
+        }
+    }
     if estimate.evidence_snapshot_id != evidence_snapshot_id {
         reasons.push(IneligibilityReason::EvidenceSnapshotMismatch {
             expected: evidence_snapshot_id.to_owned(),
             actual: estimate.evidence_snapshot_id.clone(),
         });
     }
+    // Provider identifiers are validated as nonblank, whitespace-canonical
+    // values before this point. Deliberately use exact, case-sensitive matching
+    // so the allow-list cannot silently broaden through normalization.
     if !task.allowed_providers.is_empty()
         && !task.allowed_providers.contains(&worker.identity.provider)
     {
@@ -464,29 +535,123 @@ fn ineligibility_reasons(
     reasons
 }
 
-fn cost_breakdown(estimate: &WorkerEstimate, policy: &RoutingPolicy) -> CostBreakdown {
+fn cost_breakdown(
+    estimate: &WorkerEstimate,
+    task: &TaskSpec,
+    policy: &RoutingPolicy,
+) -> Result<CostBreakdown, EngineError> {
+    let worker_id = &estimate.worker.identity.worker_id;
+    let profile = &estimate.worker.cost;
+    let input_token_cash_micros = token_cash_cost(
+        task.estimated_input_tokens,
+        profile.input_micros_per_million_tokens,
+        worker_id,
+        "input_token_cash_micros",
+    )?;
+    let output_token_cash_micros = token_cash_cost(
+        task.estimated_output_tokens,
+        profile.output_micros_per_million_tokens,
+        worker_id,
+        "output_token_cash_micros",
+    )?;
+    let model_cash_micros = checked_add_cost(
+        input_token_cash_micros,
+        output_token_cash_micros,
+        worker_id,
+        "model_token_cash_micros",
+    )?;
+    let model_and_request_cash_micros = checked_add_cost(
+        model_cash_micros,
+        profile.fixed_request_micros,
+        worker_id,
+        "model_and_request_cash_micros",
+    )?;
+    let run_cash_micros = checked_add_cost(
+        model_and_request_cash_micros,
+        estimate.expected_tool_cash_micros,
+        worker_id,
+        "run_cash_micros",
+    )?;
     let failure_probability = 1.0 - estimate.success.success_mean;
     let expected_failure_cash_micros =
         probability_weighted_cost(estimate.expected_fallback_cash_micros, failure_probability);
-    let expected_cash_micros = estimate
-        .expected_run_cash_micros
-        .saturating_add(estimate.expected_review_cash_micros)
-        .saturating_add(expected_failure_cash_micros);
+    let run_and_review_cash_micros = checked_add_cost(
+        run_cash_micros,
+        estimate.expected_review_cash_micros,
+        worker_id,
+        "run_and_review_cash_micros",
+    )?;
+    let expected_cash_micros = checked_add_cost(
+        run_and_review_cash_micros,
+        expected_failure_cash_micros,
+        worker_id,
+        "expected_cash_micros",
+    )?;
+    let expected_quota_milliunits = profile
+        .quota_milliunits_per_request
+        .checked_add(estimate.expected_additional_quota_milliunits)
+        .ok_or_else(|| EngineError::CostOverflow {
+            worker_id: worker_id.clone(),
+            component: "expected_quota_milliunits",
+        })?;
     let quota_shadow_cash_micros = quota_shadow_cost(
-        estimate.expected_quota_milliunits,
+        expected_quota_milliunits,
         policy.quota_shadow_cash_micros_per_unit,
-    );
+        worker_id,
+    )?;
+    let expected_accepted_cost_micros = checked_add_cost(
+        expected_cash_micros,
+        quota_shadow_cash_micros,
+        worker_id,
+        "expected_accepted_cost_micros",
+    )?;
 
-    CostBreakdown {
-        run_cash_micros: estimate.expected_run_cash_micros,
+    Ok(CostBreakdown {
+        currency: profile.currency.clone(),
+        estimated_input_tokens: task.estimated_input_tokens,
+        estimated_output_tokens: task.estimated_output_tokens,
+        input_micros_per_million_tokens: profile.input_micros_per_million_tokens,
+        output_micros_per_million_tokens: profile.output_micros_per_million_tokens,
+        input_token_cash_micros,
+        output_token_cash_micros,
+        fixed_request_cash_micros: profile.fixed_request_micros,
+        tool_cash_micros: estimate.expected_tool_cash_micros,
+        run_cash_micros,
         review_cash_micros: estimate.expected_review_cash_micros,
         expected_failure_cash_micros,
         expected_cash_micros,
-        expected_quota_milliunits: estimate.expected_quota_milliunits,
+        base_quota_milliunits: profile.quota_milliunits_per_request,
+        additional_quota_milliunits: estimate.expected_additional_quota_milliunits,
+        expected_quota_milliunits,
         quota_shadow_cash_micros,
-        expected_accepted_cost_micros: expected_cash_micros
-            .saturating_add(quota_shadow_cash_micros),
-    }
+        expected_accepted_cost_micros,
+    })
+}
+
+fn token_cash_cost(
+    tokens: u64,
+    cash_micros_per_million_tokens: u64,
+    worker_id: &WorkerId,
+    component: &'static str,
+) -> Result<u64, EngineError> {
+    let product = u128::from(tokens) * u128::from(cash_micros_per_million_tokens);
+    u64::try_from(product.div_ceil(TOKENS_PER_MILLION)).map_err(|_| EngineError::CostOverflow {
+        worker_id: worker_id.clone(),
+        component,
+    })
+}
+
+fn checked_add_cost(
+    left: u64,
+    right: u64,
+    worker_id: &WorkerId,
+    component: &'static str,
+) -> Result<u64, EngineError> {
+    left.checked_add(right)
+        .ok_or_else(|| EngineError::CostOverflow {
+            worker_id: worker_id.clone(),
+            component,
+        })
 }
 
 #[allow(
@@ -509,10 +674,17 @@ fn probability_weighted_cost(cost_micros: u64, probability: f64) -> u64 {
     }
 }
 
-fn quota_shadow_cost(quota_milliunits: u64, cash_micros_per_unit: u64) -> u64 {
+fn quota_shadow_cost(
+    quota_milliunits: u64,
+    cash_micros_per_unit: u64,
+    worker_id: &WorkerId,
+) -> Result<u64, EngineError> {
     let product = u128::from(quota_milliunits) * u128::from(cash_micros_per_unit);
     let rounded_up = product.div_ceil(QUOTA_MILLIUNITS_PER_UNIT);
-    u64::try_from(rounded_up).unwrap_or(u64::MAX)
+    u64::try_from(rounded_up).map_err(|_| EngineError::CostOverflow {
+        worker_id: worker_id.clone(),
+        component: "quota_shadow_cash_micros",
+    })
 }
 
 fn mark_pareto_candidates(candidates: &mut [CandidateQuote]) {
@@ -570,8 +742,17 @@ pub enum EngineError {
     Domain(#[from] DomainError),
     #[error("{0} must not be empty")]
     EmptyField(&'static str),
+    #[error("quote request must contain at least one candidate")]
+    EmptyCandidates,
+    #[error("secret tasks cannot be routed until local execution can be verified")]
+    SecretRoutingUnsupported,
     #[error("candidate {0} appears more than once")]
     DuplicateCandidate(WorkerId),
+    #[error("cost component {component} overflows u64 for candidate {worker_id}")]
+    CostOverflow {
+        worker_id: WorkerId,
+        component: &'static str,
+    },
     #[error("beta parameters must be finite and positive, got alpha={alpha}, beta={beta}")]
     InvalidBetaParameters { alpha: f64, beta: f64 },
     #[error(
@@ -643,6 +824,30 @@ mod tests {
     }
 
     #[test]
+    fn empty_candidate_set_is_rejected() {
+        assert_eq!(
+            quote(&request(Vec::new())),
+            Err(EngineError::EmptyCandidates)
+        );
+    }
+
+    #[test]
+    fn a_nonempty_no_selection_quote_contains_candidate_rejections() {
+        let mut unavailable = candidate("unavailable", 100, 0.9, 0.8);
+        unavailable.worker.available = false;
+
+        let result = quote(&request(vec![unavailable])).expect("valid no-selection quote");
+
+        assert_eq!(result.selected_worker_id, None);
+        assert!(result.eligible_candidates.is_empty());
+        assert_eq!(result.rejected_candidates.len(), 1);
+        assert!(matches!(
+            result.rejected_candidates[0].reasons.as_slice(),
+            [IneligibilityReason::Unavailable]
+        ));
+    }
+
+    #[test]
     fn low_confidence_cheap_worker_is_rejected() {
         let cheap = candidate("cheap", 10, 0.8, 0.59);
         let safe = candidate("safe", 500, 0.9, 0.8);
@@ -676,19 +881,197 @@ mod tests {
     }
 
     #[test]
+    fn secret_tasks_fail_closed_without_verified_local_execution() {
+        let mut local_label_only = candidate("secret-clearance", 10, 0.9, 0.8);
+        local_label_only.worker.data_clearance = PrivacyClass::Secret;
+        let mut input = request(vec![local_label_only]);
+        input.task.privacy = PrivacyClass::Secret;
+
+        assert_eq!(quote(&input), Err(EngineError::SecretRoutingUnsupported));
+    }
+
+    #[test]
+    fn provider_allow_list_uses_exact_canonical_identity() {
+        let mut exact = candidate("exact-provider", 10, 0.9, 0.8);
+        exact.worker.identity.provider = "provider-a".to_owned();
+        let mut different_case = candidate("different-case-provider", 5, 0.9, 0.8);
+        different_case.worker.identity.provider = "Provider-A".to_owned();
+        let mut input = request(vec![different_case, exact]);
+        input.task.allowed_providers = BTreeSet::from(["provider-a".to_owned()]);
+
+        let result = quote(&input).expect("valid provider-filtered quote");
+
+        assert_eq!(
+            result.selected_worker_id,
+            Some(WorkerId::from("worker:exact-provider"))
+        );
+        assert!(matches!(
+            result.rejected_candidates[0].reasons.as_slice(),
+            [IneligibilityReason::ProviderNotAllowed { provider }]
+                if provider == "Provider-A"
+        ));
+    }
+
+    #[test]
+    fn quote_rejects_noncanonical_provider_values_before_filtering() {
+        let mut worker = candidate("padded-provider", 10, 0.9, 0.8);
+        worker.worker.identity.provider = "provider-a ".to_owned();
+
+        assert_eq!(
+            quote(&request(vec![worker])),
+            Err(EngineError::Domain(
+                DomainError::NonCanonicalProviderIdentifier("worker.provider")
+            ))
+        );
+    }
+
+    #[test]
+    fn high_and_consequential_risk_require_stronger_verification() {
+        let mut high = request(vec![candidate("maker", 100, 0.9, 0.8)]);
+        high.task.risk = RiskLevel::High;
+        assert_eq!(
+            quote(&high),
+            Err(EngineError::Domain(DomainError::InsufficientVerification {
+                risk: RiskLevel::High,
+                required: VerificationPolicy::MakerChecker,
+                actual: VerificationPolicy::Deterministic,
+            }))
+        );
+
+        let mut consequential = high;
+        consequential.task.risk = RiskLevel::Consequential;
+        consequential.task.verification = VerificationPolicy::MakerChecker;
+        assert_eq!(
+            quote(&consequential),
+            Err(EngineError::Domain(DomainError::InsufficientVerification {
+                risk: RiskLevel::Consequential,
+                required: VerificationPolicy::HumanApproval,
+                actual: VerificationPolicy::MakerChecker,
+            }))
+        );
+
+        consequential.task.verification = VerificationPolicy::HumanApproval;
+        assert!(quote(&consequential).is_ok());
+    }
+
+    #[test]
+    fn maker_checker_requires_a_named_independent_checker() {
+        let missing = candidate("missing", 10, 0.9, 0.8);
+        let mut self_checked = candidate("self-checked", 20, 0.9, 0.8);
+        self_checked.checker_worker_id = Some(self_checked.worker.identity.worker_id.clone());
+        let mut unauthorized = candidate("unauthorized", 25, 0.9, 0.8);
+        unauthorized.checker_worker_id = Some("worker:invented".into());
+        let mut independent = candidate("independent", 30, 0.9, 0.8);
+        independent.checker_worker_id = Some("worker:reviewer".into());
+        let mut input = request(vec![missing, self_checked, unauthorized, independent]);
+        input.task.risk = RiskLevel::High;
+        input.task.verification = VerificationPolicy::MakerChecker;
+        input.policy.authorized_checker_worker_ids =
+            BTreeSet::from([WorkerId::from("worker:reviewer")]);
+
+        let result = quote(&input).expect("valid maker-checker quote");
+
+        assert_eq!(
+            result.selected_worker_id,
+            Some(WorkerId::from("worker:independent"))
+        );
+        assert_eq!(
+            result.selected_checker_worker_id,
+            Some(WorkerId::from("worker:reviewer"))
+        );
+        let missing = result
+            .rejected_candidates
+            .iter()
+            .find(|candidate| candidate.worker_id == WorkerId::from("worker:missing"))
+            .expect("missing-checker rejection");
+        assert!(matches!(
+            missing.reasons.as_slice(),
+            [IneligibilityReason::MissingCheckerWorker]
+        ));
+        let self_checked = result
+            .rejected_candidates
+            .iter()
+            .find(|candidate| candidate.worker_id == WorkerId::from("worker:self-checked"))
+            .expect("self-check rejection");
+        assert!(matches!(
+            self_checked.reasons.as_slice(),
+            [IneligibilityReason::CheckerMatchesMaker { checker_worker_id }]
+                if checker_worker_id == &WorkerId::from("worker:self-checked")
+        ));
+        let unauthorized = result
+            .rejected_candidates
+            .iter()
+            .find(|candidate| candidate.worker_id == WorkerId::from("worker:unauthorized"))
+            .expect("unauthorized-checker rejection");
+        assert!(matches!(
+            unauthorized.reasons.as_slice(),
+            [IneligibilityReason::UnauthorizedCheckerWorker { checker_worker_id }]
+                if checker_worker_id == &WorkerId::from("worker:invented")
+        ));
+    }
+
+    #[test]
     fn expected_cost_contains_run_review_failure_and_quota_shadow() {
         let mut worker = candidate("costed", 100, 0.75, 0.7);
+        worker.expected_tool_cash_micros = 7;
         worker.expected_review_cash_micros = 10;
         worker.expected_fallback_cash_micros = 100;
-        worker.expected_quota_milliunits = 500;
+        worker.worker.cost.quota_milliunits_per_request = 250;
+        worker.expected_additional_quota_milliunits = 500;
 
         let result = quote(&request(vec![worker])).expect("valid quote");
         let cost = &result.eligible_candidates[0].cost;
 
+        assert_eq!(cost.fixed_request_cash_micros, 100);
+        assert_eq!(cost.tool_cash_micros, 7);
+        assert_eq!(cost.run_cash_micros, 107);
         assert_eq!(cost.expected_failure_cash_micros, 25);
-        assert_eq!(cost.expected_cash_micros, 135);
-        assert_eq!(cost.quota_shadow_cash_micros, 10);
-        assert_eq!(cost.expected_accepted_cost_micros, 145);
+        assert_eq!(cost.expected_cash_micros, 142);
+        assert_eq!(cost.base_quota_milliunits, 250);
+        assert_eq!(cost.additional_quota_milliunits, 500);
+        assert_eq!(cost.expected_quota_milliunits, 750);
+        assert_eq!(cost.quota_shadow_cash_micros, 15);
+        assert_eq!(cost.expected_accepted_cost_micros, 157);
+    }
+
+    #[test]
+    fn token_tariffs_are_derived_with_per_component_ceiling() {
+        let mut worker = candidate("metered", 3, 0.9, 0.8);
+        worker.worker.cost.input_micros_per_million_tokens = 1;
+        worker.worker.cost.output_micros_per_million_tokens = 1;
+        let mut input = request(vec![worker]);
+        input.task.estimated_input_tokens = 1;
+        input.task.estimated_output_tokens = 1;
+
+        let result = quote(&input).expect("valid quote");
+        let cost = &result.eligible_candidates[0].cost;
+
+        assert_eq!(cost.estimated_input_tokens, 1);
+        assert_eq!(cost.estimated_output_tokens, 1);
+        assert_eq!(cost.input_micros_per_million_tokens, 1);
+        assert_eq!(cost.output_micros_per_million_tokens, 1);
+        assert_eq!(cost.input_token_cash_micros, 1);
+        assert_eq!(cost.output_token_cash_micros, 1);
+        assert_eq!(cost.fixed_request_cash_micros, 3);
+        assert_eq!(cost.run_cash_micros, 5);
+    }
+
+    #[test]
+    fn token_cost_overflow_is_a_structured_error() {
+        let mut worker = candidate("overflow", 0, 0.9, 0.8);
+        worker.worker.context_window_tokens = u64::MAX;
+        worker.worker.cost.input_micros_per_million_tokens = u64::MAX;
+        let mut input = request(vec![worker]);
+        input.task.estimated_input_tokens = u64::MAX;
+        input.task.estimated_output_tokens = 0;
+
+        assert_eq!(
+            quote(&input),
+            Err(EngineError::CostOverflow {
+                worker_id: "worker:overflow".into(),
+                component: "input_token_cash_micros",
+            })
+        );
     }
 
     #[test]
@@ -797,6 +1180,7 @@ mod tests {
                 currency: "USD".to_owned(),
                 quota_shadow_cash_micros_per_unit: 20,
                 max_expected_quota_milliunits: None,
+                authorized_checker_worker_ids: BTreeSet::new(),
             },
             candidates,
         }
@@ -804,7 +1188,7 @@ mod tests {
 
     fn candidate(
         name: &str,
-        run_cash_micros: u64,
+        fixed_request_cash_micros: u64,
         success_mean: f64,
         success_lower_bound: f64,
     ) -> WorkerEstimate {
@@ -833,7 +1217,7 @@ mod tests {
                     currency: "USD".to_owned(),
                     input_micros_per_million_tokens: 0,
                     output_micros_per_million_tokens: 0,
-                    fixed_request_micros: 0,
+                    fixed_request_micros: fixed_request_cash_micros,
                     quota_milliunits_per_request: 0,
                 },
                 available: true,
@@ -851,10 +1235,11 @@ mod tests {
                     evidence_count: 20,
                 },
             )]),
-            expected_run_cash_micros: run_cash_micros,
+            expected_tool_cash_micros: 0,
             expected_review_cash_micros: 0,
             expected_fallback_cash_micros: 0,
-            expected_quota_milliunits: 0,
+            expected_additional_quota_milliunits: 0,
+            checker_worker_id: None,
             p95_latency_ms: 100,
             evidence_snapshot_id: "snapshot:1".to_owned(),
         }

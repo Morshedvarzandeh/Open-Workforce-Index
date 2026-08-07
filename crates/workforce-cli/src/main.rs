@@ -1,10 +1,10 @@
 use std::{
     fs,
     io::{self, Write},
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use workforce_engine::{BetaPosterior, QuoteRequest, quote};
@@ -134,7 +134,8 @@ fn run_ontology(command: OntologyCommand) -> Result<()> {
         OntologyCommand::Validate => {
             let (ontology_statements, shape_statements) = validate_builtin_rdf()?;
             print_json(&serde_json::json!({
-                "valid": true,
+                "rdf_syntax_valid": true,
+                "shacl_executed": false,
                 "ontology_statements": ontology_statements,
                 "shape_statements": shape_statements,
             }))
@@ -156,18 +157,78 @@ fn run_ontology(command: OntologyCommand) -> Result<()> {
 fn run_database(command: DatabaseCommand) -> Result<()> {
     match command {
         DatabaseCommand::Init { index, local } => {
-            create_parent(&index)?;
-            create_parent(&local)?;
-            let _public = PublicIndexStore::open(&index)
-                .with_context(|| format!("initialize {}", index.display()))?;
-            let _private = PrivateLocalStore::open(&local)
-                .with_context(|| format!("initialize {}", local.display()))?;
+            let resolved_index = resolve_target(&index)?;
+            let resolved_local = resolve_target(&local)?;
+            if resolved_index == resolved_local {
+                bail!(
+                    "public index and private ledger must use different files: {}",
+                    resolved_index.display()
+                );
+            }
+            create_parent(&resolved_index)?;
+            create_parent(&resolved_local)?;
+            let _public = PublicIndexStore::open(&resolved_index)
+                .with_context(|| format!("initialize {}", resolved_index.display()))?;
+            let _private = PrivateLocalStore::open(&resolved_local)
+                .with_context(|| format!("initialize {}", resolved_local.display()))?;
             print_json(&serde_json::json!({
-                "public_index": index,
-                "private_local_ledger": local,
+                "public_index": resolved_index,
+                "private_local_ledger": resolved_local,
             }))
         }
     }
+}
+
+/// Resolves existing ancestors and normalizes a not-yet-created target without
+/// creating anything. This catches aliases through `..` and existing symlinks
+/// before either trust-domain database is opened.
+fn resolve_target(path: &Path) -> Result<PathBuf> {
+    if path.file_name().is_none() {
+        bail!("database path must name a file");
+    }
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(path)
+    };
+    let normalized = lexical_normalize_absolute(&absolute)?;
+    let mut existing = normalized;
+    let mut suffix = Vec::new();
+    while !existing.exists() {
+        let component = existing
+            .file_name()
+            .context("database path must name a file")?
+            .to_os_string();
+        suffix.push(component);
+        if !existing.pop() {
+            bail!("database path has no existing ancestor");
+        }
+    }
+    let mut resolved =
+        fs::canonicalize(&existing).with_context(|| format!("resolve {}", existing.display()))?;
+    for component in suffix.iter().rev() {
+        resolved.push(component);
+    }
+    Ok(resolved)
+}
+
+fn lexical_normalize_absolute(path: &Path) -> Result<PathBuf> {
+    debug_assert!(path.is_absolute());
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::Prefix(_) | Component::RootDir | Component::Normal(_) => {
+                normalized.push(component.as_os_str());
+            }
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if !normalized.pop() || !normalized.is_absolute() {
+                    bail!("database path escapes the filesystem root");
+                }
+            }
+        }
+    }
+    Ok(normalized)
 }
 
 fn read_json<T: DeserializeOwned>(path: &Path) -> Result<T> {
@@ -187,4 +248,87 @@ fn create_parent(path: &Path) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn nonexistent_test_target(label: &str) -> PathBuf {
+        let unique = format!(
+            "owi-{label}-{}-{}.sqlite",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        );
+        std::env::temp_dir().join(unique)
+    }
+
+    #[test]
+    fn database_target_resolution_handles_a_direct_missing_file_without_creating_it() -> Result<()>
+    {
+        let target = nonexistent_test_target("direct");
+        let resolved = resolve_target(&target)?;
+        let expected_parent = fs::canonicalize(target.parent().context("test target parent")?)?;
+        assert_eq!(
+            resolved,
+            expected_parent.join(target.file_name().context("test target name")?)
+        );
+        assert!(!target.exists());
+        Ok(())
+    }
+
+    #[test]
+    fn database_target_resolution_normalizes_missing_parent_segments() -> Result<()> {
+        let target = nonexistent_test_target("same");
+        let missing_parent = format!(
+            "owi-missing-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        );
+        let aliased = target
+            .parent()
+            .context("test target parent")?
+            .join(missing_parent)
+            .join("..")
+            .join(target.file_name().context("test target name")?);
+        assert_eq!(resolve_target(&target)?, resolve_target(&aliased)?);
+        assert!(!target.exists());
+        assert!(!aliased.exists());
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn database_target_resolution_resolves_an_existing_symlink_alias() -> Result<()> {
+        use std::os::unix::fs::symlink;
+
+        let root = nonexistent_test_target("symlink-root").with_extension("");
+        let actual = root.join("actual");
+        let alias = root.join("alias");
+        fs::create_dir_all(&actual)?;
+        symlink(&actual, &alias)?;
+
+        let result = (|| -> Result<()> {
+            let direct_target = actual.join("ledger.sqlite");
+            let alias_target = alias.join("ledger.sqlite");
+            assert_eq!(
+                resolve_target(&direct_target)?,
+                resolve_target(&alias_target)?
+            );
+            assert!(!direct_target.exists());
+            assert!(!alias_target.exists());
+            Ok(())
+        })();
+
+        let _ = fs::remove_file(&alias);
+        let _ = fs::remove_dir(&actual);
+        let _ = fs::remove_dir(&root);
+        result
+    }
 }

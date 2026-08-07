@@ -13,14 +13,52 @@ owf:ProviderOfferingShape a sh:NodeShape ;
     sh:targetClass owf:ProviderOffering ;
     sh:property [ sh:path owf:offeredBy ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:Provider ] ;
     sh:property [ sh:path owf:offersRelease ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:ModelRelease ] ;
-    sh:property [ sh:path owf:contextWindowTokens ; sh:maxCount 1 ; sh:datatype xsd:nonNegativeInteger ] ;
+    sh:property [ sh:path owf:contextWindowTokens ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:nonNegativeInteger ] ;
     sh:property [ sh:path owf:validFrom ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] ;
+    sh:property [ sh:path owf:validUntil ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] ;
+    sh:property [ sh:path owf:supersedesOffering ; sh:maxCount 1 ; sh:class owf:ProviderOffering ] ;
     sh:sparql [
         sh:message "validUntil must be later than validFrom."@en ;
         sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
             SELECT $this WHERE {
               $this owf:validFrom ?start ; owf:validUntil ?end .
               FILTER (?end <= ?start)
+            }
+        """
+    ] ;
+    sh:sparql [
+        sh:message "Offering supersession must be acyclic and cannot refer to the same offering."@en ;
+        sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
+            SELECT $this WHERE {
+              $this owf:supersedesOffering+ $this .
+            }
+        """
+    ] ;
+    sh:sparql [
+        sh:message "An offering revision must preserve the provider and exact model release."@en ;
+        sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
+            SELECT $this WHERE {
+              $this owf:supersedesOffering ?previous ;
+                    owf:offeredBy ?currentProvider ;
+                    owf:offersRelease ?currentRelease .
+              ?previous owf:offeredBy ?previousProvider ;
+                        owf:offersRelease ?previousRelease .
+              FILTER (!sameTerm(?currentProvider, ?previousProvider) ||
+                      !sameTerm(?currentRelease, ?previousRelease))
+            }
+        """
+    ] ;
+    sh:sparql [
+        sh:message "When a predecessor has an explicit validUntil, it cannot extend past the new revision's validFrom."@en ;
+        sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
+            SELECT $this WHERE {
+              $this owf:supersedesOffering ?previous ; owf:validFrom ?currentStart .
+              ?previous owf:validUntil ?previousEnd .
+              FILTER (?previousEnd > ?currentStart)
             }
         """
     ] .
@@ -32,21 +70,105 @@ owf:PriceTermShape a sh:NodeShape ;
     sh:property [ sh:path owf:billingUnit ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
     sh:property [ sh:path owf:validFrom ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] .
 
+# Public environmental profiles are comparable only within their declared
+# offering, functional unit, boundary, phase, metric and units. A missing term
+# means unknown. A non-negative numerator preserves defensible measured zero;
+# explicit presence/status prevents zero from becoming a missing-value sentinel.
+owf:EnvironmentalProfileShape a sh:NodeShape ;
+    sh:targetClass owf:EnvironmentalProfile ;
+    sh:property [ sh:path owf:environmentalProfileForOffering ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:ProviderOffering ] ;
+    sh:property [ sh:path owf:functionalUnit ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
+    sh:property [ sh:path owf:measurementBoundary ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype rdf:JSON ] ;
+    sh:property [ sh:path owf:hasImpactTerm ; sh:minCount 1 ; sh:class owf:ImpactTerm ] ;
+    sh:property [ sh:path owf:validFrom ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] ;
+    sh:property [ sh:path owf:validUntil ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] ;
+    sh:property [ sh:path prov:wasDerivedFrom ; sh:minCount 1 ] ;
+    sh:sparql [
+        sh:message "An environmental profile's validUntil must be later than validFrom."@en ;
+        sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
+            SELECT $this WHERE {
+              $this owf:validFrom ?start ; owf:validUntil ?end .
+              FILTER (?end <= ?start)
+            }
+        """
+    ] .
+
+owf:ImpactTermShape a sh:NodeShape ;
+    sh:targetClass owf:ImpactTerm ;
+    sh:property [
+        sh:path owf:impactMetric ;
+        sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:ImpactMetric ;
+        sh:in ( owf:Energy owf:Co2eLocationBased owf:Co2eMarketBased owf:WaterConsumption owf:WaterWithdrawal )
+    ] ;
+    sh:property [
+        sh:path owf:lifecyclePhase ;
+        sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:LifecyclePhase ;
+        sh:in ( owf:InferenceOperational owf:InferenceEmbodiedHardware owf:InferenceEmbodiedFacility owf:TrainingOperational owf:TrainingEmbodied )
+    ] ;
+    sh:property [ sh:path owf:factorNumerator ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:nonNegativeInteger ; sh:minInclusive 0 ] ;
+    sh:property [ sh:path owf:factorDenominator ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:positiveInteger ; sh:minExclusive 0 ] ;
+    sh:property [ sh:path owf:factorActivityUnit ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
+    sh:property [ sh:path owf:factorResultUnit ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:in ( "uWh" "ugCO2e" "uL" ) ] ;
+    sh:sparql [
+        sh:message "Energy, CO2e, and water impact terms must use uWh, ugCO2e, and uL respectively."@en ;
+        sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
+            SELECT $this WHERE {
+              $this owf:impactMetric ?metric ; owf:factorResultUnit ?unit .
+              VALUES (?metric ?requiredUnit) {
+                (owf:Energy "uWh")
+                (owf:Co2eLocationBased "ugCO2e")
+                (owf:Co2eMarketBased "ugCO2e")
+                (owf:WaterConsumption "uL")
+                (owf:WaterWithdrawal "uL")
+              }
+              FILTER (?unit != ?requiredUnit)
+            }
+        """
+    ] .
+
+# Public capability templates are deliberately small and extensible. They are
+# scouting/position definitions, not a fixed global taxonomy or model rank.
+owf:RoutableTaskClassShape a sh:NodeShape ;
+    sh:targetClass owf:RoutableTaskClass ;
+    sh:property [ sh:path owf:taskClassDomain ; sh:minCount 1 ; sh:class owf:ApplicationDomain ] ;
+    sh:property [ sh:path owf:taskClassArtifactType ; sh:minCount 1 ; sh:class owf:ArtifactType ] ;
+    sh:property [ sh:path owf:taskClassRequiredSkill ; sh:class owf:Skill ] ;
+    sh:property [ sh:path owf:taskClassRequiredTool ; sh:class owf:Tool ] ;
+    sh:property [ sh:path owf:taskClassAcceptanceProfile ; sh:minCount 1 ; sh:class owf:AcceptanceProfile ] .
+
+owf:AcceptanceProfileShape a sh:NodeShape ;
+    sh:targetClass owf:AcceptanceProfile ;
+    sh:property [ sh:path owf:profileVersion ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
+    sh:property [ sh:path owf:acceptsArtifactType ; sh:minCount 1 ; sh:class owf:ArtifactType ] ;
+    sh:property [ sh:path owf:hasAcceptanceCriterion ; sh:minCount 1 ; sh:class owf:AcceptanceCriterion ] .
+
 owf:WorkerProfileShape a sh:NodeShape ;
     sh:targetClass owf:WorkerProfile ;
     sh:property [ sh:path owf:usesOffering ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:ProviderOffering ] ;
     sh:property [ sh:path owf:hasHarness ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:Harness ] ;
-    sh:property [ sh:path owf:configurationDigest ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 16 ] ;
+    sh:property [ sh:path owf:hasSkill ; sh:class owf:Skill ] ;
+    sh:property [ sh:path owf:supportsTool ; sh:class owf:Tool ] ;
+    sh:property [
+        sh:path owf:privacyClass ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:class owf:PrivacyClass ;
+        sh:in ( owf:Public owf:PrivateMetadata owf:ConfidentialContent owf:Secret )
+    ] ;
+    sh:property [
+        sh:path owf:configurationDigest ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^[0-9a-f]{64}$"
+    ] ;
     sh:property [ sh:path owf:inferenceConfiguration ; sh:maxCount 1 ; sh:datatype rdf:JSON ] .
 
 owf:EvidenceObservationShape a sh:NodeShape ;
     sh:targetClass owf:EvidenceObservation ;
-    sh:or (
-        [ sh:property [ sh:path owf:measuresWorker ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:WorkerProfile ] ;
-          sh:property [ sh:path owf:measuresRelease ; sh:maxCount 0 ] ]
-        [ sh:property [ sh:path owf:measuresRelease ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:ModelRelease ] ;
-          sh:property [ sh:path owf:measuresWorker ; sh:maxCount 0 ] ]
-    ) ;
+    sh:property [ sh:path owf:measuresWorker ; sh:maxCount 1 ; sh:class owf:WorkerProfile ] ;
+    sh:property [ sh:path owf:measuresRelease ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:ModelRelease ] ;
+    sh:property [ sh:path owf:measuresSkill ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:Skill ] ;
     sh:property [ sh:path owf:benchmarkSuite ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:BenchmarkSuite ] ;
     sh:property [ sh:path owf:metric ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:Metric ] ;
     sh:property [ sh:path owf:rawScore ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ] ;
@@ -55,8 +177,68 @@ owf:EvidenceObservationShape a sh:NodeShape ;
     sh:property [ sh:path owf:adapterVersion ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
     sh:property [ sh:path owf:sampleSize ; sh:maxCount 1 ; sh:datatype xsd:positiveInteger ] ;
     sh:property [ sh:path owf:observedAt ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] ;
-    sh:property [ sh:path owf:evidenceTier ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:EvidenceTier ] ;
-    sh:property [ sh:path prov:wasDerivedFrom ; sh:minCount 1 ] .
+    sh:property [
+        sh:path owf:evidenceTier ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:EvidenceTier ;
+        sh:in ( owf:ProjectReproduced owf:IndependentSigned owf:CommunityReproducible owf:VendorReported )
+    ] ;
+    sh:property [ sh:path prov:wasDerivedFrom ; sh:minCount 1 ] ;
+    sh:sparql [
+        sh:message "When an exact worker is reported, it must use an offering for the measured exact release."@en ;
+        sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
+            SELECT $this WHERE {
+              $this owf:measuresWorker ?worker ; owf:measuresRelease ?release .
+              FILTER NOT EXISTS {
+                ?worker owf:usesOffering/owf:offersRelease ?release .
+              }
+            }
+        """
+    ] .
+
+# Public evidence always identifies an exact release and may additionally name
+# one exact worker when the source reports its harness configuration. Benchmark,
+# metric, adapter and provenance remain mandatory; sample size is optional and
+# absence means unknown. sh:node applies the contract without RDFS entailment.
+owf:PublicEvidenceObservationShape a sh:NodeShape ;
+    sh:targetClass owf:PublicEvidenceObservation ;
+    sh:node owf:EvidenceObservationShape .
+
+# Planned v0.2 routing-eligible evidence contract. Generic ingested benchmark
+# observations may remain less specific, but then cannot be used by the scoped
+# eligibility query. Each route-eligible observation is one atomic applicability
+# tuple; multi-domain benchmark tables are projected as separate observations.
+owf:CapabilityEvidenceObservationShape a sh:NodeShape ;
+    sh:targetClass owf:CapabilityEvidenceObservation ;
+    sh:node owf:EvidenceObservationShape ;
+    sh:property [ sh:path owf:measuresSkill ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:Skill ] ;
+    sh:property [ sh:path owf:evidenceApplicationDomain ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:ApplicationDomain ] ;
+    sh:property [ sh:path owf:forTaskClass ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:RoutableTaskClass ] ;
+    sh:property [ sh:path owf:evidenceArtifactType ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:ArtifactType ] ;
+    sh:property [ sh:path owf:evidenceAcceptanceProfile ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:AcceptanceProfile ] ;
+    sh:property [ sh:path owf:evaluatedWithTool ; sh:class owf:Tool ] ;
+    sh:sparql [
+        sh:message "Capability evidence scope must be declared by its task-class template and acceptance profile."@en ;
+        sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
+            SELECT $this WHERE {
+              $this owf:evidenceApplicationDomain ?domain ;
+                    owf:forTaskClass ?taskClass ;
+                    owf:evidenceArtifactType ?artifact ;
+                    owf:evidenceAcceptanceProfile ?acceptance .
+              FILTER (
+                !EXISTS { ?taskClass owf:taskClassDomain ?domain }
+                || !EXISTS { ?taskClass owf:taskClassArtifactType ?artifact }
+                || !EXISTS { ?taskClass owf:taskClassAcceptanceProfile ?acceptance }
+                || !EXISTS { ?acceptance owf:acceptsArtifactType ?artifact }
+              )
+            }
+        """
+    ] .
+
+owf:PublicCapabilityEvidenceObservationShape a sh:NodeShape ;
+    sh:targetClass owf:PublicCapabilityEvidenceObservation ;
+    sh:node owf:CapabilityEvidenceObservationShape ;
+    sh:node owf:PublicEvidenceObservationShape .
 
 owf:AbilityEstimateShape a sh:NodeShape ;
     sh:targetClass owf:AbilityEstimate ;
@@ -64,40 +246,136 @@ owf:AbilityEstimateShape a sh:NodeShape ;
     sh:property [ sh:path owf:abilitySkill ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:Skill ] ;
     sh:property [ sh:path owf:estimateMean ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ; sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
     sh:property [ sh:path owf:estimateLowerBound ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ; sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
-    sh:property [ sh:path owf:estimateUpperBound ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ; sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
+    sh:property [ sh:path owf:estimateUpperBound ; sh:maxCount 1 ; sh:datatype xsd:decimal ; sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
     sh:property [ sh:path owf:derivedFromEvidence ; sh:minCount 1 ; sh:class owf:EvidenceObservation ] ;
     sh:sparql [
         sh:message "Confidence bounds must satisfy lower <= mean <= upper."@en ;
         sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
             SELECT $this WHERE {
-              $this owf:estimateLowerBound ?low ; owf:estimateMean ?mean ; owf:estimateUpperBound ?high .
-              FILTER (?low > ?mean || ?mean > ?high)
+              $this owf:estimateLowerBound ?low ; owf:estimateMean ?mean .
+              OPTIONAL { $this owf:estimateUpperBound ?high }
+              FILTER (?low > ?mean || (BOUND(?high) && ?mean > ?high))
+            }
+        """
+    ] .
+
+owf:ScopedAbilityEstimateShape a sh:NodeShape ;
+    sh:targetClass owf:ScopedAbilityEstimate ;
+    sh:node owf:AbilityEstimateShape ;
+    sh:property [ sh:path owf:estimateApplicationDomain ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:ApplicationDomain ] ;
+    sh:property [ sh:path owf:forTaskClass ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:RoutableTaskClass ] ;
+    sh:property [ sh:path owf:estimateArtifactType ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:ArtifactType ] ;
+    sh:property [ sh:path owf:estimateAcceptanceProfile ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:AcceptanceProfile ] ;
+    sh:sparql [
+        sh:message "Every source of a scoped estimate must measure the same skill, domain, task class, artifact type, and acceptance profile."@en ;
+        sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
+            SELECT $this WHERE {
+              $this owf:abilitySkill ?skill ;
+                    owf:estimateApplicationDomain ?domain ;
+                    owf:forTaskClass ?taskClass ;
+                    owf:estimateArtifactType ?artifact ;
+                    owf:estimateAcceptanceProfile ?acceptance ;
+                    owf:derivedFromEvidence ?evidence .
+              FILTER NOT EXISTS {
+                ?evidence a owf:CapabilityEvidenceObservation ;
+                          owf:measuresSkill ?skill ;
+                          owf:evidenceApplicationDomain ?domain ;
+                          owf:forTaskClass ?taskClass ;
+                          owf:evidenceArtifactType ?artifact ;
+                          owf:evidenceAcceptanceProfile ?acceptance .
+              }
             }
         """
     ] .
 
 owf:TaskSpecShape a sh:NodeShape ;
     sh:targetClass owf:TaskSpec ;
-    sh:property [ sh:path owf:privacyClass ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:PrivacyClass ] ;
-    sh:property [ sh:path owf:requiresSkill ; sh:minCount 1 ; sh:class owf:SkillRequirement ] ;
-    sh:property [ sh:path owf:hasBudget ; sh:minCount 1 ; sh:class owf:Budget ] .
+    sh:property [
+        sh:path owf:privacyClass ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:class owf:PrivacyClass ;
+        sh:in ( owf:Public owf:PrivateMetadata owf:ConfidentialContent owf:Secret )
+    ] ;
+    sh:property [ sh:path owf:requiresSkill ; sh:class owf:SkillRequirement ] ;
+    sh:property [ sh:path owf:requiresTool ; sh:class owf:Tool ] ;
+    sh:property [ sh:path owf:hasBudget ; sh:maxCount 1 ; sh:class owf:Budget ] .
+
+# Planned v0.2 structured application contract. The base v0.1 TaskSpec remains
+# valid with zero skill requirements and no cash/latency budget.
+owf:StructuredTaskSpecShape a sh:NodeShape ;
+    sh:targetClass owf:StructuredTaskSpec ;
+    sh:node owf:TaskSpecShape ;
+    sh:property [ sh:path owf:taskHasClass ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:RoutableTaskClass ] ;
+    sh:property [ sh:path owf:taskApplicationDomain ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:ApplicationDomain ] ;
+    sh:property [ sh:path owf:taskArtifactType ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:ArtifactType ] ;
+    sh:property [ sh:path owf:taskAcceptanceProfile ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:AcceptanceProfile ] ;
+    sh:sparql [
+        sh:message "A structured task must select a domain, artifact, and acceptance profile declared by its task class."@en ;
+        sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
+            SELECT $this WHERE {
+              $this owf:taskHasClass ?taskClass ;
+                    owf:taskApplicationDomain ?domain ;
+                    owf:taskArtifactType ?artifact ;
+                    owf:taskAcceptanceProfile ?acceptance .
+              FILTER (
+                !EXISTS { ?taskClass owf:taskClassDomain ?domain }
+                || !EXISTS { ?taskClass owf:taskClassArtifactType ?artifact }
+                || !EXISTS { ?taskClass owf:taskClassAcceptanceProfile ?acceptance }
+                || !EXISTS { ?acceptance owf:acceptsArtifactType ?artifact }
+              )
+            }
+        """
+    ] ;
+    sh:sparql [
+        sh:message "A structured task cannot relax a skill or tool required by its task-class template."@en ;
+        sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
+            SELECT $this WHERE {
+              $this owf:taskHasClass ?taskClass .
+              {
+                ?taskClass owf:taskClassRequiredSkill ?skill .
+                FILTER NOT EXISTS { $this owf:requiresSkill/owf:requiredSkill ?skill }
+              }
+              UNION
+              {
+                ?taskClass owf:taskClassRequiredTool ?tool .
+                FILTER NOT EXISTS { $this owf:requiresTool ?tool }
+              }
+            }
+        """
+    ] .
 
 owf:SkillRequirementShape a sh:NodeShape ;
     sh:targetClass owf:SkillRequirement ;
     sh:property [ sh:path owf:requiredSkill ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:Skill ] ;
     sh:property [ sh:path owf:minimumQuality ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ; sh:minInclusive 0 ; sh:maxInclusive 1 ] .
 
+owf:BudgetShape a sh:NodeShape ;
+    sh:targetClass owf:Budget ;
+    sh:property [ sh:path owf:cashLimitMicrounits ; sh:maxCount 1 ; sh:datatype xsd:nonNegativeInteger ] ;
+    sh:property [ sh:path owf:latencyLimitMilliseconds ; sh:maxCount 1 ; sh:datatype xsd:nonNegativeInteger ] .
+
 owf:RoutingDecisionShape a sh:NodeShape ;
     sh:targetClass owf:RoutingDecision ;
     sh:property [ sh:path owf:decisionForTask ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:TaskSpec ] ;
     sh:property [ sh:path owf:usesSnapshot ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:IndexSnapshot ] ;
-    sh:property [ sh:path owf:selectedWorker ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:WorkerProfile ] ;
-    sh:property [ sh:path owf:hasCandidateQuote ; sh:minCount 1 ; sh:class owf:CandidateQuote ] ;
+    sh:property [ sh:path owf:selectedWorker ; sh:maxCount 1 ; sh:class owf:WorkerProfile ] ;
+    sh:property [ sh:path owf:checkerWorker ; sh:maxCount 1 ; sh:class owf:WorkerProfile ] ;
+    sh:property [
+        sh:path owf:decisionVerificationPolicy ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:VerificationPolicy ;
+        sh:in ( owf:DeterministicVerification owf:MakerCheckerVerification owf:HumanApprovalVerification )
+    ] ;
+    sh:property [ sh:path owf:hasCandidateQuote ; sh:class owf:CandidateQuote ] ;
+    sh:property [ sh:path owf:hasRejectedCandidate ; sh:class owf:RejectedCandidate ] ;
     sh:property [ sh:path owf:decisionAt ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] ;
     sh:property [ sh:path owf:policyVersion ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
     sh:sparql [
         sh:message "The selected worker must occur in one of the decision's candidate quotes."@en ;
         sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
             SELECT $this WHERE {
               $this owf:selectedWorker ?selected .
               FILTER NOT EXISTS {
@@ -107,10 +385,36 @@ owf:RoutingDecisionShape a sh:NodeShape ;
         """
     ] ;
     sh:sparql [
+        sh:message "A no-selection decision must contain zero eligible quotes, at least one structured rejection, and no checker."@en ;
+        sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
+            SELECT $this WHERE {
+              FILTER NOT EXISTS { $this owf:selectedWorker ?selected }
+              FILTER (
+                EXISTS { $this owf:hasCandidateQuote ?quote }
+                || !EXISTS { $this owf:hasRejectedCandidate ?rejected }
+                || EXISTS { $this owf:checkerWorker ?checker }
+              )
+            }
+        """
+    ] ;
+    sh:sparql [
         sh:message "Maker and checker must be different worker identities."@en ;
         sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
             SELECT $this WHERE {
               $this owf:selectedWorker ?worker ; owf:checkerWorker ?worker .
+            }
+        """
+    ] ;
+    sh:sparql [
+        sh:message "A selected maker-checker decision requires a distinct selected checker."@en ;
+        sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
+            SELECT $this WHERE {
+              $this owf:decisionVerificationPolicy owf:MakerCheckerVerification ;
+                    owf:selectedWorker ?maker .
+              FILTER NOT EXISTS { $this owf:checkerWorker ?checker }
             }
         """
     ] .
@@ -121,19 +425,288 @@ owf:CandidateQuoteShape a sh:NodeShape ;
     sh:property [ sh:path owf:expectedAcceptedCostMicrounits ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:nonNegativeInteger ] ;
     sh:property [ sh:path owf:successLowerBound ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ; sh:minInclusive 0 ; sh:maxInclusive 1 ] .
 
+owf:RejectedCandidateShape a sh:NodeShape ;
+    sh:targetClass owf:RejectedCandidate ;
+    sh:property [ sh:path owf:rejectedWorker ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:WorkerProfile ] ;
+    sh:property [ sh:path owf:rejectionCode ; sh:minCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] .
+
 owf:OutcomeEventShape a sh:NodeShape ;
     sh:targetClass owf:OutcomeEvent ;
-    sh:property [ sh:path owf:outcomeForDecision ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:RoutingDecision ] ;
+    sh:property [ sh:path owf:outcomeForDecision ; sh:maxCount 1 ; sh:class owf:RoutingDecision ] ;
+    sh:property [ sh:path owf:outcomeForTask ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:TaskSpec ] ;
+    sh:property [ sh:path owf:outcomeWorker ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:WorkerProfile ] ;
+    sh:property [ sh:path owf:outcomeCheckerWorker ; sh:maxCount 1 ; sh:class owf:WorkerProfile ] ;
     sh:property [ sh:path owf:accepted ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:boolean ] ;
-    sh:property [ sh:path owf:finishedAt ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] .
+    sh:property [ sh:path owf:finishedAt ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] ;
+    sh:sparql [
+        sh:message "A linked outcome's task and maker must match the routing decision's task and selected worker."@en ;
+        sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
+            SELECT $this WHERE {
+              $this owf:outcomeForDecision ?decision ;
+                    owf:outcomeForTask ?task ;
+                    owf:outcomeWorker ?worker .
+              FILTER NOT EXISTS {
+                ?decision owf:decisionForTask ?task ; owf:selectedWorker ?worker .
+              }
+            }
+        """
+    ] ;
+    sh:sparql [
+        sh:message "An outcome checker must differ from the maker and, for a linked outcome, match the checker selected by the quote."@en ;
+        sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
+            SELECT $this WHERE {
+              $this owf:outcomeWorker ?worker ; owf:outcomeCheckerWorker ?checker .
+              FILTER (
+                sameTerm(?worker, ?checker)
+                || EXISTS {
+                  $this owf:outcomeForDecision ?decision .
+                  FILTER NOT EXISTS { ?decision owf:checkerWorker ?checker }
+                }
+              )
+            }
+        """
+    ] ;
+    sh:sparql [
+        sh:message "An outcome linked to a maker-checker decision must name the selected checker."@en ;
+        sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
+            SELECT $this WHERE {
+              $this owf:outcomeForDecision ?decision .
+              ?decision owf:decisionVerificationPolicy owf:MakerCheckerVerification ;
+                        owf:checkerWorker ?checker .
+              FILTER NOT EXISTS { $this owf:outcomeCheckerWorker ?checker }
+            }
+        """
+    ] .
 
-# This is defense in depth, not a security boundary. The exporter must validate
-# every output subject as owf:PublicIndexRecord and use a physically separate
-# public store. Named graphs and SHACL alone cannot protect private information.
+# Planned private RDF projection. The append-only SQL ledger is authoritative;
+# these shapes define a future local read model and do not claim it is currently
+# materialized by the Rust/store crates.
+owf:ProjectShape a sh:NodeShape ;
+    sh:targetClass owf:Project ;
+    sh:property [ sh:path owf:projectIdentifier ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
+    sh:property [ sh:path owf:repositoryFingerprint ; sh:minCount 1 ; sh:datatype xsd:string ; sh:pattern "^[0-9a-f]{64}$" ] .
+
+owf:ImpactEstimateShape a sh:NodeShape ;
+    sh:targetClass owf:ImpactEstimate ;
+    sh:property [ sh:path owf:impactEstimateForProject ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:Project ] ;
+    sh:property [
+        sh:path owf:impactMetric ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:ImpactMetric ;
+        sh:in ( owf:Energy owf:Co2eLocationBased owf:Co2eMarketBased owf:WaterConsumption owf:WaterWithdrawal )
+    ] ;
+    sh:property [
+        sh:path owf:lifecyclePhase ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:LifecyclePhase ;
+        sh:in ( owf:InferenceOperational owf:InferenceEmbodiedHardware owf:InferenceEmbodiedFacility owf:TrainingOperational owf:TrainingEmbodied )
+    ] ;
+    sh:property [ sh:path owf:usesEnvironmentalProfile ; sh:maxCount 1 ; sh:class owf:EnvironmentalProfile ] ;
+    sh:property [ sh:path owf:estimateStatus ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:EstimateStatus ; sh:in ( owf:KnownEstimate owf:UnknownEstimate ) ] ;
+    sh:property [ sh:path owf:estimatedValueMicrounits ; sh:maxCount 1 ; sh:datatype xsd:nonNegativeInteger ] ;
+    sh:property [ sh:path owf:unknownReason ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
+    sh:sparql [
+        sh:message "A known impact estimate requires a value and cannot carry an unknown reason."@en ;
+        sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
+            SELECT $this WHERE {
+              $this owf:estimateStatus owf:KnownEstimate .
+              FILTER (
+                !EXISTS { $this owf:estimatedValueMicrounits ?value }
+                || EXISTS { $this owf:unknownReason ?reason }
+              )
+            }
+        """
+    ] ;
+    sh:sparql [
+        sh:message "An unknown impact estimate requires a reason and must omit the numeric value; zero is not unknown."@en ;
+        sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
+            SELECT $this WHERE {
+              $this owf:estimateStatus owf:UnknownEstimate .
+              FILTER (
+                !EXISTS { $this owf:unknownReason ?reason }
+                || EXISTS { $this owf:estimatedValueMicrounits ?value }
+              )
+            }
+        """
+    ] .
+
+owf:BaselineShape a sh:NodeShape ;
+    sh:targetClass owf:Baseline ;
+    sh:property [ sh:path owf:baselineForProject ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:Project ] ;
+    sh:property [ sh:path owf:functionalUnit ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
+    sh:property [ sh:path owf:baselinePolicyDigest ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:pattern "^[0-9a-f]{64}$" ] ;
+    sh:property [ sh:path prov:generatedAtTime ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] .
+
+owf:SavingsEstimateShape a sh:NodeShape ;
+    sh:targetClass owf:SavingsEstimate ;
+    sh:property [ sh:path owf:savingsForProject ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:Project ] ;
+    sh:property [ sh:path owf:comparesBaseline ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:Baseline ] ;
+    sh:property [ sh:path owf:actualImpactEstimate ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:ImpactEstimate ] ;
+    sh:property [ sh:path owf:counterfactualImpactEstimate ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:ImpactEstimate ] ;
+    sh:property [ sh:path owf:savedImpactMicrounits ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:integer ] ;
+    sh:property [ sh:path owf:counterfactualMethod ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
+    sh:sparql [
+        sh:message "Savings operands must concern the same project, impact metric, and lifecycle phase as the savings record."@en ;
+        sh:select """
+            PREFIX owf: <https://openworkforce.dev/ns#>
+            SELECT $this WHERE {
+              $this owf:savingsForProject ?project ;
+                    owf:actualImpactEstimate ?actual ;
+                    owf:counterfactualImpactEstimate ?counterfactual .
+              ?actual owf:impactEstimateForProject ?actualProject ;
+                      owf:impactMetric ?actualMetric ;
+                      owf:lifecyclePhase ?actualPhase .
+              ?counterfactual owf:impactEstimateForProject ?counterfactualProject ;
+                              owf:impactMetric ?counterfactualMetric ;
+                              owf:lifecyclePhase ?counterfactualPhase .
+              FILTER (
+                !sameTerm(?project, ?actualProject)
+                || !sameTerm(?project, ?counterfactualProject)
+                || !sameTerm(?actualMetric, ?counterfactualMetric)
+                || !sameTerm(?actualPhase, ?counterfactualPhase)
+              )
+            }
+        """
+    ] .
+
+owf:ProjectReportShape a sh:NodeShape ;
+    sh:targetClass owf:ProjectReport ;
+    sh:property [ sh:path owf:reportForProject ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:Project ] ;
+    sh:property [ sh:path owf:reportDigest ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:pattern "^[0-9a-f]{64}$" ] ;
+    sh:property [ sh:path prov:generatedAtTime ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] .
+
+# This is defense in depth, not a security boundary. Subjects using any private
+# predicate are targeted directly, including subjects missing an expected public
+# class. The exporter must still use a physically separate public store.
 owf:PublicExportPrivacyShape a sh:NodeShape ;
     sh:targetClass owf:PublicIndexRecord ;
+    sh:targetSubjectsOf owf:promptText ;
+    sh:targetSubjectsOf owf:repositoryUri ;
+    sh:targetSubjectsOf owf:tenantId ;
+    sh:targetSubjectsOf owf:credentialReference ;
+    sh:targetSubjectsOf owf:rawArtifact ;
+    sh:targetSubjectsOf owf:taskHasClass ;
+    sh:targetSubjectsOf owf:taskApplicationDomain ;
+    sh:targetSubjectsOf owf:taskArtifactType ;
+    sh:targetSubjectsOf owf:taskAcceptanceProfile ;
+    sh:targetSubjectsOf owf:requiresSkill ;
+    sh:targetSubjectsOf owf:requiresTool ;
+    sh:targetSubjectsOf owf:hasBudget ;
+    sh:targetSubjectsOf owf:requiredSkill ;
+    sh:targetSubjectsOf owf:minimumQuality ;
+    sh:targetSubjectsOf owf:cashLimitMicrounits ;
+    sh:targetSubjectsOf owf:latencyLimitMilliseconds ;
+    sh:targetSubjectsOf owf:decisionForTask ;
+    sh:targetSubjectsOf owf:usesSnapshot ;
+    sh:targetSubjectsOf owf:hasCandidateQuote ;
+    sh:targetSubjectsOf owf:hasRejectedCandidate ;
+    sh:targetSubjectsOf owf:candidateWorker ;
+    sh:targetSubjectsOf owf:expectedAcceptedCostMicrounits ;
+    sh:targetSubjectsOf owf:successLowerBound ;
+    sh:targetSubjectsOf owf:rejectedWorker ;
+    sh:targetSubjectsOf owf:rejectionCode ;
+    sh:targetSubjectsOf owf:selectedWorker ;
+    sh:targetSubjectsOf owf:checkerWorker ;
+    sh:targetSubjectsOf owf:decisionVerificationPolicy ;
+    sh:targetSubjectsOf owf:decisionAt ;
+    sh:targetSubjectsOf owf:policyVersion ;
+    sh:targetSubjectsOf owf:outcomeForDecision ;
+    sh:targetSubjectsOf owf:outcomeForTask ;
+    sh:targetSubjectsOf owf:outcomeWorker ;
+    sh:targetSubjectsOf owf:outcomeCheckerWorker ;
+    sh:targetSubjectsOf owf:hasUsageRecord ;
+    sh:targetSubjectsOf owf:accepted ;
+    sh:targetSubjectsOf owf:actualCostMicrounits ;
+    sh:targetSubjectsOf owf:finishedAt ;
+    sh:targetSubjectsOf owf:projectIdentifier ;
+    sh:targetSubjectsOf owf:repositoryFingerprint ;
+    sh:targetSubjectsOf owf:impactEstimateForProject ;
+    sh:targetSubjectsOf owf:usesEnvironmentalProfile ;
+    sh:targetSubjectsOf owf:estimateStatus ;
+    sh:targetSubjectsOf owf:estimatedValueMicrounits ;
+    sh:targetSubjectsOf owf:unknownReason ;
+    sh:targetSubjectsOf owf:baselineForProject ;
+    sh:targetSubjectsOf owf:baselinePolicyDigest ;
+    sh:targetSubjectsOf owf:savingsForProject ;
+    sh:targetSubjectsOf owf:comparesBaseline ;
+    sh:targetSubjectsOf owf:actualImpactEstimate ;
+    sh:targetSubjectsOf owf:counterfactualImpactEstimate ;
+    sh:targetSubjectsOf owf:savedImpactMicrounits ;
+    sh:targetSubjectsOf owf:counterfactualMethod ;
+    sh:targetSubjectsOf owf:reportForProject ;
+    sh:targetSubjectsOf owf:reportDigest ;
     sh:property [ sh:path owf:promptText ; sh:maxCount 0 ; sh:message "Prompt text is forbidden in public exports."@en ] ;
     sh:property [ sh:path owf:repositoryUri ; sh:maxCount 0 ; sh:message "Repository identifiers are forbidden in public exports."@en ] ;
     sh:property [ sh:path owf:tenantId ; sh:maxCount 0 ; sh:message "Tenant identifiers are forbidden in public exports."@en ] ;
     sh:property [ sh:path owf:credentialReference ; sh:maxCount 0 ; sh:message "Credential references are forbidden in public exports."@en ] ;
-    sh:property [ sh:path owf:rawArtifact ; sh:maxCount 0 ; sh:message "Raw artifacts are forbidden in public exports."@en ] .
+    sh:property [ sh:path owf:rawArtifact ; sh:maxCount 0 ; sh:message "Raw artifacts are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:taskHasClass ; sh:maxCount 0 ; sh:message "Private task-class assignments are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:taskApplicationDomain ; sh:maxCount 0 ; sh:message "Private task domains are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:taskArtifactType ; sh:maxCount 0 ; sh:message "Private task artifact types are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:taskAcceptanceProfile ; sh:maxCount 0 ; sh:message "Private task acceptance profiles are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:requiresSkill ; sh:maxCount 0 ; sh:message "Private task skill requirements are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:requiresTool ; sh:maxCount 0 ; sh:message "Private task tool requirements are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:hasBudget ; sh:maxCount 0 ; sh:message "Private task budgets are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:requiredSkill ; sh:maxCount 0 ; sh:message "Private required-skill details are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:minimumQuality ; sh:maxCount 0 ; sh:message "Private quality thresholds are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:cashLimitMicrounits ; sh:maxCount 0 ; sh:message "Private cash limits are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:latencyLimitMilliseconds ; sh:maxCount 0 ; sh:message "Private latency limits are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:decisionForTask ; sh:maxCount 0 ; sh:message "Private routing decisions are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:usesSnapshot ; sh:maxCount 0 ; sh:message "Private decision snapshot links are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:hasCandidateQuote ; sh:maxCount 0 ; sh:message "Private candidate quotes are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:hasRejectedCandidate ; sh:maxCount 0 ; sh:message "Private candidate rejections are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:candidateWorker ; sh:maxCount 0 ; sh:message "Private candidate worker links are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:expectedAcceptedCostMicrounits ; sh:maxCount 0 ; sh:message "Private candidate costs are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:successLowerBound ; sh:maxCount 0 ; sh:message "Private candidate confidence values are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:rejectedWorker ; sh:maxCount 0 ; sh:message "Private rejected-worker links are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:rejectionCode ; sh:maxCount 0 ; sh:message "Private rejection reasons are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:selectedWorker ; sh:maxCount 0 ; sh:message "Private worker selections are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:checkerWorker ; sh:maxCount 0 ; sh:message "Private checker selections are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:decisionVerificationPolicy ; sh:maxCount 0 ; sh:message "Private decision verification policies are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:decisionAt ; sh:maxCount 0 ; sh:message "Private decision times are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:policyVersion ; sh:maxCount 0 ; sh:message "Private decision policy versions are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:outcomeForDecision ; sh:maxCount 0 ; sh:message "Private outcome-decision links are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:outcomeForTask ; sh:maxCount 0 ; sh:message "Private outcome-task links are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:outcomeWorker ; sh:maxCount 0 ; sh:message "Private outcome worker links are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:outcomeCheckerWorker ; sh:maxCount 0 ; sh:message "Private outcome checker links are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:hasUsageRecord ; sh:maxCount 0 ; sh:message "Private usage links are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:accepted ; sh:maxCount 0 ; sh:message "Private outcome acceptance is forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:actualCostMicrounits ; sh:maxCount 0 ; sh:message "Private actual costs are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:finishedAt ; sh:maxCount 0 ; sh:message "Private outcome completion times are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:projectIdentifier ; sh:maxCount 0 ; sh:message "Project identifiers are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:repositoryFingerprint ; sh:maxCount 0 ; sh:message "Repository fingerprints are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:impactEstimateForProject ; sh:maxCount 0 ; sh:message "Private project impact links are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:usesEnvironmentalProfile ; sh:maxCount 0 ; sh:message "Private estimate profile links are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:estimateStatus ; sh:maxCount 0 ; sh:message "Private estimate status is forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:estimatedValueMicrounits ; sh:maxCount 0 ; sh:message "Private impact values are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:unknownReason ; sh:maxCount 0 ; sh:message "Private unknown reasons are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:baselineForProject ; sh:maxCount 0 ; sh:message "Private baseline project links are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:baselinePolicyDigest ; sh:maxCount 0 ; sh:message "Private baseline policy digests are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:savingsForProject ; sh:maxCount 0 ; sh:message "Private savings project links are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:comparesBaseline ; sh:maxCount 0 ; sh:message "Private baseline comparisons are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:actualImpactEstimate ; sh:maxCount 0 ; sh:message "Private actual impact links are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:counterfactualImpactEstimate ; sh:maxCount 0 ; sh:message "Private counterfactual impact links are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:savedImpactMicrounits ; sh:maxCount 0 ; sh:message "Private savings values are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:counterfactualMethod ; sh:maxCount 0 ; sh:message "Private counterfactual methods are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:reportForProject ; sh:maxCount 0 ; sh:message "Private report project links are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:reportDigest ; sh:maxCount 0 ; sh:message "Private report digests are forbidden in public exports."@en ] .
+
+# A resource typed as a private operational or reporting class must never be
+# admitted to a public graph, even if an exporter omits every private predicate.
+owf:PublicExportPrivateClassShape a sh:NodeShape ;
+    sh:targetClass owf:TaskSpec ;
+    sh:targetClass owf:StructuredTaskSpec ;
+    sh:targetClass owf:SkillRequirement ;
+    sh:targetClass owf:Budget ;
+    sh:targetClass owf:RoutingDecision ;
+    sh:targetClass owf:CandidateQuote ;
+    sh:targetClass owf:RejectedCandidate ;
+    sh:targetClass owf:OutcomeEvent ;
+    sh:targetClass owf:UsageRecord ;
+    sh:targetClass owf:Project ;
+    sh:targetClass owf:ImpactEstimate ;
+    sh:targetClass owf:Baseline ;
+    sh:targetClass owf:SavingsEstimate ;
+    sh:targetClass owf:ProjectReport ;
+    sh:property [ sh:path rdf:type ; sh:maxCount 0 ; sh:message "Private operational and reporting classes are forbidden in public exports."@en ] .
