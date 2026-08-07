@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Re-plan the project whenever the work manifest changes.
+#
+# Install:  ln -sf ../../tools/git-hooks/post-commit .git/hooks/post-commit
+#
+# Deliberately post-commit rather than pre-commit: planning must never block a
+# commit, and a stale plan is a smaller problem than a developer who starts
+# passing --no-verify out of habit.
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+manifest="$root/.owi/project.json"
+[ -f "$manifest" ] || exit 0
+
+# Only re-plan when the manifest itself moved. Every other commit is untouched.
+git diff-tree --no-commit-id --name-only -r HEAD | grep -q '^\.owi/project\.json$' || exit 0
+
+echo "owi: work manifest changed, re-planning..."
+python3 "$root/tools/owi_plan.py" \
+  --owi-repo "$root" \
+  --project "$manifest" \
+  --index "${OWI_INDEX:-$root/.data/index.sqlite}" \
+  --local "${OWI_LOCAL:-$root/.data/local.sqlite}" \
+  --work-dir "$root/.owi/.work" \
+  --report "$root/.owi/plan.json" || {
+    echo "owi: planning failed; commit stands, plan is stale" >&2
+    exit 0
+  }

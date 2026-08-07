@@ -162,6 +162,59 @@ pub struct WorkflowAssumptions {
     pub default_p95_latency_ms: u64,
     #[serde(default)]
     pub checker_worker_id: Option<WorkerId>,
+    /// Loaded hourly cost of the person who checks the result, in cash micros.
+    ///
+    /// This is usually the largest term in total cost of ownership and the one
+    /// most often left out. Tokens are cheap; the half hour someone spends
+    /// discovering that a cheap worker's output was subtly wrong is not. Zero
+    /// disables human-time accounting and falls back to a flat review cost.
+    #[serde(default)]
+    pub human_review_micros_per_hour: u64,
+    /// Minutes a person spends checking a result that turns out to be good.
+    #[serde(default)]
+    pub review_minutes_on_accept: f64,
+    /// Minutes spent on one that turns out to be bad, before sending it back.
+    ///
+    /// Ordinarily larger than the accept case: diagnosing a wrong answer costs
+    /// more than confirming a right one, which is precisely why an unreliable
+    /// worker can cost more in total than a dearer reliable one.
+    #[serde(default)]
+    pub review_minutes_on_reject: f64,
+}
+
+impl WorkflowAssumptions {
+    /// Expected review spend for a worker with this success probability.
+    ///
+    /// Weighting the two cases by the worker's own success estimate is what
+    /// makes review a *differentiator* between candidates rather than a
+    /// constant that cancels out of the comparison.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    fn expected_review_cash_micros(&self, success_mean: f64) -> u64 {
+        if self.human_review_micros_per_hour == 0 {
+            return self.expected_review_cash_micros;
+        }
+        let success = success_mean.clamp(0.0, 1.0);
+        let minutes = success.mul_add(
+            self.review_minutes_on_accept,
+            (1.0 - success) * self.review_minutes_on_reject,
+        );
+        if !minutes.is_finite() || minutes <= 0.0 {
+            return self.expected_review_cash_micros;
+        }
+        // Round up so a fractional micro is never dropped, but absorb
+        // representation error first: 0.95*2 + 0.05*25 is exactly 3.15 in
+        // decimal and 3.1500000000000004 in binary, and a bare ceil would bill
+        // an extra micro for arithmetic noise rather than for work.
+        const TOLERANCE_MICROS: f64 = 1e-6;
+        let exact = self.human_review_micros_per_hour as f64 * minutes / 60.0;
+        let human = (exact - TOLERANCE_MICROS).ceil().max(0.0);
+        let human = if human >= u64::MAX as f64 {
+            u64::MAX
+        } else {
+            human as u64
+        };
+        self.expected_review_cash_micros.saturating_add(human)
+    }
 }
 
 /// Builds engine candidates from a verified public snapshot and the private
@@ -261,6 +314,8 @@ pub fn calibrate_candidates(
         }
 
         let success = task_estimate(&profile.id, &skill_calibrations, &outcomes, calibration)?;
+        let expected_review_cash_micros =
+            assumptions.expected_review_cash_micros(success.success_mean);
 
         candidates.push(CalibratedCandidate {
             estimate: WorkerEstimate {
@@ -268,7 +323,7 @@ pub fn calibrate_candidates(
                 success,
                 skill_estimates,
                 expected_tool_cash_micros: assumptions.expected_tool_cash_micros,
-                expected_review_cash_micros: assumptions.expected_review_cash_micros,
+                expected_review_cash_micros,
                 expected_fallback_cash_micros: assumptions.expected_fallback_cash_micros,
                 expected_additional_quota_milliunits: assumptions
                     .expected_additional_quota_milliunits,
@@ -1046,6 +1101,44 @@ mod tests {
         assert_eq!(skill.public_observation_count, 0);
         // The estimate falls back to the bare prior rather than inventing a rate.
         assert!((skill.estimate.success_mean - 0.5).abs() < 1e-9);
+    }
+
+    /// Human review time is the term that decides real total cost of
+    /// ownership, and it must scale with how often a worker is wrong.
+    #[test]
+    fn review_cost_penalises_unreliable_workers() {
+        let assumptions = WorkflowAssumptions {
+            // $60/hour, 2 minutes to confirm a good result, 25 to diagnose a
+            // bad one and send it back.
+            human_review_micros_per_hour: 60_000_000,
+            review_minutes_on_accept: 2.0,
+            review_minutes_on_reject: 25.0,
+            ..WorkflowAssumptions::default()
+        };
+
+        let reliable = assumptions.expected_review_cash_micros(0.95);
+        let unreliable = assumptions.expected_review_cash_micros(0.40);
+
+        // 0.95 -> 0.95*2 + 0.05*25 = 3.15 min -> $3.15
+        assert_eq!(reliable, 3_150_000);
+        // 0.40 -> 0.40*2 + 0.60*25 = 15.8 min -> $15.80
+        assert_eq!(unreliable, 15_800_000);
+        assert!(
+            unreliable > reliable * 4,
+            "an unreliable worker must cost far more human time"
+        );
+    }
+
+    /// With no hourly rate configured the flat review cost is used unchanged,
+    /// so existing callers keep their behaviour.
+    #[test]
+    fn review_cost_falls_back_to_a_flat_figure() {
+        let assumptions = WorkflowAssumptions {
+            expected_review_cash_micros: 500,
+            ..WorkflowAssumptions::default()
+        };
+        assert_eq!(assumptions.expected_review_cash_micros(0.1), 500);
+        assert_eq!(assumptions.expected_review_cash_micros(0.9), 500);
     }
 
     /// A snapshot whose digest no longer matches must not produce candidates.

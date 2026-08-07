@@ -9,3 +9,5 @@
 *.sqlite-wal
 /.bench/
 /.mgr/
+/.owi/.work/
+/.owi/plan.json

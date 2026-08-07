@@ -1,0 +1,45 @@
+name: Plan
+
+on:
+  pull_request:
+    paths: ['.owi/project.json']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: Cost the outstanding work
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build the index
+        run: |
+          cargo run --locked -q -p workforce-cli -- prices \
+            --index "${RUNNER_TEMP}/index.sqlite" \
+            --input examples/litellm-prices-sample.json \
+            --options examples/price-import-options.json
+          cargo run --locked -q -p workforce-cli -- seed \
+            --index "${RUNNER_TEMP}/index.sqlite" \
+            --input examples/manager-scenario-seed.json
+      - name: Plan
+        run: |
+          python3 tools/owi_plan.py \
+            --owi-repo . --project .owi/project.json \
+            --index "${RUNNER_TEMP}/index.sqlite" \
+            --local "${RUNNER_TEMP}/local.sqlite" \
+            --work-dir "${RUNNER_TEMP}/plan" \
+            --report "${RUNNER_TEMP}/plan.json" \
+            --fail-on-unstaffed \
+            | tee "${RUNNER_TEMP}/plan.txt"
+      - name: Publish the plan to the job summary
+        if: always()
+        run: |
+          {
+            echo '### Allocation plan'
+            echo '```text'
+            cat "${RUNNER_TEMP}/plan.txt" 2>/dev/null || echo 'planning failed'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
