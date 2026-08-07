@@ -21,6 +21,32 @@ become the stronger, private signal.
 > refuses to route without it rather than guessing. Provider execution and the
 > benchmark runner are the v0.2 work.
 
+## Quick start — one command
+
+```bash
+tools/owi-do "rewrite this email to the supplier"
+```
+
+It guesses the kind of work, picks the cheapest qualified model from real
+published prices, shows the pick and two alternates, and records the decision.
+First run bootstraps a private workspace automatically.
+
+To actually execute, put your own CLI (your key, never ours) in
+`.owi-quick/runners.json`, then:
+
+```bash
+tools/owi-do "rewrite this email to the supplier" --run
+```
+
+After the run it asks `accepted? [y/n]` — and that answer changes the next
+pick. Reject a worker often enough and it stops being chosen. That is the
+entire idea, in one command.
+
+Everything below this line is the advanced layer: manifests that plan whole
+projects from a file in git, consoles with live weighting dials, benchmark
+harnesses, and total-cost-of-ownership scenarios. Start with `owi-do`; go
+deeper only when you want to.
+
 ## Why OWI
 
 A top model is often wasted on a simple task, while a cheap model can become
