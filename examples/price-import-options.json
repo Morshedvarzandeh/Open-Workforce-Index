@@ -1,0 +1,40 @@
+{
+  "_comment": [
+    "Provenance and filters for one price import run.",
+    "",
+    "Fetch the payload first, then import it, so the exact bytes can be",
+    "archived and re-verified against the recorded artifact digest:",
+    "",
+    "  curl -sSL -o litellm-prices.json \\",
+    "    https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json",
+    "  owi prices --input litellm-prices.json --options examples/price-import-options.json",
+    "",
+    "include_models is deliberately explicit. The upstream file carries close",
+    "to three thousand entries; a wholesale dump is not a reviewable source",
+    "record, and pinning the exact keys makes a model appearing or vanishing",
+    "upstream a visible diff rather than a silent change.",
+    "",
+    "Prices move. retrieved_at and retrieved_at_epoch_ms must be updated on",
+    "each run; the import appends a new time-bounded offering revision rather",
+    "than editing the previous one."
+  ],
+  "adapter_version": "litellm-prices@1",
+  "source_url": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json",
+  "retrieved_at": "2026-08-07T00:00:00Z",
+  "retrieved_at_epoch_ms": 1785024000000,
+  "currency": "USD",
+  "required_mode": "chat",
+  "include_providers": ["anthropic", "openai", "gemini", "deepseek", "mistral", "xai"],
+  "include_models": [
+    "claude-opus-4-5",
+    "claude-sonnet-4-5",
+    "claude-haiku-4-5",
+    "gpt-5",
+    "gpt-5-mini",
+    "gemini/gemini-2.5-pro",
+    "gemini/gemini-2.5-flash",
+    "deepseek/deepseek-chat",
+    "mistral/mistral-large-latest",
+    "xai/grok-4"
+  ]
+}

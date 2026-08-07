@@ -22,6 +22,7 @@ workforce-engine = { path = "../workforce-engine" }
 workforce-kg = { path = "../workforce-kg" }
 workforce-store = { path = "../workforce-store" }
 workforce-allocator = { path = "../workforce-allocator" }
+workforce-sources = { path = "../workforce-sources" }
 
 [lints]
 workspace = true

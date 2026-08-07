@@ -1,0 +1,122 @@
+{
+  "_comment": [
+    "Worker profiles layered on top of the offerings that `owi prices`",
+    "imported from LiteLLM's published price file. Prices and context",
+    "windows are real and carry their source URL and artifact digest.",
+    "",
+    "The EVIDENCE below is NOT real. There is no published benchmark that",
+    "measures these exact worker configurations -- this harness, this",
+    "prompt, this toolset -- on rust-debugging, which is precisely the",
+    "point the project makes about scoped evidence. The scores are marked",
+    "vendor_reported so the calibration discounts them heavily, and they",
+    "exist only so the loop has a starting prior. Replace them with a real",
+    "benchmark run before trusting any routing decision."
+  ],
+  "snapshot_id": "snapshot:real-prices-v1",
+  "created_at": "2026-08-07T00:00:00Z",
+  "ontology_version": "ontology:v1",
+  "source_revision": "source:litellm-prices@1",
+  "worker_profiles": [
+    {
+      "id": "worker:gpt-5-mini-agent",
+      "offering_id": "offering:openai/gpt-5-mini",
+      "harness_id": "owi-code-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "rust-v1",
+      "toolset_version": "shell-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:rust-debugging"
+      ],
+      "tools": [
+        "shell"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "41636300a6625682a37ed0d5db402dfa27674977d99ce5c402ef9a4c65fb0091",
+      "recorded_at": "2026-08-07T00:00:00Z"
+    },
+    {
+      "id": "worker:haiku-4-5-agent",
+      "offering_id": "offering:anthropic/claude-haiku-4-5",
+      "harness_id": "owi-code-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "rust-v1",
+      "toolset_version": "shell-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:rust-debugging"
+      ],
+      "tools": [
+        "shell"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "8bc493b3e8db997a6a391655e4aa3f178ff6d2f7854da7b28b2aaef75d5eaecf",
+      "recorded_at": "2026-08-07T00:00:00Z"
+    },
+    {
+      "id": "worker:gpt-5-agent",
+      "offering_id": "offering:openai/gpt-5",
+      "harness_id": "owi-code-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "rust-v1",
+      "toolset_version": "shell-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:rust-debugging"
+      ],
+      "tools": [
+        "shell"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "33c3433e75cec811fde365bfe499b4d8f46de2446f5b4af81d67e2de5eed0c1a",
+      "recorded_at": "2026-08-07T00:00:00Z"
+    },
+    {
+      "id": "worker:sonnet-4-5-agent",
+      "offering_id": "offering:anthropic/claude-sonnet-4-5",
+      "harness_id": "owi-code-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "rust-v1",
+      "toolset_version": "shell-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:rust-debugging"
+      ],
+      "tools": [
+        "shell"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "e304cb4152388a8b117c74fc51afea03e7ab8ffb0bcc32ee0bdab819875f8160",
+      "recorded_at": "2026-08-07T00:00:00Z"
+    },
+    {
+      "id": "worker:opus-4-5-agent",
+      "offering_id": "offering:anthropic/claude-opus-4-5",
+      "harness_id": "owi-code-agent",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "rust-v1",
+      "toolset_version": "shell-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:rust-debugging"
+      ],
+      "tools": [
+        "shell"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "d7547d18495123af624e2f4d3e279ec12bf29cea8ff723ed200dabc96daf6b19",
+      "recorded_at": "2026-08-07T00:00:00Z"
+    }
+  ],
+  "evidence": []
+}

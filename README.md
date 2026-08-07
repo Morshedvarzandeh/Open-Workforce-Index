@@ -14,11 +14,12 @@ become the stronger, private signal.
 > stored evidence, records the decision, and lets verified local outcomes
 > change the next one.
 >
-> **What is not here yet: real data.** Every price and benchmark score in
-> `examples/` is a labelled placeholder. The project deliberately ships no
-> number it has not verified. Provider execution, source ingestion adapters,
-> and the benchmark runner that would produce real evidence are the v0.2 work,
-> and until they exist OWI is a mechanism without a measurement.
+> **Prices are real; ability evidence is not.** `owi prices` imports published
+> per-token prices and context windows with their source URL and a content
+> digest. No benchmark measures these exact worker configurations on a given
+> skill, so ability evidence remains the missing piece — and the allocator
+> refuses to route without it rather than guessing. Provider execution and the
+> benchmark runner are the v0.2 work.
 
 ## Why OWI
 
@@ -85,6 +86,7 @@ See [Architecture](docs/ARCHITECTURE.md) and the
 | `workforce-domain` | Provider-neutral types and invariants |
 | `workforce-engine` | Confidence estimates, eligibility, ranking, Pareto set, explanations |
 | `workforce-store` | Physically separate public and private SQLite ledgers |
+| `workforce-sources` | Versioned import adapters for published prices and capabilities |
 | `workforce-allocator` | Calibrates stored evidence into candidates and records decisions back |
 | `workforce-kg` | Public-only graph boundary and ontology syntax gate |
 | `workforce-cli` | Executable demonstration of the decision kernel |
@@ -155,6 +157,59 @@ its debugging estimate — it stays at the bare `Beta(1, 1)` prior, because that
 evidence measured a different skill.
 
 CI asserts this flip on every push, so the loop cannot silently rot.
+
+### Real token prices
+
+Prices are the half of the comparison that *is* publicly available, so the
+index imports them rather than inventing them:
+
+```bash
+curl -sSL -o litellm-prices.json \
+  https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
+owi prices --index .data/index.sqlite \
+           --input litellm-prices.json \
+           --options examples/price-import-options.json
+```
+
+Fetching is a separate step on purpose: the adapter hashes the exact bytes it
+read and stamps that digest onto every record, so an import can be re-verified
+against an archived payload. `--dry-run` prints the derived records without
+writing.
+
+The adapter converts per-token costs to integer micros per million tokens
+(`$5.00/Mtok` → `5_000_000`, exactly — CI asserts this), and refuses anything
+it cannot justify. Entries with no price, no context window, a negative cost,
+or the wrong mode are reported as `skipped` with a reason rather than dropped.
+LiteLLM's file carries no release dates, so `released_at` is written as
+`unknown` — never backfilled with the retrieval date.
+
+Routing five real workers on a 20k-in/4k-out task, with no ability evidence
+and the quality floor explicitly lowered to accept unmeasured workers:
+
+```text
+ # worker              in $/Mtok  out $/Mtok    run $   total $
+ 1 gpt-5-mini-agent         0.25        2.00   0.0130    0.0880
+ 2 haiku-4-5-agent          1.00        5.00   0.0400    0.1150
+ 3 gpt-5-agent              1.25       10.00   0.0650    0.1400
+ 4 sonnet-4-5-agent         3.00       15.00   0.1200    0.1950
+ 5 opus-4-5-agent           5.00       25.00   0.2000    0.2750
+```
+
+Run cost spans **15×**; expected accepted cost spans **3.1×**. Sticker price
+stops being the whole story as soon as retries are priced in, and that gap is
+the entire thesis — but note it is currently driven by a *shared prior*, not by
+measured differences between these models.
+
+Restore a real quality floor and every one of them is rejected:
+
+```text
+worker:opus-4-5-agent -> skill_confidence_below_minimum (0.05 < 0.10)
+```
+
+That is the system working. With no applicable evidence the bound is
+`Beta(1, 1)`'s 5th percentile, and OWI declines to pick rather than pretending
+the price table tells it which model is better. Prices alone can rank cost;
+they cannot rank *value*. Producing the missing half is what v0.2 is for.
 
 CAD is only one fixture for the general rule. It demonstrates
 application-aware routing by rejecting a cheap, strong conversation worker that

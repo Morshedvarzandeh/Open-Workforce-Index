@@ -13,10 +13,11 @@ use workforce_allocator::{
 use workforce_domain::{DecisionId, TaskSpec};
 use workforce_engine::{BetaPosterior, QuoteRequest, RoutingPolicy, quote};
 use workforce_kg::{PublicGraph, validate_builtin_rdf};
+use workforce_sources::{PriceImportOptions, import_litellm_prices};
 use workforce_store::{
     ModelReleaseRecord, PrivateLedgerRead, PrivateLedgerWrite, PrivateLocalStore,
-    PrivateOutcomeRecord, ProviderOfferingRecord, PublicEvidenceRecord, PublicIndexStore,
-    PublicIndexWrite, SnapshotRecord, WorkerProfileRecord,
+    PrivateOutcomeRecord, ProviderOfferingRecord, PublicEvidenceRecord, PublicIndexRead,
+    PublicIndexStore, PublicIndexWrite, SnapshotRecord, WorkerProfileRecord,
 };
 
 #[derive(Debug, Parser)]
@@ -64,6 +65,24 @@ enum Command {
         /// Persist the decision to the private ledger.
         #[arg(long)]
         record: bool,
+    },
+    /// Import published token prices into the public index.
+    ///
+    /// Reads a payload already downloaded to disk. Fetching is deliberately a
+    /// separate step so the exact bytes that were imported can be archived and
+    /// re-verified against the recorded digest.
+    Prices {
+        #[arg(long, default_value = ".data/index.sqlite")]
+        index: PathBuf,
+        /// Downloaded source payload, e.g. LiteLLM's price file.
+        #[arg(short, long)]
+        input: PathBuf,
+        /// PriceImportOptions JSON file with provenance and filters.
+        #[arg(long)]
+        options: PathBuf,
+        /// Print the derived records without writing to the index.
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Append a verified local outcome, which strengthens the next decision.
     Outcome {
@@ -199,6 +218,12 @@ fn main() -> Result<()> {
             input,
             record,
         } => run_allocate(&index, &local, &input, record),
+        Command::Prices {
+            index,
+            input,
+            options,
+            dry_run,
+        } => run_prices(&index, &input, &options, dry_run),
         Command::Outcome { local, input } => run_outcome(&local, &input),
         Command::Learn { input } => run_learn(&input),
         Command::Ontology { command } => run_ontology(command),
@@ -234,18 +259,35 @@ fn run_seed(index: &Path, input: &Path) -> Result<()> {
             .with_context(|| format!("append evidence {}", record.id))?;
     }
 
+    // Snapshot everything the index now holds, not just this file's records.
+    // A snapshot is a closed dependency set: seeding worker profiles that sit
+    // on offerings imported by a separate `owi prices` run would otherwise
+    // produce a manifest whose closure check fails at read time.
     let snapshot = SnapshotRecord::new(
         seed.snapshot_id.clone(),
         seed.created_at.clone(),
         seed.ontology_version.clone(),
         seed.source_revision.clone(),
-        seed.model_releases.iter().map(|r| r.id.clone()).collect(),
-        seed.provider_offerings
-            .iter()
-            .map(|r| r.id.clone())
+        store
+            .model_releases()?
+            .into_iter()
+            .map(|record| record.id)
             .collect(),
-        seed.worker_profiles.iter().map(|r| r.id.clone()).collect(),
-        seed.evidence.iter().map(|r| r.id.clone()).collect(),
+        store
+            .provider_offerings()?
+            .into_iter()
+            .map(|record| record.id)
+            .collect(),
+        store
+            .worker_profiles()?
+            .into_iter()
+            .map(|record| record.id)
+            .collect(),
+        store
+            .evidence()?
+            .into_iter()
+            .map(|record| record.id)
+            .collect(),
     )
     .context("build snapshot manifest")?;
     store
@@ -256,10 +298,18 @@ fn run_seed(index: &Path, input: &Path) -> Result<()> {
         "public_index": resolved,
         "snapshot_id": snapshot.id,
         "content_sha256": snapshot.content_sha256,
-        "model_releases": seed.model_releases.len(),
-        "provider_offerings": seed.provider_offerings.len(),
-        "worker_profiles": seed.worker_profiles.len(),
-        "evidence": seed.evidence.len(),
+        "appended": {
+            "model_releases": seed.model_releases.len(),
+            "provider_offerings": seed.provider_offerings.len(),
+            "worker_profiles": seed.worker_profiles.len(),
+            "evidence": seed.evidence.len(),
+        },
+        "snapshot_members": {
+            "model_releases": snapshot.model_release_count,
+            "provider_offerings": snapshot.provider_offering_count,
+            "worker_profiles": snapshot.worker_profile_count,
+            "evidence": snapshot.evidence_count,
+        },
     }))
 }
 
@@ -330,6 +380,41 @@ fn run_allocate(index: &Path, local: &Path, input: &Path, record: bool) -> Resul
         recorded: record,
         request_fingerprint: quote_record_value.request_fingerprint.clone(),
     })
+}
+
+fn run_prices(index: &Path, input: &Path, options: &Path, dry_run: bool) -> Result<()> {
+    let payload = fs::read_to_string(input).with_context(|| format!("read {}", input.display()))?;
+    let options: PriceImportOptions = read_json(options)?;
+    let import = import_litellm_prices(&payload, &options).context("import prices")?;
+
+    if !dry_run {
+        let resolved = resolve_target(index)?;
+        create_parent(&resolved)?;
+        let store = PublicIndexStore::open(&resolved)
+            .with_context(|| format!("open {}", resolved.display()))?;
+        for record in &import.model_releases {
+            store
+                .append_model_release(record)
+                .with_context(|| format!("append model release {}", record.id))?;
+        }
+        for record in &import.provider_offerings {
+            store
+                .append_provider_offering(record)
+                .with_context(|| format!("append provider offering {}", record.id))?;
+        }
+    }
+
+    print_json(&serde_json::json!({
+        "adapter_version": options.adapter_version,
+        "source_url": options.source_url,
+        "retrieved_at": options.retrieved_at,
+        "artifact_sha256": import.artifact_sha256,
+        "imported_model_releases": import.model_releases.len(),
+        "imported_provider_offerings": import.provider_offerings.len(),
+        "skipped": import.skipped,
+        "dry_run": dry_run,
+        "offerings": import.provider_offerings,
+    }))
 }
 
 fn run_outcome(local: &Path, input: &Path) -> Result<()> {

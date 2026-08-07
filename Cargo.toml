@@ -5,6 +5,7 @@ members = [
     "crates/workforce-kg",
     "crates/workforce-store",
     "crates/workforce-allocator",
+    "crates/workforce-sources",
     "crates/workforce-cli",
 ]
 resolver = "2"

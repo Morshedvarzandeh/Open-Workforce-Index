@@ -1014,6 +1014,7 @@ dependencies = [
  "workforce-domain",
  "workforce-engine",
  "workforce-kg",
+ "workforce-sources",
  "workforce-store",
 ]
 
@@ -1041,6 +1042,18 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "oxigraph",
+]
+
+[[package]]
+name = "workforce-sources"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "workforce-domain",
+ "workforce-store",
 ]
 
 [[package]]

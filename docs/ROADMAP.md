@@ -13,6 +13,7 @@ roadmap is ordered accordingly.
 - Exact, immutable worker identity
 - Public/private SQLite trust boundary
 - Exact Beta lower credible bounds and evidence-count gating
+- Real published token prices imported with provenance and a content digest
 - Hard eligibility filters and expected accepted-result cost
 - Auditable quote, exclusion explanations, and Pareto frontier
 - SKOS/PROV-O ontology plus SHACL contract
@@ -32,8 +33,8 @@ the roadmap is worth starting until it exists.
   *make this failing test pass*, scored by the test suite
 - A benchmark runner that records real pass/fail, tokens, cost, and latency as
   `PublicEvidenceRecord` and `OutcomeEvent` rows
-- Real published prices with `source_url` and retrieval date, replacing the
-  example seed
+- ~~Real published prices with `source_url` and retrieval date~~ — done in
+  v0.1 via `owi prices` and the LiteLLM adapter
 - **The measurement**: expected accepted-result cost routing versus
   always-strongest and always-cheapest, over N tasks, reported with its
   acceptance rate — published whichever way it comes out

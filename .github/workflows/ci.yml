@@ -41,6 +41,29 @@ jobs:
           cargo run --locked -p workforce-cli -- quote --input examples/quote-request.json
           cargo run --locked -p workforce-cli -- quote --input examples/cad-quote-request.json
           cargo run --locked -p workforce-cli -- learn --input examples/learning-request.json
+      - name: Price import adapter
+        run: |
+          cargo run --locked -q -p workforce-cli -- prices \
+            --input examples/litellm-prices-sample.json \
+            --options examples/price-import-options.json --dry-run \
+            | python3 -c '
+import json, sys
+result = json.load(sys.stdin)
+offerings = {o["id"]: o for o in result["offerings"]}
+# Published prices must survive the per-token to micros-per-million
+# conversion exactly. $5.00/Mtok input is 5_000_000 micros, not 4_999_999.
+expected = {
+    "offering:anthropic/claude-opus-4-5": (5_000_000, 25_000_000),
+    "offering:openai/gpt-5-mini": (250_000, 2_000_000),
+    "offering:deepseek/deepseek-chat": (280_000, 420_000),
+}
+for offering_id, (want_in, want_out) in expected.items():
+    got = offerings[offering_id]
+    assert got["input_micros_per_million_tokens"] == want_in, (offering_id, got)
+    assert got["output_micros_per_million_tokens"] == want_out, (offering_id, got)
+assert not any("/" + p + "/" in i for i in offerings for p in ("gemini", "xai", "deepseek", "mistral"))
+print("price adapter verified:", len(offerings), "offerings")'
+
       - name: Closed-loop vertical slice
         run: |
           INDEX="${RUNNER_TEMP}/loop-index.sqlite"
