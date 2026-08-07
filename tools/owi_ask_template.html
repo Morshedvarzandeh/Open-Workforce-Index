@@ -26,6 +26,7 @@
     --good:#4FC08D; --bad:#E0796A;
   }
   * { box-sizing:border-box; }
+  [hidden] { display:none !important; }
   body { margin:0; background:var(--ground); color:var(--ink);
     font-family:var(--mono); font-size:15px; line-height:1.55;
     -webkit-font-smoothing:antialiased; }
@@ -45,8 +46,25 @@
   :root[data-theme="dark"] button { color:#0F1420; }
   button:focus-visible { outline:2px solid var(--ink); outline-offset:1px; }
 
+  details.checks { font-size:12.5px; color:var(--ink-3); margin-top:-10px; }
+  details.checks summary { cursor:pointer; }
+  details.checks[open] summary { color:var(--ink-2); }
+  textarea { width:100%; font:inherit; font-size:13px; padding:10px 12px;
+    background:var(--panel); color:var(--ink);
+    border:1.5px solid var(--rule); resize:vertical; margin-top:8px; }
+  textarea:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+  .checkrep { font-size:13px; line-height:1.7; }
+  .checkrep .ok { color:var(--good); }
+  .checkrep .fail { color:var(--bad); }
+  .checkrep .open { color:var(--ink-3); }
+
   .answer { background:var(--panel); border:1px solid var(--rule);
-    padding:16px 18px; display:none; flex-direction:column; gap:10px; }
+    padding:16px 18px; display:none; flex-direction:column; gap:10px;
+    position:relative; }
+  .close { position:absolute; top:6px; right:6px; background:none; border:none;
+    color:var(--ink-3); font:inherit; font-size:15px; line-height:1;
+    padding:6px 8px; cursor:pointer; }
+  .close:hover { color:var(--ink); }
   .answer.show { display:flex; }
   .line { color:var(--ink-2); font-size:13px; }
   .pick { font-size:18px; font-weight:700; }
@@ -68,6 +86,9 @@
     font-size:13px; margin:0; }
   .mode { font-size:11px; letter-spacing:0.08em; text-transform:uppercase;
     color:var(--good); }
+  a.golink { display:inline-block; padding:7px 14px; background:var(--accent);
+    color:#fff; text-decoration:none; font-weight:700; font-size:13px; }
+  :root[data-theme="dark"] a.golink { color:#0F1420; }
 
   footer { font-family:var(--sans); font-size:12px; color:var(--ink-3);
     line-height:1.6; border-top:1px solid var(--rule-firm); padding-top:12px; }
@@ -83,14 +104,21 @@
     <button type="submit">ask</button>
   </form>
 
+  <details class="checks" id="checkwrap">
+    <summary>checklist — what the result must pass (optional)</summary>
+    <textarea id="checks" rows="3" placeholder="one item per line. Mechanical items verify in process: contains:thermal · regex:… · json · python · min-words:60. Anything else is judged by a different model than the one that did the work (live page only)."></textarea>
+  </details>
+
   <div class="answer" id="answer"></div>
 
   <footer>
     Prices are real (published, content-hashed import). Abilities are assumed
     starting points; your <b>worked / didn't</b> answers reshape them with the
     same Beta update the engine uses — stored only in this browser
-    (<a href="#" id="reset">reset</a>). The terminal command
-    <code>tools/owi-do</code> is the same flow recorded to the real ledger.
+    (<a href="#" id="reset">reset</a>). "Run in Claude/ChatGPT" opens the
+    picked model's own chat with your task prefilled — your account, your
+    keys; this page never calls a provider. For fully automatic runs recorded
+    to the real ledger, use <code>tools/owi-serve</code>.
   </footer>
 </div>
 
@@ -204,6 +232,19 @@
   const $ = (m) => "$" + (m / 1e6).toFixed(4);
   const short = (id) => id.replace("worker:", "");
   const modelOf = (id) => id.split(":")[1].split("/")[0];
+  // Where each roster model can be run in a browser with the task prefilled.
+  // Navigation only — the page never calls a provider itself.
+  const LAUNCH = {
+    "haiku-4-5":  { name: "Claude",  url: "https://claude.ai/new?q=" },
+    "sonnet-4-5": { name: "Claude",  url: "https://claude.ai/new?q=" },
+    "opus-4-5":   { name: "Claude",  url: "https://claude.ai/new?q=" },
+    "sonnet-5":   { name: "Claude",  url: "https://claude.ai/new?q=" },
+    "opus-5":     { name: "Claude",  url: "https://claude.ai/new?q=" },
+    "gpt-5":      { name: "ChatGPT", url: "https://chatgpt.com/?q=" },
+    "gpt-5-mini": { name: "ChatGPT", url: "https://chatgpt.com/?q=" },
+  };
+  const esc = (s) => String(s).replace(/[&<>"]/g,
+    c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   let last = null;
   let LIVE = null;   // replaced by /api/data when a local server is present
   const data = () => LIVE || DATA;
@@ -216,15 +257,24 @@
   function render(learnedNote) {
     const text = document.getElementById("q").value.trim();
     if (!text) return;
+    // The checklist is given TO the task as acceptance criteria, then the
+    // same items are verified against the output (live page only).
+    const checks = document.getElementById("checks").value
+      .split("\n").map(s => s.trim()).filter(Boolean).slice(0, 10);
+    const askText = checks.length ? text
+      + "\n\nYour output must pass every item on this checklist:\n"
+      + checks.map(c => "- " + c).join("\n") : text;
     const skill = guess(text);
     const tokensIn = 1500 + Math.floor(text.length / 4);
     const { rows, turnedAway } = evaluate(skill, tokensIn, 800);
     const box = document.getElementById("answer");
     box.classList.add("show");
 
+    const closeButton = `<button type="button" class="close" id="closeAnswer"
+      aria-label="close">✕</button>`;
     if (!rows.length) {
       last = null;
-      box.innerHTML = `<div class="line">skill:
+      box.innerHTML = closeButton + `<div class="line">skill:
         ${skill.replace("skill:", "")}</div>
         <div class="none">nobody qualified — every capable worker has fallen
         below the quality floor.</div>
@@ -234,7 +284,7 @@
     }
     const top = rows[0];
     last = { skill, id: top.id };
-    box.innerHTML = `
+    box.innerHTML = closeButton + `
       <div class="line">skill: ${skill.replace("skill:", "")}
         &nbsp;·&nbsp; ~${tokensIn} in / 800 out tokens</div>
       <div class="pick">→ ${short(top.id)}
@@ -246,6 +296,19 @@
         turned away ${turnedAway}</div>
       ${learnedNote ? `<div class="learned ${learnedNote.cls}">
         ${learnedNote.text}</div>` : ""}
+      ${!LIVE ? (() => {
+        const launch = LAUNCH[modelOf(top.id)];
+        const link = launch ? `<a class="golink" target="_blank" rel="noopener"
+            href="${launch.url}${encodeURIComponent(askText)}">run in
+            ${launch.name}</a>` : "";
+        const note = checks.length ? `<div class="meta">the checklist rides
+          with the task; automatic verification needs the live page
+          (tools/owi-serve)</div>` : "";
+        return `<div class="verdict">${link}
+          <button type="button" id="copybtn">copy task</button>
+          <span class="meta">run it there, come back, answer below</span>
+        </div>${note}`;
+      })() : ""}
       ${LIVE ? (() => {
         const runnable = rows.find(r =>
           (data().runnable || []).includes(modelOf(r.c ? r.c.id : r.id)));
@@ -260,7 +323,8 @@
         return `<div class="verdict">
           <button type="button" id="go">${label}</button>${why}
           <span id="runstate"></span></div>
-          <pre class="out" id="out" hidden></pre>`;
+          <pre class="out" id="out" hidden></pre>
+          <div class="checkrep" id="checkrep"></div>`;
       })() : ""}
       <div class="verdict"><span>${LIVE ? "then:" : "after you run it:"}</span>
         <button type="button" id="yes">worked</button>
@@ -271,6 +335,13 @@
         <button type="button" class="no" data-cause="task_spec">unclear task</button>
         <button type="button" class="no" data-cause="environment">my setup</button>
       </div>`;
+    wireClose();
+    const copyButton = document.getElementById("copybtn");
+    if (copyButton) copyButton.onclick = async () => {
+      try { await navigator.clipboard.writeText(askText);
+            copyButton.textContent = "copied"; }
+      catch { window.prompt("copy the task:", askText); }
+    };
     document.getElementById("yes").onclick = () => verdict(true);
     document.getElementById("no").onclick = () => {
       document.getElementById("causes").hidden = false;
@@ -280,24 +351,70 @@
     });
     if (LIVE && document.getElementById("go"))
       document.getElementById("go").onclick = () => {
-        last = { skill, id: window.__runTarget }; runIt(text); };
+        last = { skill, id: window.__runTarget }; runIt(text, checks); };
   }
 
-  async function runIt(text) {
+  async function runIt(text, checks) {
     const state = document.getElementById("runstate");
     const out = document.getElementById("out");
     state.textContent = "running via your CLI…";
     try {
       const response = await fetch("/api/run", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: modelOf(last.id), task: text }) });
+        body: JSON.stringify({ model: modelOf(last.id), task: text,
+                               skill: last.skill, check: checks || [] }) });
       const result = await response.json();
       out.hidden = false;
       if (!response.ok) { out.textContent = result.error; state.textContent = ""; return; }
       out.textContent = result.output || result.stderr || "(no output)";
+      if (result.check) { await applyCheck(result.check, text); return; }
       state.textContent = result.exit === 0 ? "done — worked or didn't?"
                                             : `exit ${result.exit}`;
     } catch (error) { state.textContent = "server went away"; }
+  }
+
+  // The checklist verdict is earned, not asked for: decisive results are
+  // recorded to the real ledger immediately, and the report stays on screen.
+  async function applyCheck(report, task) {
+    const marks = { true: ["✓", "ok"], false: ["✗", "fail"], null: ["?", "open"] };
+    document.getElementById("checkrep").innerHTML = report.items.map(i => {
+      const [mark, cls] = marks[i.pass];
+      return `<div class="${cls}">[${mark}] ${esc(i.item)} — ${esc(i.note)}</div>`;
+    }).join("");
+    const state = document.getElementById("runstate");
+    const judged = report.judge ? ` · judge: ${report.judge}` : "";
+    if (report.verdict === "accepted") {
+      await postOutcome(true, null, "", task, report.items);
+      state.textContent = `checklist passed${judged} → recorded accepted`;
+      hideManualVerdict();
+    } else if (report.verdict === "rejected") {
+      const detail = report.items.filter(i => i.pass === false)
+        .map(i => `failed: ${i.item} (${i.note})`).join("; ");
+      await postOutcome(false, "worker", detail, task, report.items);
+      state.textContent =
+        `checklist failed${judged} → recorded rejected (worker)`;
+      hideManualVerdict();
+    } else {
+      state.textContent = `could not verify every item${judged} — your call below`;
+    }
+  }
+
+  async function postOutcome(worked, cause, detail, task, checklist) {
+    try {
+      const response = await fetch("/api/outcome", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ worker: last.id, skill: last.skill,
+          accepted: worked, cause, detail: detail || "", task: task || "",
+          checklist: checklist || [] }) });
+      const result = await response.json();
+      if (result.ok) LIVE = result.data;
+    } catch (error) { /* server went away; the report stays on screen */ }
+  }
+
+  function hideManualVerdict() {
+    const yes = document.getElementById("yes");
+    if (yes) yes.closest(".verdict").hidden = true;
+    document.getElementById("causes").hidden = true;
   }
 
   async function verdict(worked, cause) {
@@ -307,7 +424,8 @@
         const response = await fetch("/api/outcome", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ worker: last.id, skill: last.skill,
-                                 accepted: worked, cause }) });
+                                 accepted: worked, cause,
+                                 task: document.getElementById("q").value }) });
         const result = await response.json();
         if (result.ok) { LIVE = result.data;
           render({ cls: worked ? "up" : "down",
@@ -333,6 +451,18 @@
     });
   }
 
+  function wireClose() {
+    const btn = document.getElementById("closeAnswer");
+    if (btn) btn.onclick = () => {
+      document.getElementById("answer").classList.remove("show");
+      const q = document.getElementById("q");
+      q.select(); q.focus();
+    };
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape")
+      document.getElementById("answer").classList.remove("show");
+  });
   document.getElementById("form").addEventListener("submit", (e) => {
     e.preventDefault(); render();
   });

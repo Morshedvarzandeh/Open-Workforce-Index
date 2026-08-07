@@ -12,6 +12,22 @@
     "is filtered out by include_models, and an import run without that",
     "filter must refuse it for having the wrong mode."
   ],
+  "claude-opus-5": {
+    "litellm_provider": "anthropic",
+    "mode": "chat",
+    "input_cost_per_token": 5e-06,
+    "output_cost_per_token": 2.5e-05,
+    "max_input_tokens": 1000000,
+    "max_tokens": 128000
+  },
+  "claude-sonnet-5": {
+    "litellm_provider": "anthropic",
+    "mode": "chat",
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 1e-05,
+    "max_input_tokens": 1000000,
+    "max_tokens": 128000
+  },
   "claude-opus-4-5": {
     "litellm_provider": "anthropic",
     "mode": "chat",

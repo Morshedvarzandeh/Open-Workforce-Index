@@ -60,6 +60,19 @@ answer to the real ledger. If the cheapest pick has no runner, it says so
 and runs the cheapest *runnable* worker instead — a worker nobody can
 execute is unavailable, not a bargain.
 
+Two more flags complete the manager's loop:
+
+```bash
+# the verdict is earned, not asked for: a checklist rides with the task
+tools/owi-do "write the release note" --run \
+  --check "contains:thermal" --check "min-words:60" \
+  --check "states that the feature is reachable through a wasm ABI"
+
+# one request, several kinds of work: a cheap planner splits it,
+# each part is staffed, run, and checked separately
+tools/owi-do "draft the changelog and extract its fields as JSON" --split --run
+```
+
 Verified transcript from a real run:
 
 ```text
@@ -122,6 +135,56 @@ Deterministic tasks from your own test suite, calibrated both ways before a
 cent is spent, outcomes fed straight into the same ledger every level above
 reads. Full detail: [BENCHMARKING.md](BENCHMARKING.md).
 
+## The checklist: verdicts earned, not asked for
+
+Attach acceptance criteria with `--check` (or the checklist box on the ask
+page) and three things happen:
+
+1. **The checklist is given to the task.** The worker sees exactly what it
+   will be checked against — a checklist you'd verify with is also the best
+   spec you can hand over.
+2. **Every item is verified against the output, by kind.** Mechanical kinds
+   run in process: `contains:TEXT`, `regex:PATTERN`, `json`, `python`,
+   `min-words:N`. Anything else is `judged` — by the cheapest runnable model
+   that is **not** the maker, the same maker-is-not-checker rule the store
+   enforces on outcome records.
+3. **Decisive verdicts record themselves.** All items pass → accepted; any
+   item fails → rejected with root cause `worker` and the failed items as
+   detail. Only when an item cannot be checked (no independent judge) does
+   the question come back to you.
+
+Every item's labelled result — kind, pass/fail, reason — persists in the
+outcome's metadata in the append-only ledger, accepted and rejected alike,
+so per-item evidence accumulates instead of evaporating. The plan for
+promoting those labels into the ontology proper (per-item posteriors, judge
+reliability) is ADR 0009 in `docs/future/`.
+
+In a real first run of the split flow, the judge rejected a changelog part
+with "no changelog entry was drafted at all; the response only asked
+clarifying questions" — a genuine small-model failure a `min-words` item
+would have missed. Free-form items exist because that class of failure
+exists.
+
+## Splitting: one request, several kinds of work
+
+`--split` sends the request to the cheapest runnable model acting as a
+planner. It answers one question — does this hold different kinds of work? —
+and returns standalone part summaries with a small checklist each. The
+planner **never names models**; staffing stays with the engine, part by
+part, so a text part can go to the cheap writer while the extraction part
+goes to whoever the evidence favours. The summary table at the end names who
+actually ran each part, its price, and the checked verdict.
+
+## Prevention: failures that teach the next run
+
+Every rejection is appended to `.owi-quick/root-causes.jsonl` — when, task,
+worker, skill, root cause, what failed, and the labelled checklist. Before a
+new run of the same skill, the most recent actionable notes (root causes
+`worker` and `task_spec` only — no note to a model fixes broken plumbing)
+ride along in the prompt as things not to repeat. Verified live: the
+changelog task that failed with "asked clarifying questions instead of
+drafting" was rerun carrying that note and passed its full checklist.
+
 ## When it fails: root cause before blame
 
 A rejection is not automatically the model's fault. When you answer `n`, the
@@ -157,6 +220,20 @@ Rise far enough and a worker takes over a part's bench; fall below the floor
 and it is retired from that part — while its record elsewhere stands on its
 own evidence.
 
+## The frozen suite: growth without amnesia
+
+The more automated the loop gets, the more one bad change could lose. So the
+high-level behaviour that already works is frozen:
+`examples/frozen-checks-v1.json` pins exact import micros, the roster's
+required workers, the check engine's verdict on fixed fixtures, the
+planner's validation rules, and the prevention filter. `tools/owi-selftest`
+runs it all deterministically — no model calls, no network — and CI fails if
+any expectation drifts.
+
+The file is *evolutionary*: when a lived failure teaches a lesson, it is
+frozen in as a new fixture with its provenance, and the version bumps. Old
+lessons are superseded, never silently edited away.
+
 ## What lives where
 
 | file | what it is |
@@ -164,7 +241,9 @@ own evidence.
 | `.owi-quick/index.sqlite` | public facts: models, prices, snapshots (rebuildable) |
 | `.owi-quick/local.sqlite` | your private ledger: decisions and outcomes (owner-only) |
 | `.owi-quick/runners.json` | model → your command; the only place execution is defined |
+| `.owi-quick/root-causes.jsonl` | the prevention memory: every rejection, labelled |
 | `.owi/project.json` | a repo's work manifest (level 3) |
+| `examples/frozen-checks-v1.json` | the frozen suite: behaviour pinned against regression |
 
 ## What is real, what is assumed
 

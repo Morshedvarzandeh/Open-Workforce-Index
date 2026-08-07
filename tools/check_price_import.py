@@ -12,6 +12,7 @@ result = json.load(sys.stdin)
 offerings = {o["id"]: o for o in result["offerings"]}
 
 EXPECTED = {
+    "offering:anthropic/claude-sonnet-5": (2_000_000, 10_000_000),
     "offering:anthropic/claude-opus-4-5": (5_000_000, 25_000_000),
     "offering:openai/gpt-5-mini": (250_000, 2_000_000),
     "offering:deepseek/deepseek-chat": (280_000, 420_000),

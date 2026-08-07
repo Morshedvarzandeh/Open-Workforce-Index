@@ -48,6 +48,9 @@ jobs:
             --options examples/price-import-options.json --dry-run \
             | python3 tools/check_price_import.py
 
+      - name: Frozen high-level suite
+        run: python3 tools/owi-selftest
+
       - name: Closed-loop vertical slice
         run: |
           INDEX="${RUNNER_TEMP}/loop-index.sqlite"

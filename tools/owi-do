@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""owi-do — say what you want done; it picks the worker, you confirm, it runs.
+"""owi-do — say what you want done; it picks the worker, verifies, it learns.
 
     owi-do "rewrite this email to the supplier"
     owi-do "fix the failing cargo test" --run
     echo "...long input..." | owi-do "summarize into action items"
+    owi-do "write the release note" --run \
+        --check "contains:thermal" --check "min-words:60" \
+        --check "mentions what changed for existing users"
+    owi-do "draft the changelog and extract its fields as JSON" --split --run
 
 First run bootstraps a private workspace (.owi-quick/) with real published
 prices and the demo roster. No flags are required; every default is printed so
@@ -11,15 +15,25 @@ nothing is decided silently. The advanced layer (manifests, consoles, scenario
 sweeps) is documented in the README — this command is the front door.
 
 Execution is delegated: .owi-quick/runners.json maps a model to YOUR command
-line (your CLI, your key — owi-do never sees credentials). After a run you say
-whether the result was accepted, and that verified outcome makes the next
-pick smarter. That is the whole loop.
+line (your CLI, your key — owi-do never sees credentials). The verdict can be
+delegated too: attach a checklist with --check and it is given to the task as
+acceptance criteria, then verified against the output — mechanical items
+(contains:/regex:/json/python/min-words:N) in process, judgement items by a
+different model than the one that did the work, the same maker-is-not-checker
+rule the store enforces. --split asks a cheap planner whether the task holds
+different kinds of work and staffs each part separately.
+
+Every rejection lands in .owi-quick/root-causes.jsonl with its root cause and
+what failed; future runs of the same skill carry the recent notes as
+prevention. Accepted or rejected, the outcome updates the worker's posterior —
+that is the whole loop.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -62,7 +76,15 @@ CLAUDE_MODELS = {
     "haiku-4-5": "claude-haiku-4-5-20251001",
     "sonnet-4-5": "claude-sonnet-4-5",
     "opus-4-5": "claude-opus-4-5",
+    "sonnet-5": "claude-sonnet-5",
+    "opus-5": "claude-opus-5",
 }
+
+# Cheapest first at published output rates. Used to pick the planner and the
+# independent judge: only models with a working runner are considered, and the
+# judge is never the model whose work is being judged.
+JUDGE_ORDER = ["gpt-5-mini", "haiku-4-5", "sonnet-5", "sonnet-4-5",
+               "gpt-5", "opus-5", "opus-4-5"]
 
 
 def builtin_runner(model: str) -> str | None:
@@ -108,7 +130,7 @@ def bootstrap(home: Path) -> None:
         # Prefill anything runnable out of the box, visibly.
         prefilled = {m: (builtin_runner(m) or "")
                      for m in ["gpt-5-mini", "haiku-4-5", "gpt-5",
-                               "sonnet-4-5", "opus-4-5"]}
+                               "sonnet-5", "sonnet-4-5", "opus-5", "opus-4-5"]}
         runners.write_text(json.dumps({
             "_comment": [
                 "model -> the command that runs it. The task text arrives on",
@@ -172,10 +194,68 @@ def pick(home: Path, task: str, skill: str, tokens_in: int, tokens_out: int,
                "--input", str(request_path), "--record")
 
 
+# ---------------------------------------------------------------------------
+# Root-cause memory: every rejection is written down with why, and recent
+# notes for the same skill ride along with the next task as prevention.
+
+def log_root_cause(home: Path, task: str, worker: str, skill: str,
+                   cause: str, detail: str,
+                   checklist: list | None = None) -> None:
+    entry = {"when": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+             "task": task[:200], "worker": worker, "skill": skill,
+             "cause": cause, "detail": detail[:500]}
+    if checklist:
+        entry["checklist"] = checklist
+    with (home / "root-causes.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(entry) + "\n")
+
+
+def prevention_notes(home: Path, skill: str, limit: int = 3) -> list[str]:
+    """What went wrong recently in this skill, where the next run can act on
+    it: the worker's own kind of mistake, or a task that had to be respecified.
+    Harness and environment failures are excluded — no note to a model fixes
+    broken plumbing."""
+    path = home / "root-causes.jsonl"
+    if not path.exists():
+        return []
+    notes = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if (entry.get("skill") == skill and entry.get("detail")
+                and entry.get("cause") in ("worker", "task_spec")):
+            notes.append(str(entry["detail"]))
+    return notes[-limit:]
+
+
+def build_payload(task: str, stdin_text: str, checklist: list[str],
+                  notes: list[str]) -> str:
+    """The checklist is given TO the task as acceptance criteria — the worker
+    sees exactly what it will be checked against — and prevention notes from
+    past rejections ride along."""
+    sections = [task]
+    if stdin_text:
+        sections.append(stdin_text)
+    if checklist:
+        sections.append("Your output must pass every item on this checklist:\n"
+                        + "\n".join(f"- {item}" for item in checklist))
+    if notes:
+        sections.append("Previous runs of this kind of work were rejected for "
+                        "the reasons below — do not repeat them:\n"
+                        + "\n".join(f"- {note}" for note in notes))
+    return "\n\n".join(sections)
+
+
 def record_outcome(home: Path, worker: str, skill: str, accepted: bool,
-                   cause: str | None = None) -> None:
+                   cause: str | None = None, task: str = "",
+                   detail: str = "", checklist: list | None = None) -> None:
     """Record a verified outcome. On rejection, `cause` names the root cause;
-    only 'worker' (the default) counts against the model's evidence."""
+    only 'worker' (the default) counts against the model's evidence, and the
+    failure is appended to root-causes.jsonl for prevention. When a checklist
+    produced the verdict, every item's labelled result rides along in the
+    event metadata — pass and fail alike, so no evidence is lost."""
     event = {
         "id": f"outcome:do-{int(time.time())}",
         "task_id": f"task:do-{int(time.time())}",
@@ -184,16 +264,311 @@ def record_outcome(home: Path, worker: str, skill: str, accepted: bool,
         "actual_cash_micros": 0, "actual_quota_milliunits": 0,
         "latency_ms": 0,
         "observed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
-    if not accepted and cause:
-        event["metadata"] = {"root_cause": cause}
+    metadata: dict = {}
+    if checklist:
+        metadata["checklist"] = [
+            {"item": str(entry.get("item", ""))[:200],
+             "kind": str(entry.get("kind", ""))[:20],
+             "pass": entry.get("pass"),
+             "note": str(entry.get("note", ""))[:200]}
+            for entry in checklist[:10] if isinstance(entry, dict)]
+    if not accepted:
+        cause = cause or "worker"
+        metadata["root_cause"] = cause
+        if detail:
+            metadata["detail"] = detail[:500]
+        log_root_cause(home, task, worker, skill, cause, detail,
+                       metadata.get("checklist"))
+    if metadata:
+        event["metadata"] = metadata
     path = home / "last-outcome.json"
     path.write_text(json.dumps({"event": event}, indent=2))
     owi("outcome", "--local", str(home / "local.sqlite"), "--input", str(path))
     blame = "" if accepted else (
-        " (held against the model)" if (cause or "worker") == "worker"
+        " (held against the model)" if cause == "worker"
         else f" (root cause: {cause} — not held against the model)")
     print(f"recorded: {'accepted' if accepted else 'rejected'}{blame} — "
           "the next pick will know", file=sys.stderr)
+
+
+# ---------------------------------------------------------------------------
+# Checklist verification: mechanical items in process, judgement items by a
+# model that is NOT the maker.
+
+def find_json(text: str):
+    """First parseable JSON value in a model reply — fenced, whole, or embedded."""
+    candidates = re.findall(r"```(?:json)?\s*(.*?)```", text, re.S)
+    candidates.append(text)
+    embedded = re.search(r"[\[{].*[\]}]", text, re.S)
+    if embedded:
+        candidates.append(embedded.group(0))
+    for candidate in candidates:
+        try:
+            return json.loads(candidate)
+        except (json.JSONDecodeError, ValueError):
+            continue
+    return None
+
+
+def check_item(item: str, output: str) -> tuple[str, bool | None, str]:
+    """One checklist item against one output, labelled by kind. Returns
+    (kind, verdict, note): the kind names how the item is checkable, the
+    verdict is True/False when mechanical and None when it needs a judge.
+    The labels persist with the outcome so per-item evidence accumulates."""
+    text = item.strip()
+    lowered = text.lower()
+    if lowered.startswith("contains:"):
+        needle = text[len("contains:"):].strip()
+        return ("contains", needle.lower() in output.lower(),
+                f'output contains "{needle}"')
+    if lowered.startswith("regex:"):
+        pattern = text[len("regex:"):].strip()
+        try:
+            return ("regex", re.search(pattern, output) is not None,
+                    f"matches /{pattern}/")
+        except re.error as error:
+            return "regex", None, f"unusable regex ({error})"
+    if lowered == "json":
+        return "json", find_json(output) is not None, "contains valid JSON"
+    if lowered == "python":
+        blocks = re.findall(r"```(?:python)?\s*(.*?)```", output, re.S) or [output]
+        for block in blocks:
+            try:
+                compile(block, "<checklist>", "exec")
+            except SyntaxError as error:
+                return "python", False, f"python does not compile: {error}"
+        return "python", True, "python code compiles"
+    if lowered.startswith("min-words:"):
+        try:
+            floor = int(text[len("min-words:"):].strip())
+        except ValueError:
+            return "min-words", None, "unusable min-words"
+        return ("min-words", len(output.split()) >= floor,
+                f"at least {floor} words")
+    return "judged", None, "needs judgement"
+
+
+def judge_model_for(home: Path, exclude: str | None) -> str | None:
+    return next((m for m in JUDGE_ORDER
+                 if m != exclude and resolve_runner(home, m)), None)
+
+
+def run_command(home: Path, model: str, payload: str,
+                timeout: int = 600) -> tuple[str, str, int]:
+    completed = subprocess.run(
+        resolve_runner(home, model), shell=True, input=payload, text=True,
+        capture_output=True, timeout=timeout)
+    return completed.stdout or "", completed.stderr or "", completed.returncode
+
+
+def run_checklist(home: Path, task: str, output: str, items: list[str],
+                  maker_model: str) -> dict:
+    """Verify output against the checklist. Verdict: 'accepted' (every item
+    checked and passed), 'rejected' (any item failed), or 'undecided' (an item
+    could not be checked — no independent judge, or the judge was unusable)."""
+    results = []
+    for item in items:
+        kind, verdict, note = check_item(item, output)
+        results.append({"item": item, "kind": kind, "pass": verdict,
+                        "note": note})
+
+    pending = [entry for entry in results if entry["pass"] is None]
+    judge = judge_model_for(home, maker_model) if pending else None
+    if pending and judge:
+        numbered = "\n".join(f"{position}. {entry['item']}"
+                             for position, entry in enumerate(pending, start=1))
+        prompt = ("You are verifying another model's work. Judge strictly; a "
+                  "vague or partial answer fails.\n\nTASK:\n" + task[:4000]
+                  + "\n\nOUTPUT TO JUDGE:\n" + output[:12000]
+                  + "\n\nCHECKLIST:\n" + numbered
+                  + '\n\nReply with JSON only, one entry per checklist item: '
+                  '{"results": [{"item": 1, "pass": true, "why": "short reason"}]}')
+        try:
+            stdout, _, code = run_command(home, judge, prompt, timeout=300)
+        except subprocess.TimeoutExpired:
+            stdout, code = "", -1
+        data = find_json(stdout) if code == 0 else None
+        rows = (data.get("results") if isinstance(data, dict)
+                else data if isinstance(data, list) else []) or []
+        verdicts = {row.get("item"): row for row in rows if isinstance(row, dict)}
+        for position, entry in enumerate(pending, start=1):
+            row = verdicts.get(position)
+            if row is not None and isinstance(row.get("pass"), bool):
+                entry["pass"] = row["pass"]
+                entry["note"] = str(row.get("why", ""))[:200] or "judged"
+
+    failed = [entry for entry in results if entry["pass"] is False]
+    unchecked = [entry for entry in results if entry["pass"] is None]
+    verdict = ("rejected" if failed
+               else "undecided" if unchecked else "accepted")
+    return {"items": results, "verdict": verdict, "judge": judge}
+
+
+# ---------------------------------------------------------------------------
+# Splitting: a cheap planner decides whether the task holds different kinds of
+# work. It writes summaries and checklists — never staffing; models are picked
+# by the engine, part by part.
+
+PLAN_PROMPT = """You split one request into independent parts for specialist workers.
+Available skills — use ONLY these ids:
+- skill:text-editing — writing, rewriting, summarizing, documentation
+- skill:structured-extraction — pulling structured data (JSON, tables) out of text
+- skill:python-numerical-implementation — writing or fixing code
+- skill:parametric-cad — 3D parts and geometry
+
+REQUEST:
+{task}
+
+Reply with JSON only:
+{{"parts": [{{"summary": "...", "skill": "skill:...", "checklist": ["...", "..."]}}]}}
+
+Rules: one part per distinct kind of work — use a SINGLE part when the request
+is one kind of work. Each summary must stand alone; the worker doing it sees
+nothing else. Give each part 2-4 checklist items verifiable against that
+part's output alone. Never mention model names; staffing is not your job."""
+
+
+def clean_parts(raw_parts) -> list[dict] | None:
+    """Validate a planner reply: every part needs a real skill id and a
+    standalone summary. Anything malformed rejects the whole split — a half
+    -usable plan is worse than running the task whole."""
+    cleaned = []
+    for part in raw_parts or []:
+        if not isinstance(part, dict) or part.get("skill") not in SKILLS:
+            return None
+        summary = str(part.get("summary", "")).strip()
+        if not summary:
+            return None
+        checklist = [str(item).strip() for item in part.get("checklist", [])
+                     if str(item).strip()][:4]
+        cleaned.append({"summary": summary, "skill": part["skill"],
+                        "checklist": checklist})
+    return cleaned or None
+
+
+def plan_parts(home: Path, task: str) -> tuple[str | None, list[dict] | None]:
+    planner = judge_model_for(home, exclude=None)
+    if planner is None:
+        return None, None
+    try:
+        stdout, _, code = run_command(
+            home, planner, PLAN_PROMPT.format(task=task[:8000]), timeout=300)
+    except subprocess.TimeoutExpired:
+        return planner, None
+    data = find_json(stdout) if code == 0 else None
+    raw_parts = data.get("parts") if isinstance(data, dict) else None
+    return planner, clean_parts(raw_parts)
+
+
+# ---------------------------------------------------------------------------
+
+def choose(home: Path, task: str, skill: str, tokens_in: int, tokens_out: int,
+           rate: int) -> tuple[dict, list]:
+    result = pick(home, task, skill, tokens_in, tokens_out, rate)
+    quote = result["quote"]
+    return quote, quote["eligible_candidates"]
+
+
+def print_pick(quote: dict, eligible: list) -> None:
+    top = eligible[0]
+    print(f"\n→ {top['worker_id'].replace('worker:', '')}   "
+          f"${top['cost']['expected_accepted_cost_micros'] / MICROS:.4f} "
+          f"per accepted result")
+    for alt in eligible[1:3]:
+        extra = (alt["cost"]["expected_accepted_cost_micros"]
+                 - top["cost"]["expected_accepted_cost_micros"]) / MICROS
+        print(f"  next: {alt['worker_id'].replace('worker:', ''):22} "
+              f"+${extra:.4f}")
+    print(f"  checked {len(eligible) + len(quote['rejected_candidates'])}, "
+          f"turned away {len(quote['rejected_candidates'])} · decision recorded")
+
+
+def runnable_choice(home: Path, eligible: list) -> tuple[str, str, str] | None:
+    """The cheapest eligible worker that can actually run here. A worker
+    nobody can execute is unavailable for running, not a bargain."""
+    for position, candidate in enumerate(eligible):
+        model = candidate["worker_id"].split(":")[1].split("/")[0]
+        command = resolve_runner(home, model)
+        if command:
+            if position > 0:
+                skipped = eligible[0]["worker_id"].split(":")[1].split("/")[0]
+                print(f"\n{skipped} has no runner here — running with "
+                      f"{candidate['worker_id'].replace('worker:', '')} "
+                      "(cheapest runnable)")
+            return candidate["worker_id"], model, command
+    return None
+
+
+def execute_and_verify(home: Path, worker: str, model: str, skill: str,
+                       task: str, stdin_text: str, checklist: list[str],
+                       accepted_flag: str | None, cause_flag: str | None) -> str:
+    """Run the task, verify against the checklist, record. Returns the verdict:
+    accepted / rejected / unrecorded."""
+    notes = prevention_notes(home, skill)
+    if notes:
+        print(f"prevention: carrying {len(notes)} note(s) from past "
+              "rejections of this skill")
+    payload = build_payload(task, stdin_text, checklist, notes)
+    print(f"\nrunning via: {resolve_runner(home, model)}\n" + "-" * 60)
+    try:
+        stdout, stderr, code = run_command(home, model, payload)
+    except subprocess.TimeoutExpired:
+        print("-" * 60)
+        print("timed out after 600s")
+        record_outcome(home, worker, skill, False, "environment", task=task,
+                       detail="runner timed out after 600s")
+        return "rejected"
+    print(stdout.strip() or "(no output)")
+    print("-" * 60)
+    if code != 0:
+        sys.stderr.write(stderr[-1500:])
+        print(f"runner exited {code} — the plumbing failed, not the model")
+        record_outcome(home, worker, skill, False, "environment", task=task,
+                       detail=f"runner exit {code}: {stderr[:300]}")
+        return "rejected"
+
+    if accepted_flag is not None:
+        accepted = accepted_flag == "y"
+        record_outcome(home, worker, skill, accepted,
+                       cause_flag if not accepted else None, task=task)
+        return "accepted" if accepted else "rejected"
+
+    if checklist:
+        report = run_checklist(home, task, stdout, checklist, maker_model=model)
+        marks = {True: "✓", False: "✗", None: "?"}
+        for entry in report["items"]:
+            print(f"  [{marks[entry['pass']]}] {entry['item']} — {entry['note']}")
+        judged = f" · judge: {report['judge']}" if report["judge"] else ""
+        if report["verdict"] == "accepted":
+            print(f"checklist: {len(checklist)}/{len(checklist)} "
+                  f"passed{judged} → accepted")
+            record_outcome(home, worker, skill, True, task=task,
+                           checklist=report["items"])
+            return "accepted"
+        if report["verdict"] == "rejected":
+            detail = "; ".join(f"failed: {entry['item']} ({entry['note']})"
+                               for entry in report["items"]
+                               if entry["pass"] is False)
+            print(f"checklist: failed{judged} → rejected, root cause: worker")
+            record_outcome(home, worker, skill, False, "worker", task=task,
+                           detail=detail, checklist=report["items"])
+            return "rejected"
+        print(f"checklist: could not verify every item{judged} — your call")
+
+    try:
+        answer = input("accepted? [y/n] ").strip().lower()
+        if answer == "y":
+            record_outcome(home, worker, skill, True, task=task)
+            return "accepted"
+        if answer == "n":
+            record_outcome(home, worker, skill, False,
+                           cause_flag or ask_cause(), task=task)
+            return "rejected"
+        print("not recorded (answer y or n next time)", file=sys.stderr)
+    except EOFError:
+        print("not recorded (no answer; use --accepted y|n in scripts)",
+              file=sys.stderr)
+    return "unrecorded"
 
 
 CAUSES = {"m": "worker", "t": "task_spec", "s": "environment", "h": "harness"}
@@ -209,6 +584,76 @@ def ask_cause() -> str:
     return CAUSES.get(answer[:1], "worker") if answer else "worker"
 
 
+def run_split(arguments, stdin_text: str) -> int:
+    home = arguments.home
+    full = arguments.task + ("\n\n" + stdin_text if stdin_text else "")
+    planner, parts = plan_parts(home, full)
+    if planner is None:
+        print("no runnable planner model — fill in "
+              f"{home}/runners.json or drop --split")
+        return 1
+    if parts is None:
+        print(f"planner ({planner}) produced no usable split — "
+              "running as one task")
+        parts = [{"summary": arguments.task,
+                  "skill": arguments.skill or classify(arguments.task),
+                  "checklist": arguments.check or []}]
+    else:
+        kinds = len({part["skill"] for part in parts})
+        print(f"planner ({planner}): {len(parts)} part(s), "
+              f"{kinds} kind(s) of work")
+
+    outcomes = []
+    for position, part in enumerate(parts, start=1):
+        print(f"\n━━ part {position}/{len(parts)} · "
+              f"{part['skill'].replace('skill:', '')}")
+        print(f"   {part['summary']}")
+        for item in part["checklist"]:
+            print(f"   check: {item}")
+        tokens_in = 1500 + len(part["summary"]) // 4
+        quote, eligible = choose(home, part["summary"], part["skill"],
+                                 tokens_in, 800, arguments.rate)
+        if not eligible:
+            reasons = sorted({reason["code"]
+                              for candidate in quote["rejected_candidates"]
+                              for reason in candidate["reasons"]})
+            print(f"   nobody qualified: {', '.join(reasons)}")
+            outcomes.append((part, None, "unstaffed"))
+            continue
+        print_pick(quote, eligible)
+        if not arguments.run:
+            outcomes.append((part, eligible[0], "planned"))
+            continue
+        chosen = runnable_choice(home, eligible)
+        if chosen is None:
+            print(f"   no runner for any eligible worker — fill in "
+                  f"{home}/runners.json")
+            outcomes.append((part, eligible[0], "no runner"))
+            continue
+        worker, model, _ = chosen
+        verdict = execute_and_verify(home, worker, model, part["skill"],
+                                     part["summary"], "", part["checklist"],
+                                     arguments.accepted, arguments.cause)
+        # The summary names who actually ran it, not who was merely cheapest.
+        actual = next(candidate for candidate in eligible
+                      if candidate["worker_id"] == worker)
+        outcomes.append((part, actual, verdict))
+
+    print("\n" + "━" * 64)
+    for part, candidate, verdict in outcomes:
+        who = (candidate["worker_id"].replace("worker:", "")
+               if candidate else "—")
+        price = (f"${candidate['cost']['expected_accepted_cost_micros'] / MICROS:.4f}"
+                 if candidate else "—")
+        print(f"  {verdict:10} {who:22} {price:>9}  {part['summary'][:44]}")
+    total = sum(candidate["cost"]["expected_accepted_cost_micros"]
+                for _, candidate, _ in outcomes if candidate)
+    print(f"  expected cost, all parts: ${total / MICROS:.4f}")
+    good = all(verdict in ("accepted", "planned", "unrecorded")
+               for _, _, verdict in outcomes)
+    return 0 if good else 1
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -220,6 +665,15 @@ def main() -> int:
                              "many dollars per hour (default 0 = cash only)")
     parser.add_argument("--run", action="store_true",
                         help="execute via your configured runner and record the outcome")
+    parser.add_argument("--check", action="append", metavar="ITEM",
+                        help="checklist item the result must pass (repeatable). "
+                             "Mechanical: contains:TEXT, regex:PATTERN, json, "
+                             "python, min-words:N. Anything else is judged by "
+                             "a different model than the maker")
+    parser.add_argument("--split", action="store_true",
+                        help="let a cheap planner split the task into parts by "
+                             "kind of work; each part is staffed, run, and "
+                             "checked separately")
     parser.add_argument("--accepted", choices=["y", "n"],
                         help="record the result without prompting (for scripts)")
     parser.add_argument("--cause",
@@ -230,16 +684,17 @@ def main() -> int:
     arguments = parser.parse_args()
 
     bootstrap(arguments.home)
-
     stdin_text = "" if sys.stdin.isatty() else sys.stdin.read()
+
+    if arguments.split:
+        return run_split(arguments, stdin_text)
+
     skill = arguments.skill or classify(arguments.task)
     tokens_in = 1500 + (len(arguments.task) + len(stdin_text)) // 4
     tokens_out = 800
 
-    result = pick(arguments.home, arguments.task, skill, tokens_in,
-                  tokens_out, arguments.rate)
-    quote = result["quote"]
-    eligible = quote["eligible_candidates"]
+    quote, eligible = choose(arguments.home, arguments.task, skill, tokens_in,
+                             tokens_out, arguments.rate)
 
     guessed = "" if arguments.skill else "  (guessed — --skill to change)"
     print(f"task : {arguments.task}")
@@ -248,25 +703,15 @@ def main() -> int:
     print(f"size : ~{tokens_in} in / {tokens_out} out tokens{rate_note}")
 
     if not eligible:
-        reasons = sorted({r["code"] for c in quote["rejected_candidates"]
-                          for r in c["reasons"]})
+        reasons = sorted({reason["code"]
+                          for candidate in quote["rejected_candidates"]
+                          for reason in candidate["reasons"]})
         print(f"\nnobody qualified: {', '.join(reasons)}")
         print("advanced: docs/BENCHMARKING.md explains how measurement fixes this")
         return 1
 
-    top = eligible[0]
-    worker = top["worker_id"]
-    model = worker.split(":")[1].split("/")[0]
-    print(f"\n→ {worker.replace('worker:', '')}   "
-          f"${top['cost']['expected_accepted_cost_micros'] / MICROS:.4f} "
-          f"per accepted result")
-    for alt in eligible[1:3]:
-        extra = (alt["cost"]["expected_accepted_cost_micros"]
-                 - top["cost"]["expected_accepted_cost_micros"]) / MICROS
-        print(f"  next: {alt['worker_id'].replace('worker:', ''):22} "
-              f"+${extra:.4f}")
-    print(f"  checked {len(eligible) + len(quote['rejected_candidates'])}, "
-          f"turned away {len(quote['rejected_candidates'])} · decision recorded")
+    print_pick(quote, eligible)
+    model = eligible[0]["worker_id"].split(":")[1].split("/")[0]
 
     if not arguments.run:
         note = "" if resolve_runner(arguments.home, model) else (
@@ -275,47 +720,17 @@ def main() -> int:
         print(f"\nrun it: add --run{note}")
         return 0
 
-    # A worker nobody can execute is unavailable for running: fall through the
-    # bench to the cheapest candidate with a working runner, and say so.
-    command = resolve_runner(arguments.home, model)
-    if not command:
-        for candidate in eligible[1:]:
-            other_model = candidate["worker_id"].split(":")[1].split("/")[0]
-            other_command = resolve_runner(arguments.home, other_model)
-            if other_command:
-                print(f"\n{model} has no runner here — running with "
-                      f"{candidate['worker_id'].replace('worker:', '')} "
-                      "(cheapest runnable)")
-                worker, model, command = (candidate["worker_id"], other_model,
-                                          other_command)
-                break
-    if not command:
+    chosen = runnable_choice(arguments.home, eligible)
+    if chosen is None:
         print(f"\nno runner for any eligible worker. Fill in "
               f"{arguments.home}/runners.json")
         return 1
-
-    print(f"\nrunning via: {command}\n" + "-" * 60)
-    payload = arguments.task + ("\n\n" + stdin_text if stdin_text else "")
-    completed = subprocess.run(command, shell=True, input=payload, text=True)
-    print("-" * 60)
-
-    if arguments.accepted:
-        record_outcome(arguments.home, worker, skill, arguments.accepted == "y",
-                       arguments.cause if arguments.accepted == "n" else None)
-    else:
-        try:
-            answer = input("accepted? [y/n] ").strip().lower()
-            if answer == "y":
-                record_outcome(arguments.home, worker, skill, True)
-            elif answer == "n":
-                record_outcome(arguments.home, worker, skill, False,
-                               arguments.cause or ask_cause())
-            else:
-                print("not recorded (answer y or n next time)", file=sys.stderr)
-        except EOFError:
-            print("not recorded (no answer; use --accepted y|n in scripts)",
-                  file=sys.stderr)
-    return completed.returncode
+    worker, model, _ = chosen
+    verdict = execute_and_verify(arguments.home, worker, model, skill,
+                                 arguments.task, stdin_text,
+                                 arguments.check or [],
+                                 arguments.accepted, arguments.cause)
+    return 0 if verdict in ("accepted", "unrecorded") else 1
 
 
 if __name__ == "__main__":
