@@ -11,8 +11,8 @@ use std::{cmp::Ordering, collections::BTreeSet};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use workforce_domain::{
-    DecisionId, DomainError, PrivacyClass, ProbabilityEstimate, SkillId, TaskSpec,
-    WorkerEstimate, WorkerId,
+    DecisionId, DomainError, PrivacyClass, ProbabilityEstimate, SkillId, TaskSpec, WorkerEstimate,
+    WorkerId,
 };
 
 const QUOTA_MILLIUNITS_PER_UNIT: u128 = 1_000;
@@ -69,14 +69,9 @@ impl BetaPosterior {
         Ok((self.mean() - z * self.variance().sqrt()).clamp(0.0, 1.0))
     }
 
-    pub fn observe(
-        &mut self,
-        success_weight: f64,
-        failure_weight: f64,
-    ) -> Result<(), EngineError> {
+    pub fn observe(&mut self, success_weight: f64, failure_weight: f64) -> Result<(), EngineError> {
         self.validate()?;
-        if !non_negative_finite(success_weight) || !non_negative_finite(failure_weight)
-        {
+        if !non_negative_finite(success_weight) || !non_negative_finite(failure_weight) {
             return Err(EngineError::InvalidObservationWeights {
                 success_weight,
                 failure_weight,
@@ -91,11 +86,7 @@ impl BetaPosterior {
         Ok(())
     }
 
-    pub fn observe_outcome(
-        &mut self,
-        accepted: bool,
-        weight: f64,
-    ) -> Result<(), EngineError> {
+    pub fn observe_outcome(&mut self, accepted: bool, weight: f64) -> Result<(), EngineError> {
         if accepted {
             self.observe(weight, 0.0)
         } else {
@@ -312,13 +303,12 @@ pub fn quote(request: &QuoteRequest) -> Result<RoutingQuote, EngineError> {
     let selected_worker_id = eligible_candidates
         .first()
         .map(|candidate| candidate.worker_id.clone());
-    let selection_explanation = eligible_candidates.first().map(|selected| {
-        SelectionExplanation {
+    let selection_explanation = eligible_candidates
+        .first()
+        .map(|selected| SelectionExplanation {
             objective: "minimum confidence-gated expected accepted cost".to_owned(),
             eligible_candidate_count: eligible_candidates.len(),
-            selected_expected_accepted_cost_micros: selected
-                .cost
-                .expected_accepted_cost_micros,
+            selected_expected_accepted_cost_micros: selected.cost.expected_accepted_cost_micros,
             selected_success_lower_bound: selected.success_lower_bound,
             selected_p95_latency_ms: selected.p95_latency_ms,
             tie_break_order: vec![
@@ -327,8 +317,7 @@ pub fn quote(request: &QuoteRequest) -> Result<RoutingQuote, EngineError> {
                 "p95_latency_ms ascending".to_owned(),
                 "worker_id ascending".to_owned(),
             ],
-        }
-    });
+        });
 
     Ok(RoutingQuote {
         decision_id: request.decision_id.clone(),
@@ -416,8 +405,7 @@ fn ineligibility_reasons(
         }
         match estimate.skill_estimates.get(&requirement.skill_id) {
             Some(skill_estimate)
-                if skill_estimate.success_lower_bound
-                    < requirement.minimum_success_probability =>
+                if skill_estimate.success_lower_bound < requirement.minimum_success_probability =>
             {
                 reasons.push(IneligibilityReason::SkillConfidenceBelowMinimum {
                     skill_id: requirement.skill_id.clone(),
@@ -532,9 +520,10 @@ fn mark_pareto_candidates(candidates: &mut [CandidateQuote]) {
         .iter()
         .enumerate()
         .map(|(index, candidate)| {
-            !candidates.iter().enumerate().any(|(other_index, other)| {
-                other_index != index && dominates(other, candidate)
-            })
+            !candidates
+                .iter()
+                .enumerate()
+                .any(|(other_index, other)| other_index != index && dominates(other, candidate))
         })
         .collect();
     for (candidate, is_efficient) in candidates.iter_mut().zip(efficient) {
@@ -558,7 +547,11 @@ fn compare_candidates(left: &CandidateQuote, right: &CandidateQuote) -> Ordering
     left.cost
         .expected_accepted_cost_micros
         .cmp(&right.cost.expected_accepted_cost_micros)
-        .then_with(|| right.success_lower_bound.total_cmp(&left.success_lower_bound))
+        .then_with(|| {
+            right
+                .success_lower_bound
+                .total_cmp(&left.success_lower_bound)
+        })
         .then_with(|| left.p95_latency_ms.cmp(&right.p95_latency_ms))
         .then_with(|| left.worker_id.cmp(&right.worker_id))
 }
@@ -581,7 +574,9 @@ pub enum EngineError {
     DuplicateCandidate(WorkerId),
     #[error("beta parameters must be finite and positive, got alpha={alpha}, beta={beta}")]
     InvalidBetaParameters { alpha: f64, beta: f64 },
-    #[error("observation weights must be finite and non-negative, got success={success_weight}, failure={failure_weight}")]
+    #[error(
+        "observation weights must be finite and non-negative, got success={success_weight}, failure={failure_weight}"
+    )]
     InvalidObservationWeights {
         success_weight: f64,
         failure_weight: f64,
@@ -595,15 +590,13 @@ mod tests {
     use std::collections::{BTreeMap, BTreeSet};
 
     use workforce_domain::{
-        CostProfile, ModelReleaseId, OfferingId, PrivacyClass, ProbabilityEstimate,
-        RiskLevel, SkillRequirement, TaskId, VerificationPolicy, WorkerIdentity,
-        WorkerProfile,
+        CostProfile, ModelReleaseId, OfferingId, PrivacyClass, ProbabilityEstimate, RiskLevel,
+        SkillRequirement, TaskId, VerificationPolicy, WorkerIdentity, WorkerProfile,
     };
 
     use super::*;
 
-    const EMPTY_SHA256: &str =
-        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    const EMPTY_SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
     #[test]
     fn beta_posterior_updates_are_transparent() {
@@ -611,7 +604,13 @@ mod tests {
         let initial_lower = posterior.lower_bound(1.645).expect("valid z");
         posterior.observe(8.0, 2.0).expect("valid observation");
 
-        assert_eq!(posterior, BetaPosterior { alpha: 9.0, beta: 3.0 });
+        assert_eq!(
+            posterior,
+            BetaPosterior {
+                alpha: 9.0,
+                beta: 3.0
+            }
+        );
         assert!((posterior.mean() - 0.75).abs() < 1e-12);
         assert!(posterior.lower_bound(1.645).expect("valid z") > initial_lower);
     }
@@ -637,7 +636,10 @@ mod tests {
 
         assert_eq!(result.selected_worker_id, Some("worker:cheap".into()));
         assert_eq!(result.eligible_candidates[0].rank, 1);
-        assert_eq!(result.eligible_candidates[0].worker_id, "worker:cheap".into());
+        assert_eq!(
+            result.eligible_candidates[0].worker_id,
+            "worker:cheap".into()
+        );
     }
 
     #[test]
@@ -698,12 +700,14 @@ mod tests {
         let mut dominated = candidate("dominated", 300, 0.8, 0.7);
         dominated.p95_latency_ms = 250;
 
-        let result = quote(&request(vec![dominated, capable, cheap]))
-            .expect("valid quote");
+        let result = quote(&request(vec![dominated, capable, cheap])).expect("valid quote");
 
         assert_eq!(
             result.pareto_worker_ids,
-            vec![WorkerId::from("worker:cheap"), WorkerId::from("worker:capable")]
+            vec![
+                WorkerId::from("worker:cheap"),
+                WorkerId::from("worker:capable")
+            ]
         );
         assert!(
             !result
@@ -720,8 +724,7 @@ mod tests {
         let first = candidate("a", 100, 0.9, 0.8);
         let second = candidate("b", 100, 0.9, 0.8);
 
-        let forward = quote(&request(vec![first.clone(), second.clone()]))
-            .expect("valid quote");
+        let forward = quote(&request(vec![first.clone(), second.clone()])).expect("valid quote");
         let reverse = quote(&request(vec![second, first])).expect("valid quote");
 
         assert_eq!(forward, reverse);
@@ -748,18 +751,22 @@ mod tests {
         let reasons = &result.rejected_candidates[0].reasons;
 
         assert!(reasons.len() >= 7);
-        assert!(reasons.iter().any(|reason| matches!(
-            reason,
-            IneligibilityReason::EvidenceSnapshotMismatch { .. }
-        )));
-        assert!(reasons.iter().any(|reason| matches!(
-            reason,
-            IneligibilityReason::MissingSkillEstimate { .. }
-        )));
-        assert!(reasons.iter().any(|reason| matches!(
-            reason,
-            IneligibilityReason::CashBudgetExceeded { .. }
-        )));
+        assert!(
+            reasons.iter().any(|reason| matches!(
+                reason,
+                IneligibilityReason::EvidenceSnapshotMismatch { .. }
+            ))
+        );
+        assert!(
+            reasons
+                .iter()
+                .any(|reason| matches!(reason, IneligibilityReason::MissingSkillEstimate { .. }))
+        );
+        assert!(
+            reasons
+                .iter()
+                .any(|reason| matches!(reason, IneligibilityReason::CashBudgetExceeded { .. }))
+        );
     }
 
     fn request(candidates: Vec<WorkerEstimate>) -> QuoteRequest {

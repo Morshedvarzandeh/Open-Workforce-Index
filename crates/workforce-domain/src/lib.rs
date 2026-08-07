@@ -15,9 +15,7 @@ use thiserror::Error;
 
 macro_rules! string_id {
     ($name:ident) => {
-        #[derive(
-            Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-        )]
+        #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
         #[serde(transparent)]
         pub struct $name(pub String);
 
@@ -58,9 +56,7 @@ string_id!(DecisionId);
 /// The ordering is intentional: a worker clearance permits a task only when it
 /// is greater than or equal to the task's classification. `Secret` should be
 /// reserved for local, explicitly approved execution environments.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PrivacyClass {
     Public,
@@ -161,18 +157,14 @@ impl TaskSpec {
         let mut skills = BTreeSet::new();
         for requirement in &self.required_skills {
             if requirement.skill_id.is_empty() {
-                return Err(DomainError::EmptyField(
-                    "task.required_skills.skill_id",
-                ));
+                return Err(DomainError::EmptyField("task.required_skills.skill_id"));
             }
             validate_probability(
                 "task.required_skills.minimum_success_probability",
                 requirement.minimum_success_probability,
             )?;
             if !skills.insert(requirement.skill_id.clone()) {
-                return Err(DomainError::DuplicateSkill(
-                    requirement.skill_id.clone(),
-                ));
+                return Err(DomainError::DuplicateSkill(requirement.skill_id.clone()));
             }
         }
 
@@ -240,10 +232,7 @@ impl WorkerIdentity {
             }
         }
 
-        validate_sha256(
-            "worker.system_prompt_sha256",
-            &self.system_prompt_sha256,
-        )?;
+        validate_sha256("worker.system_prompt_sha256", &self.system_prompt_sha256)?;
         validate_sha256(
             "worker.execution_policy_sha256",
             &self.execution_policy_sha256,
@@ -504,15 +493,12 @@ fn validate_sha256(field: &'static str, value: &str) -> Result<(), DomainError> 
 mod tests {
     use super::*;
 
-    const EMPTY_SHA256: &str =
-        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    const EMPTY_SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
     #[test]
     fn privacy_clearance_is_monotonic() {
         assert!(PrivacyClass::Secret.permits(PrivacyClass::ConfidentialContent));
-        assert!(
-            PrivacyClass::ConfidentialContent.permits(PrivacyClass::PrivateMetadata)
-        );
+        assert!(PrivacyClass::ConfidentialContent.permits(PrivacyClass::PrivateMetadata));
         assert!(!PrivacyClass::Public.permits(PrivacyClass::PrivateMetadata));
     }
 
@@ -532,9 +518,7 @@ mod tests {
         identity.system_prompt_sha256 = "unknown".to_owned();
         assert_eq!(
             identity.validate(),
-            Err(DomainError::InvalidSha256(
-                "worker.system_prompt_sha256"
-            ))
+            Err(DomainError::InvalidSha256("worker.system_prompt_sha256"))
         );
     }
 

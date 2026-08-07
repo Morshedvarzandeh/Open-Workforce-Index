@@ -8,12 +8,10 @@ use anyhow::{Context, Result};
 use oxigraph::{io::RdfFormat, store::Store};
 
 /// The versioned public ontology shipped with this release.
-pub const CORE_ONTOLOGY: &str =
-    include_str!("../../../ontology/open-workforce.ttl");
+pub const CORE_ONTOLOGY: &str = include_str!("../../../ontology/open-workforce.ttl");
 
 /// The SHACL ingestion and export contract shipped with this release.
-pub const CORE_SHAPES: &str =
-    include_str!("../../../ontology/open-workforce.shacl.ttl");
+pub const CORE_SHAPES: &str = include_str!("../../../ontology/open-workforce.shacl.ttl");
 
 /// An in-memory semantic read model.
 ///

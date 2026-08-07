@@ -10,12 +10,12 @@ use std::{
     time::Duration,
 };
 
-use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
+use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use workforce_domain::{
-    BenchmarkId, DecisionId, EvidenceTier, ModelReleaseId, OfferingId, OutcomeEvent,
-    SkillId, TaskId, ValidationKind, WorkerId,
+    BenchmarkId, DecisionId, EvidenceTier, ModelReleaseId, OfferingId, OutcomeEvent, SkillId,
+    TaskId, ValidationKind, WorkerId,
 };
 
 const PUBLIC_STORE_KIND: &str = "public_index";
@@ -163,10 +163,7 @@ pub trait PublicIndexRead {
 /// Append-only mutation surface for curating the public index.
 pub trait PublicIndexWrite {
     fn append_model_release(&self, record: &ModelReleaseRecord) -> Result<(), StoreError>;
-    fn append_provider_offering(
-        &self,
-        record: &ProviderOfferingRecord,
-    ) -> Result<(), StoreError>;
+    fn append_provider_offering(&self, record: &ProviderOfferingRecord) -> Result<(), StoreError>;
     fn append_worker_profile(&self, record: &WorkerProfileRecord) -> Result<(), StoreError>;
     fn append_evidence(&self, record: &PublicEvidenceRecord) -> Result<(), StoreError>;
     fn append_snapshot(&self, record: &SnapshotRecord) -> Result<(), StoreError>;
@@ -303,8 +300,20 @@ impl PublicIndexRead for ConnectionPublicReader<'_> {
         })?;
 
         rows.map(|row| {
-            let (id, model, provider, from, until, currency, input, output, fixed, context, url, at) =
-                row?;
+            let (
+                id,
+                model,
+                provider,
+                from,
+                until,
+                currency,
+                input,
+                output,
+                fixed,
+                context,
+                url,
+                at,
+            ) = row?;
             Ok(ProviderOfferingRecord {
                 id: OfferingId(id),
                 model_release_id: ModelReleaseId(model),
@@ -351,7 +360,8 @@ impl PublicIndexRead for ConnectionPublicReader<'_> {
                 recorded_at: row.get(10)?,
             })
         })?;
-        rows.collect::<Result<Vec<_>, _>>().map_err(StoreError::from)
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(StoreError::from)
     }
 
     fn evidence(&self) -> Result<Vec<PublicEvidenceRecord>, StoreError> {
@@ -502,10 +512,7 @@ impl PublicIndexWrite for PublicIndexStore {
         Ok(())
     }
 
-    fn append_provider_offering(
-        &self,
-        record: &ProviderOfferingRecord,
-    ) -> Result<(), StoreError> {
+    fn append_provider_offering(&self, record: &ProviderOfferingRecord) -> Result<(), StoreError> {
         self.connection.execute(
             "INSERT INTO provider_offerings (
                 id, model_release_id, provider, effective_from, effective_until,
@@ -608,10 +615,7 @@ impl PublicIndexWrite for PublicIndexStore {
                 record.source_revision,
                 record.content_sha256,
                 to_i64("model_release_count", record.model_release_count)?,
-                to_i64(
-                    "provider_offering_count",
-                    record.provider_offering_count,
-                )?,
+                to_i64("provider_offering_count", record.provider_offering_count,)?,
                 to_i64("worker_profile_count", record.worker_profile_count)?,
                 to_i64("evidence_count", record.evidence_count)?,
             ],
@@ -859,10 +863,7 @@ pub enum StoreError {
     #[error("{field} is outside SQLite's non-negative 64-bit integer range")]
     IntegerOutOfRange { field: &'static str },
     #[error("unknown {kind} value `{value}` in database")]
-    UnknownEnum {
-        kind: &'static str,
-        value: String,
-    },
+    UnknownEnum { kind: &'static str, value: String },
     #[error("invalid SQLite boolean value {0}")]
     InvalidBoolean(i64),
     #[error("{field} must be finite, got {value}")]
@@ -1326,9 +1327,7 @@ mod tests {
         store
             .append_provider_offering(&offering)
             .expect("append offering");
-        store
-            .append_worker_profile(&worker)
-            .expect("append worker");
+        store.append_worker_profile(&worker).expect("append worker");
         store.append_evidence(&evidence).expect("append evidence");
         store.append_snapshot(&snapshot).expect("append snapshot");
 
@@ -1338,7 +1337,10 @@ mod tests {
         assert_eq!(export.worker_profiles, vec![worker]);
         assert_eq!(export.evidence, vec![evidence]);
         assert_eq!(export.snapshots, vec![snapshot.clone()]);
-        assert_eq!(store.snapshot(&snapshot.id).expect("snapshot"), Some(snapshot));
+        assert_eq!(
+            store.snapshot(&snapshot.id).expect("snapshot"),
+            Some(snapshot)
+        );
         assert_eq!(store.snapshot("missing").expect("missing snapshot"), None);
     }
 
@@ -1355,28 +1357,36 @@ mod tests {
     fn public_records_cannot_be_updated_or_deleted() {
         let store = PublicIndexStore::in_memory().expect("public store");
         append_public_identity_chain(&store);
-        assert!(store
-            .connection
-            .execute(
-                "UPDATE model_releases SET developer = 'changed' WHERE id = ?1",
-                ["model:test"],
-            )
-            .is_err());
-        assert!(store
-            .connection
-            .execute("DELETE FROM model_releases WHERE id = ?1", ["model:test"])
-            .is_err());
-        assert!(store
-            .connection
-            .execute(
-                "UPDATE provider_offerings SET fixed_request_micros = 1 WHERE id = ?1",
-                ["offering:test"],
-            )
-            .is_err());
-        assert!(store
-            .connection
-            .execute("DELETE FROM worker_profiles WHERE id = ?1", ["worker:test"])
-            .is_err());
+        assert!(
+            store
+                .connection
+                .execute(
+                    "UPDATE model_releases SET developer = 'changed' WHERE id = ?1",
+                    ["model:test"],
+                )
+                .is_err()
+        );
+        assert!(
+            store
+                .connection
+                .execute("DELETE FROM model_releases WHERE id = ?1", ["model:test"])
+                .is_err()
+        );
+        assert!(
+            store
+                .connection
+                .execute(
+                    "UPDATE provider_offerings SET fixed_request_micros = 1 WHERE id = ?1",
+                    ["offering:test"],
+                )
+                .is_err()
+        );
+        assert!(
+            store
+                .connection
+                .execute("DELETE FROM worker_profiles WHERE id = ?1", ["worker:test"])
+                .is_err()
+        );
     }
 
     #[test]
@@ -1431,20 +1441,24 @@ mod tests {
     fn private_records_cannot_be_updated_or_deleted() {
         let store = PrivateLocalStore::in_memory().expect("private store");
         store.append_quote(&sample_quote()).expect("append quote");
-        assert!(store
-            .connection
-            .execute(
-                "UPDATE routing_quotes SET expected_cash_micros = 0 WHERE decision_id = ?1",
-                ["decision:test"],
-            )
-            .is_err());
-        assert!(store
-            .connection
-            .execute(
-                "DELETE FROM routing_quotes WHERE decision_id = ?1",
-                ["decision:test"],
-            )
-            .is_err());
+        assert!(
+            store
+                .connection
+                .execute(
+                    "UPDATE routing_quotes SET expected_cash_micros = 0 WHERE decision_id = ?1",
+                    ["decision:test"],
+                )
+                .is_err()
+        );
+        assert!(
+            store
+                .connection
+                .execute(
+                    "DELETE FROM routing_quotes WHERE decision_id = ?1",
+                    ["decision:test"],
+                )
+                .is_err()
+        );
     }
 
     #[test]
@@ -1470,7 +1484,9 @@ mod tests {
         let mut outcome = sample_outcome(None);
         outcome.event.repository_scope = Some(REPOSITORY_MARKER.to_owned());
         outcome.event.metadata = Value::String(METADATA_MARKER.to_owned());
-        private.append_outcome(&outcome).expect("append private outcome");
+        private
+            .append_outcome(&outcome)
+            .expect("append private outcome");
 
         let private_json = serde_json::to_string(&private.outcomes().expect("private outcomes"))
             .expect("serialize private outcomes");

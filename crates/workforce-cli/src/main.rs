@@ -143,8 +143,7 @@ fn run_ontology(command: OntologyCommand) -> Result<()> {
             let nquads = PublicGraph::with_builtin_ontology()?.sorted_nquads()?;
             if let Some(path) = output {
                 create_parent(&path)?;
-                fs::write(&path, nquads)
-                    .with_context(|| format!("write {}", path.display()))?;
+                fs::write(&path, nquads).with_context(|| format!("write {}", path.display()))?;
                 Ok(())
             } else {
                 io::stdout().write_all(nquads.as_bytes())?;
@@ -172,8 +171,7 @@ fn run_database(command: DatabaseCommand) -> Result<()> {
 }
 
 fn read_json<T: DeserializeOwned>(path: &Path) -> Result<T> {
-    let raw = fs::read_to_string(path)
-        .with_context(|| format!("read {}", path.display()))?;
+    let raw = fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
     serde_json::from_str(&raw).with_context(|| format!("parse {}", path.display()))
 }
 
@@ -185,8 +183,7 @@ fn print_json(value: &impl Serialize) -> Result<()> {
 fn create_parent(path: &Path) -> Result<()> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent)
-                .with_context(|| format!("create {}", parent.display()))?;
+            fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
         }
     }
     Ok(())
