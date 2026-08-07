@@ -1,0 +1,139 @@
+@prefix owf: <https://openworkforce.dev/ns#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+owf:ModelReleaseShape a sh:NodeShape ;
+    sh:targetClass owf:ModelRelease ;
+    sh:property [ sh:path owf:releaseIdentifier ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
+    sh:property [ sh:path owf:memberOfFamily ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:ModelFamily ] .
+
+owf:ProviderOfferingShape a sh:NodeShape ;
+    sh:targetClass owf:ProviderOffering ;
+    sh:property [ sh:path owf:offeredBy ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:Provider ] ;
+    sh:property [ sh:path owf:offersRelease ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:ModelRelease ] ;
+    sh:property [ sh:path owf:contextWindowTokens ; sh:maxCount 1 ; sh:datatype xsd:nonNegativeInteger ] ;
+    sh:property [ sh:path owf:validFrom ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] ;
+    sh:sparql [
+        sh:message "validUntil must be later than validFrom."@en ;
+        sh:select """
+            SELECT $this WHERE {
+              $this owf:validFrom ?start ; owf:validUntil ?end .
+              FILTER (?end <= ?start)
+            }
+        """
+    ] .
+
+owf:PriceTermShape a sh:NodeShape ;
+    sh:targetClass owf:PriceTerm ;
+    sh:property [ sh:path owf:priceMicrounits ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:nonNegativeInteger ] ;
+    sh:property [ sh:path owf:currencyCode ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:pattern "^[A-Z]{3}$" ] ;
+    sh:property [ sh:path owf:billingUnit ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
+    sh:property [ sh:path owf:validFrom ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] .
+
+owf:WorkerProfileShape a sh:NodeShape ;
+    sh:targetClass owf:WorkerProfile ;
+    sh:property [ sh:path owf:usesOffering ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:ProviderOffering ] ;
+    sh:property [ sh:path owf:hasHarness ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:Harness ] ;
+    sh:property [ sh:path owf:configurationDigest ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 16 ] ;
+    sh:property [ sh:path owf:inferenceConfiguration ; sh:maxCount 1 ; sh:datatype rdf:JSON ] .
+
+owf:EvidenceObservationShape a sh:NodeShape ;
+    sh:targetClass owf:EvidenceObservation ;
+    sh:or (
+        [ sh:property [ sh:path owf:measuresWorker ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:WorkerProfile ] ;
+          sh:property [ sh:path owf:measuresRelease ; sh:maxCount 0 ] ]
+        [ sh:property [ sh:path owf:measuresRelease ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:ModelRelease ] ;
+          sh:property [ sh:path owf:measuresWorker ; sh:maxCount 0 ] ]
+    ) ;
+    sh:property [ sh:path owf:benchmarkSuite ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:BenchmarkSuite ] ;
+    sh:property [ sh:path owf:metric ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:Metric ] ;
+    sh:property [ sh:path owf:rawScore ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ] ;
+    sh:property [ sh:path owf:scoreUnit ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
+    sh:property [ sh:path owf:normalizedScore ; sh:maxCount 1 ; sh:datatype xsd:decimal ; sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
+    sh:property [ sh:path owf:adapterVersion ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
+    sh:property [ sh:path owf:sampleSize ; sh:maxCount 1 ; sh:datatype xsd:positiveInteger ] ;
+    sh:property [ sh:path owf:observedAt ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] ;
+    sh:property [ sh:path owf:evidenceTier ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:EvidenceTier ] ;
+    sh:property [ sh:path prov:wasDerivedFrom ; sh:minCount 1 ] .
+
+owf:AbilityEstimateShape a sh:NodeShape ;
+    sh:targetClass owf:AbilityEstimate ;
+    sh:property [ sh:path owf:abilityForWorker ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:WorkerProfile ] ;
+    sh:property [ sh:path owf:abilitySkill ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:Skill ] ;
+    sh:property [ sh:path owf:estimateMean ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ; sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
+    sh:property [ sh:path owf:estimateLowerBound ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ; sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
+    sh:property [ sh:path owf:estimateUpperBound ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ; sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
+    sh:property [ sh:path owf:derivedFromEvidence ; sh:minCount 1 ; sh:class owf:EvidenceObservation ] ;
+    sh:sparql [
+        sh:message "Confidence bounds must satisfy lower <= mean <= upper."@en ;
+        sh:select """
+            SELECT $this WHERE {
+              $this owf:estimateLowerBound ?low ; owf:estimateMean ?mean ; owf:estimateUpperBound ?high .
+              FILTER (?low > ?mean || ?mean > ?high)
+            }
+        """
+    ] .
+
+owf:TaskSpecShape a sh:NodeShape ;
+    sh:targetClass owf:TaskSpec ;
+    sh:property [ sh:path owf:privacyClass ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:PrivacyClass ] ;
+    sh:property [ sh:path owf:requiresSkill ; sh:minCount 1 ; sh:class owf:SkillRequirement ] ;
+    sh:property [ sh:path owf:hasBudget ; sh:minCount 1 ; sh:class owf:Budget ] .
+
+owf:SkillRequirementShape a sh:NodeShape ;
+    sh:targetClass owf:SkillRequirement ;
+    sh:property [ sh:path owf:requiredSkill ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:Skill ] ;
+    sh:property [ sh:path owf:minimumQuality ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ; sh:minInclusive 0 ; sh:maxInclusive 1 ] .
+
+owf:RoutingDecisionShape a sh:NodeShape ;
+    sh:targetClass owf:RoutingDecision ;
+    sh:property [ sh:path owf:decisionForTask ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:TaskSpec ] ;
+    sh:property [ sh:path owf:usesSnapshot ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:IndexSnapshot ] ;
+    sh:property [ sh:path owf:selectedWorker ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:WorkerProfile ] ;
+    sh:property [ sh:path owf:hasCandidateQuote ; sh:minCount 1 ; sh:class owf:CandidateQuote ] ;
+    sh:property [ sh:path owf:decisionAt ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] ;
+    sh:property [ sh:path owf:policyVersion ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+    sh:sparql [
+        sh:message "The selected worker must occur in one of the decision's candidate quotes."@en ;
+        sh:select """
+            SELECT $this WHERE {
+              $this owf:selectedWorker ?selected .
+              FILTER NOT EXISTS {
+                $this owf:hasCandidateQuote/owf:candidateWorker ?selected .
+              }
+            }
+        """
+    ] ;
+    sh:sparql [
+        sh:message "Maker and checker must be different worker identities."@en ;
+        sh:select """
+            SELECT $this WHERE {
+              $this owf:selectedWorker ?worker ; owf:checkerWorker ?worker .
+            }
+        """
+    ] .
+
+owf:CandidateQuoteShape a sh:NodeShape ;
+    sh:targetClass owf:CandidateQuote ;
+    sh:property [ sh:path owf:candidateWorker ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:WorkerProfile ] ;
+    sh:property [ sh:path owf:expectedAcceptedCostMicrounits ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:nonNegativeInteger ] ;
+    sh:property [ sh:path owf:successLowerBound ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ; sh:minInclusive 0 ; sh:maxInclusive 1 ] .
+
+owf:OutcomeEventShape a sh:NodeShape ;
+    sh:targetClass owf:OutcomeEvent ;
+    sh:property [ sh:path owf:outcomeForDecision ; sh:minCount 1 ; sh:maxCount 1 ; sh:class owf:RoutingDecision ] ;
+    sh:property [ sh:path owf:accepted ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:boolean ] ;
+    sh:property [ sh:path owf:finishedAt ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] .
+
+# This is defense in depth, not a security boundary. The exporter must validate
+# every output subject as owf:PublicIndexRecord and use a physically separate
+# public store. Named graphs and SHACL alone cannot protect private information.
+owf:PublicExportPrivacyShape a sh:NodeShape ;
+    sh:targetClass owf:PublicIndexRecord ;
+    sh:property [ sh:path owf:promptText ; sh:maxCount 0 ; sh:message "Prompt text is forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:repositoryUri ; sh:maxCount 0 ; sh:message "Repository identifiers are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:tenantId ; sh:maxCount 0 ; sh:message "Tenant identifiers are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:credentialReference ; sh:maxCount 0 ; sh:message "Credential references are forbidden in public exports."@en ] ;
+    sh:property [ sh:path owf:rawArtifact ; sh:maxCount 0 ; sh:message "Raw artifacts are forbidden in public exports."@en ] .

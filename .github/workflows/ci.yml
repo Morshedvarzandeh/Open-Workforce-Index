@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust workspace
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Check
+        run: cargo check --workspace --all-targets
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets
+      - name: Test
+        run: cargo test --workspace --all-targets
+      - name: CLI vertical slice
+        run: |
+          cargo run -p workforce-cli -- ontology validate
+          cargo run -p workforce-cli -- database init --index "${RUNNER_TEMP}/owi-index.sqlite" --local "${RUNNER_TEMP}/owi-local.sqlite"
+          cargo run -p workforce-cli -- quote --input examples/quote-request.json
+          cargo run -p workforce-cli -- learn --input examples/learning-request.json

@@ -1,0 +1,17 @@
+[package]
+name = "workforce-domain"
+description = "Provider-neutral domain contracts for Open Workforce Index"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true
