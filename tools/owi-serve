@@ -154,6 +154,11 @@ class Handler(BaseHTTPRequestHandler):
                     f"no runner for '{model}' — add your command to "
                     f"{self.home / 'runners.json'}"})
                 return
+            if not checklist:
+                # Empty checklist box: the test procedure is written for the
+                # task by the cheapest runnable model, and returned with the
+                # report so nothing is decided out of sight.
+                _, checklist = owi_do.auto_checklist(self.home, task)
             notes = (owi_do.prevention_notes(self.home, skill)
                      if skill in owi_do.SKILLS else [])
             payload = owi_do.build_payload(task, "", checklist, notes)

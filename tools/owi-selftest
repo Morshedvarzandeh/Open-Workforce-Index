@@ -72,6 +72,13 @@ def run(no_cargo: bool) -> int:
         suite.check(f"planner fixture {position}", got == want,
                     f"got {got!r}, want {want!r}")
 
+    print("\nauto-checklist cleaning")
+    for position, fixture in enumerate(
+            frozen.get("auto_checklist_fixtures", []), start=1):
+        got = owi_do.clean_checklist(fixture["raw"])
+        suite.check(f"auto-checklist fixture {position}",
+                    got == fixture["expect"], f"got {got!r}")
+
     print("\nprevention filter")
     for fixture in frozen["prevention_fixtures"]:
         with tempfile.TemporaryDirectory() as scratch:
