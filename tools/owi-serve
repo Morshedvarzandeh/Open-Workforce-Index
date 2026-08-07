@@ -1,0 +1,202 @@
+#!/usr/bin/env python3
+"""owi-serve — the ask page, running for real.
+
+    tools/owi-serve            # then open http://127.0.0.1:7787
+
+Serves the same one-box page as the published link, plus what a hosted page
+cannot do: a run button. The pick is executed through YOUR command from
+.owi-quick/runners.json (your CLI, your key — the server never holds
+credentials), and your worked/didn't answer is recorded to the real private
+ledger, so the next pick is smarter everywhere, not just in one browser tab.
+
+Binds to 127.0.0.1 only. The page can only name a model; the command that
+runs is resolved server-side from runners.json, and the task text travels on
+stdin — nothing from the browser is ever executed as shell.
+"""
+
+from __future__ import annotations
+
+import argparse
+import importlib.machinery
+import importlib.util
+import json
+import subprocess
+import sys
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+TOOLS = Path(__file__).resolve().parent
+REPO = TOOLS.parent
+
+# The front-door script has no .py extension, so name the loader explicitly.
+_loader = importlib.machinery.SourceFileLoader("owi_do", str(TOOLS / "owi-do"))
+_spec = importlib.util.spec_from_loader("owi_do", _loader)
+owi_do = importlib.util.module_from_spec(_spec)
+_loader.exec_module(owi_do)
+
+SKILL_TOOLS = {skill: spec["tools"] for skill, spec in owi_do.SKILLS.items()}
+
+
+def harvest(home: Path) -> dict:
+    """Current posteriors from the engine, including the real ledger."""
+    seed = json.loads((REPO / "examples/manager-scenario-seed.json").read_text())
+    prices = owi_do.owi(
+        "prices", "--input", str(REPO / "examples/litellm-prices-sample.json"),
+        "--options", str(REPO / "examples/price-import-options.json"),
+        "--dry-run")
+    rates = {o["id"]: (o["input_micros_per_million_tokens"],
+                       o["output_micros_per_million_tokens"])
+             for o in prices["offerings"]}
+    workers = [{"id": w["id"], "skills": w["supported_skill_ids"],
+                "tools": w["tools"],
+                "inRate": rates[w["offering_id"]][0],
+                "outRate": rates[w["offering_id"]][1]}
+               for w in seed["worker_profiles"] if w["offering_id"] in rates]
+
+    posteriors: dict = {}
+    for position, (skill, tools) in enumerate(SKILL_TOOLS.items(), start=1):
+        request = {
+            "decision_id": f"decision:serve-{position}-{int(time.time())}",
+            "snapshot_id": "snapshot:manager-scenario-v1",
+            "at_epoch_ms": 1_785_110_400_000,
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "task": {"id": f"task:serve-harvest-{position}",
+                     "summary": f"harvest posteriors for {skill}",
+                     "required_skills": [{"skill_id": skill,
+                                          "minimum_success_probability": 0.0,
+                                          "minimum_evidence_count": 0}],
+                     "required_tools": tools,
+                     "privacy": "private_metadata", "risk": "low",
+                     "verification": "deterministic",
+                     "minimum_success_probability": 0.0,
+                     "minimum_evidence_count": 0,
+                     "estimated_input_tokens": 2000,
+                     "estimated_output_tokens": 800},
+            "policy": {"policy_id": "policy:economy-v1", "currency": "USD",
+                       "quota_shadow_cash_micros_per_unit": 0,
+                       "failure_probability_basis": "mean", "max_attempts": 2},
+            "calibration": {"calibration_id": "calibration:v1",
+                            "confidence_tail_probability": 0.05,
+                            "prior_alpha": 1.0, "prior_beta": 1.0,
+                            "max_public_prior_weight": 8.0,
+                            "private_outcome_weight": 1.0},
+            "assumptions": {"default_p95_latency_ms": 30000},
+        }
+        path = home / "serve-harvest.json"
+        path.write_text(json.dumps(request))
+        result = owi_do.owi("allocate", "--index", str(home / "index.sqlite"),
+                            "--local", str(home / "local.sqlite"),
+                            "--input", str(path))
+        posteriors[skill] = {
+            cal["worker_id"]: {"a": cal["skills"][0]["posterior"]["alpha"],
+                               "b": cal["skills"][0]["posterior"]["beta"]}
+            for cal in result["calibration"] if cal["skills"]}
+
+    return {"workers": workers, "posteriors": posteriors,
+            "skillTools": SKILL_TOOLS, "fallbackMicros": 20000, "floor": 0.24,
+            "local": True}
+
+
+class Handler(BaseHTTPRequestHandler):
+    home: Path
+    lock = threading.Lock()
+    data: dict = {}
+
+    def _send(self, code: int, body: bytes, kind: str) -> None:
+        self.send_response(code)
+        self.send_header("Content-Type", kind)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _json(self, code: int, payload: dict) -> None:
+        self._send(code, json.dumps(payload).encode(), "application/json")
+
+    def _body(self) -> dict:
+        length = int(self.headers.get("Content-Length") or 0)
+        if length <= 0 or length > 1_000_000:
+            return {}
+        try:
+            return json.loads(self.rfile.read(length))
+        except json.JSONDecodeError:
+            return {}
+
+    def do_GET(self) -> None:  # noqa: N802 (stdlib naming)
+        if self.path == "/":
+            template = (TOOLS / "owi_ask_template.html").read_text()
+            with self.lock:
+                payload = json.dumps(self.data).replace("</", "<\\/")
+            self._send(200, template.replace("__DATA__", payload).encode(),
+                       "text/html; charset=utf-8")
+        elif self.path == "/api/data":
+            with self.lock:
+                self._json(200, self.data)
+        else:
+            self._json(404, {"error": "not found"})
+
+    def do_POST(self) -> None:  # noqa: N802
+        body = self._body()
+        if self.path == "/api/run":
+            model = str(body.get("model", ""))
+            task = str(body.get("task", ""))[:100_000]
+            runners = json.loads((self.home / "runners.json").read_text())
+            command = (runners.get(model) or "").strip()
+            if not command:
+                self._json(400, {"error":
+                    f"no runner for '{model}' — add your command to "
+                    f"{self.home / 'runners.json'}"})
+                return
+            try:
+                completed = subprocess.run(
+                    command, shell=True, input=task, text=True,
+                    capture_output=True, timeout=300)
+                self._json(200, {"output": completed.stdout[-100_000:],
+                                 "stderr": completed.stderr[-4_000:],
+                                 "exit": completed.returncode})
+            except subprocess.TimeoutExpired:
+                self._json(200, {"output": "", "stderr": "timed out after 300s",
+                                 "exit": -1})
+        elif self.path == "/api/outcome":
+            worker, skill = str(body.get("worker", "")), str(body.get("skill", ""))
+            accepted = bool(body.get("accepted"))
+            if not worker.startswith("worker:") or not skill.startswith("skill:"):
+                self._json(400, {"error": "bad worker or skill"})
+                return
+            owi_do.record_outcome(self.home, worker, skill, accepted)
+            with self.lock:
+                Handler.data = harvest(self.home)
+                self._json(200, {"ok": True, "data": self.data})
+        else:
+            self._json(404, {"error": "not found"})
+
+    def log_message(self, fmt: str, *args) -> None:
+        print(f"  {self.command} {self.path}", file=sys.stderr)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--home", type=Path, default=REPO / ".owi-quick")
+    parser.add_argument("--port", type=int, default=7787)
+    arguments = parser.parse_args()
+
+    owi_do.bootstrap(arguments.home)
+    Handler.home = arguments.home
+    print("loading current posteriors from the ledger...", file=sys.stderr)
+    Handler.data = harvest(arguments.home)
+
+    server = ThreadingHTTPServer(("127.0.0.1", arguments.port), Handler)
+    print(f"\nopen  http://127.0.0.1:{arguments.port}\n"
+          f"runs  via your commands in {arguments.home / 'runners.json'}\n"
+          f"learns into the real ledger at {arguments.home / 'local.sqlite'}\n",
+          file=sys.stderr)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

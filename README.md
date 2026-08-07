@@ -42,6 +42,13 @@ After the run it asks `accepted? [y/n]` — and that answer changes the next
 pick. Reject a worker often enough and it stops being chosen. That is the
 entire idea, in one command.
 
+Prefer a page over a terminal? One more command serves the same experience at
+a local link, with a run button and learning recorded to the real ledger:
+
+```bash
+tools/owi-serve        # open http://127.0.0.1:7787
+```
+
 Everything below this line is the advanced layer: manifests that plan whole
 projects from a file in git, consoles with live weighting dials, benchmark
 harnesses, and total-cost-of-ownership scenarios. Start with `owi-do`; go

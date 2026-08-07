@@ -63,6 +63,11 @@
   .learned { font-size:12.5px; }
   .learned.up { color:var(--good); } .learned.down { color:var(--bad); }
   .none { color:var(--bad); font-weight:700; }
+  .out { background:var(--panel-sunk); border:1px solid var(--rule);
+    padding:10px 12px; max-height:320px; overflow:auto; white-space:pre-wrap;
+    font-size:13px; margin:0; }
+  .mode { font-size:11px; letter-spacing:0.08em; text-transform:uppercase;
+    color:var(--good); }
 
   footer { font-family:var(--sans); font-size:12px; color:var(--ink-3);
     line-height:1.6; border-top:1px solid var(--rule-firm); padding-top:12px; }
@@ -169,26 +174,26 @@
   };
 
   function posterior(skill, workerId) {
-    const base = (DATA.posteriors[skill] || {})[workerId] || { a: 1, b: 1 };
+    const base = (data().posteriors[skill] || {})[workerId] || { a: 1, b: 1 };
     const mine = (local()[skill] || {})[workerId] || { s: 0, f: 0 };
     return { a: base.a + mine.s, b: base.b + mine.f };
   }
 
   function evaluate(skill, tokensIn, tokensOut) {
-    const need = DATA.skillTools[skill] || [];
+    const need = data().skillTools[skill] || [];
     const rows = [];
     let turnedAway = 0;
-    for (const w of DATA.workers) {
+    for (const w of data().workers) {
       const qualified = w.skills.includes(skill)
         && need.every(t => w.tools.includes(t));
       if (!qualified) { turnedAway++; continue; }
       const p = posterior(skill, w.id);
       const bound = lcb(p.a, p.b);
-      if (bound < DATA.floor) { turnedAway++; continue; }
+      if (bound < data().floor) { turnedAway++; continue; }
       const mean = p.a / (p.a + p.b);
       const run = Math.ceil(tokensIn * w.inRate / 1e6)
                 + Math.ceil(tokensOut * w.outRate / 1e6);
-      const retry = Math.ceil((1 - mean) * DATA.fallbackMicros);
+      const retry = Math.ceil((1 - mean) * data().fallbackMicros);
       rows.push({ id: w.id, mean, bound, total: run + retry });
     }
     rows.sort((x, y) => x.total - y.total || y.bound - x.bound
@@ -198,7 +203,15 @@
 
   const $ = (m) => "$" + (m / 1e6).toFixed(4);
   const short = (id) => id.replace("worker:", "");
+  const modelOf = (id) => id.split(":")[1].split("/")[0];
   let last = null;
+  let LIVE = null;   // replaced by /api/data when a local server is present
+  const data = () => LIVE || DATA;
+  fetch("/api/data").then(r => r.ok ? r.json() : null).then(d => {
+    if (d && d.local) { LIVE = d;
+      document.querySelector("h1 small").insertAdjacentHTML("afterend",
+        '<span class="mode"> · local — runs for real</span>'); }
+  }).catch(() => {});
 
   function render(learnedNote) {
     const text = document.getElementById("q").value.trim();
@@ -229,19 +242,55 @@
         <span class="meta">per accepted result</span></div>
       ${rows.slice(1, 3).map(r => `<div class="alt">next:
         ${short(r.id)} &nbsp;+${$(r.total - top.total)}</div>`).join("")}
-      <div class="meta">checked ${DATA.workers.length},
+      <div class="meta">checked ${data().workers.length},
         turned away ${turnedAway}</div>
       ${learnedNote ? `<div class="learned ${learnedNote.cls}">
         ${learnedNote.text}</div>` : ""}
-      <div class="verdict"><span>after you run it:</span>
+      ${LIVE ? `<div class="verdict">
+        <button type="button" id="go">run it</button>
+        <span id="runstate"></span></div>
+        <pre class="out" id="out" hidden></pre>` : ""}
+      <div class="verdict"><span>${LIVE ? "then:" : "after you run it:"}</span>
         <button type="button" id="yes">worked</button>
         <button type="button" class="no" id="no">didn't</button></div>`;
     document.getElementById("yes").onclick = () => verdict(true);
     document.getElementById("no").onclick = () => verdict(false);
+    if (LIVE) document.getElementById("go").onclick = () => runIt(text);
   }
 
-  function verdict(worked) {
+  async function runIt(text) {
+    const state = document.getElementById("runstate");
+    const out = document.getElementById("out");
+    state.textContent = "running via your CLI…";
+    try {
+      const response = await fetch("/api/run", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: modelOf(last.id), task: text }) });
+      const result = await response.json();
+      out.hidden = false;
+      if (!response.ok) { out.textContent = result.error; state.textContent = ""; return; }
+      out.textContent = result.output || result.stderr || "(no output)";
+      state.textContent = result.exit === 0 ? "done — worked or didn't?"
+                                            : `exit ${result.exit}`;
+    } catch (error) { state.textContent = "server went away"; }
+  }
+
+  async function verdict(worked) {
     if (!last) return;
+    if (LIVE) {
+      try {
+        const response = await fetch("/api/outcome", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ worker: last.id, skill: last.skill,
+                                 accepted: worked }) });
+        const result = await response.json();
+        if (result.ok) { LIVE = result.data;
+          render({ cls: worked ? "up" : "down",
+                   text: `${short(last.id)} ${worked ? "credited" : "marked down"}
+                     — recorded to your real ledger` });
+          return; }
+      } catch (error) { /* fall through to browser-only */ }
+    }
     const store = local();
     store[last.skill] = store[last.skill] || {};
     const mine = store[last.skill][last.id] || { s: 0, f: 0 };
