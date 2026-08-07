@@ -1,0 +1,170 @@
+#!/usr/bin/env python3
+"""owi-selftest — the frozen high-level suite.
+
+    tools/owi-selftest                      # full suite (needs cargo)
+    tools/owi-selftest --no-cargo           # engine-only, no build step
+
+As the loop gets more automated, this is the brake: the expectations in
+examples/frozen-checks-v*.json are pinned versions of behaviour that already
+worked — prices that imported exactly, the roster that staffed, the check
+engine's verdicts, the planner's validation, the prevention filter. Any change
+that would lose them fails here first, not in a live run.
+
+The checklist file is evolutionary: lived failures get frozen into it as new
+fixtures (with provenance), and the version bumps. This runner never calls a
+model and never touches the network — everything it checks is deterministic.
+"""
+
+from __future__ import annotations
+
+import argparse
+import importlib.machinery
+import importlib.util
+import json
+import sys
+import tempfile
+from pathlib import Path
+
+TOOLS = Path(__file__).resolve().parent
+REPO = TOOLS.parent
+
+_loader = importlib.machinery.SourceFileLoader("owi_do", str(TOOLS / "owi-do"))
+_spec = importlib.util.spec_from_loader("owi_do", _loader)
+owi_do = importlib.util.module_from_spec(_spec)
+_loader.exec_module(owi_do)
+
+
+class Suite:
+    def __init__(self) -> None:
+        self.passed = 0
+        self.failed: list[str] = []
+
+    def check(self, name: str, ok: bool, note: str = "") -> None:
+        if ok:
+            self.passed += 1
+        else:
+            self.failed.append(f"{name}{' — ' + note if note else ''}")
+        print(f"  [{'ok' if ok else 'FAIL'}] {name}")
+
+
+def run(no_cargo: bool) -> int:
+    frozen = json.loads(
+        (REPO / "examples/frozen-checks-v1.json").read_text())
+    suite = Suite()
+    print(f"frozen suite: {frozen['version']} (frozen {frozen['frozen_at']})")
+
+    print("\ncheck engine")
+    for fixture in frozen["check_engine_fixtures"]:
+        kind, verdict, _ = owi_do.check_item(fixture["item"], fixture["output"])
+        want = fixture["expect"]
+        suite.check(
+            f"{fixture['kind']}: {fixture['item'][:44]!r}",
+            verdict is want if want is None else verdict == want,
+            f"got {verdict!r}, want {want!r}")
+        suite.check(f"  labelled {fixture['kind']}", kind == fixture["kind"],
+                    f"got {kind!r}")
+
+    print("\nplanner validation")
+    for position, fixture in enumerate(frozen["planner_fixtures"], start=1):
+        cleaned = owi_do.clean_parts(fixture["raw"])
+        want = fixture["expect_parts"]
+        got = None if cleaned is None else len(cleaned)
+        suite.check(f"planner fixture {position}", got == want,
+                    f"got {got!r}, want {want!r}")
+
+    print("\nprevention filter")
+    for fixture in frozen["prevention_fixtures"]:
+        with tempfile.TemporaryDirectory() as scratch:
+            home = Path(scratch)
+            with (home / "root-causes.jsonl").open("w") as handle:
+                for entry in fixture["entries"]:
+                    handle.write(json.dumps(entry) + "\n")
+            notes = owi_do.prevention_notes(home, fixture["skill"])
+            suite.check("prevention filters causes and skill",
+                        notes == fixture["expect_notes"],
+                        f"got {notes!r}")
+
+    if not no_cargo:
+        print("\nprice import (exact micros)")
+        prices = owi_do.owi(
+            "prices", "--input",
+            str(REPO / "examples/litellm-prices-sample.json"),
+            "--options", str(REPO / "examples/price-import-options.json"),
+            "--dry-run")
+        offerings = {o["id"]: o for o in prices["offerings"]}
+        expectations = frozen["price_expectations"]
+        suite.check(
+            f"at least {expectations['minimum_offerings']} offerings",
+            len(offerings) >= expectations["minimum_offerings"],
+            f"got {len(offerings)}")
+        for offering_id, (want_in, want_out) in \
+                expectations["exact_micros"].items():
+            offering = offerings.get(offering_id)
+            ok = (offering is not None
+                  and offering["input_micros_per_million_tokens"] == want_in
+                  and offering["output_micros_per_million_tokens"] == want_out)
+            suite.check(offering_id, ok,
+                        "missing" if offering is None else "micros drifted")
+
+        print("\nroster (structure and staffing)")
+        seed = json.loads(
+            (REPO / "examples/manager-scenario-seed.json").read_text())
+        roster = frozen["roster_expectations"]
+        workers = {w["id"] for w in seed["worker_profiles"]}
+        suite.check(f"at least {roster['minimum_workers']} workers",
+                    len(workers) >= roster["minimum_workers"],
+                    f"got {len(workers)}")
+        suite.check(f"at least {roster['minimum_evidence']} evidence rows",
+                    len(seed["evidence"]) >= roster["minimum_evidence"],
+                    f"got {len(seed['evidence'])}")
+        for worker_id in roster["required_workers"]:
+            suite.check(worker_id, worker_id in workers, "missing from seed")
+        evidence_workers = {e["worker_id"] for e in seed["evidence"]}
+        suite.check("every evidence row names a rostered worker",
+                    evidence_workers <= workers,
+                    f"orphans: {sorted(evidence_workers - workers)[:3]}")
+        offered = {w["offering_id"] for w in seed["worker_profiles"]}
+        suite.check("every rostered offering has a price",
+                    offered <= set(offerings),
+                    f"unpriced: {sorted(offered - set(offerings))[:3]}")
+
+        print("\nallocation (one real pick, pristine ledger)")
+        with tempfile.TemporaryDirectory() as scratch:
+            home = Path(scratch)
+            index, local = home / "index.sqlite", home / "local.sqlite"
+            owi_do.owi("prices", "--index", str(index),
+                       "--input",
+                       str(REPO / "examples/litellm-prices-sample.json"),
+                       "--options",
+                       str(REPO / "examples/price-import-options.json"))
+            owi_do.owi("seed", "--index", str(index),
+                       "--input",
+                       str(REPO / "examples/manager-scenario-seed.json"))
+            owi_do.owi("database", "init", "--index", str(index),
+                       "--local", str(local))
+            result = owi_do.pick(home, "frozen-suite allocation probe",
+                                 "skill:text-editing", 2000, 800, 0)
+            eligible = result["quote"]["eligible_candidates"]
+            suite.check("someone qualifies for text-editing",
+                        bool(eligible), "empty bench")
+            if eligible:
+                top = eligible[0]["worker_id"]
+                suite.check("the pick is a text worker",
+                            top.endswith("/text"), f"got {top}")
+
+    total = suite.passed + len(suite.failed)
+    print(f"\n{frozen['version']}: {suite.passed}/{total} passed")
+    for name in suite.failed:
+        print(f"  LOST: {name}", file=sys.stderr)
+    return 1 if suite.failed else 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--no-cargo", action="store_true",
+                        help="skip the sections that build the workspace")
+    return run(parser.parse_args().no_cargo)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

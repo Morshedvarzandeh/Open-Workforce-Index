@@ -1,0 +1,139 @@
+{
+  "_comment": [
+    "The frozen high-level suite: as automation grows, these expectations are",
+    "pinned so no change can silently lose the working version. tools/owi-selftest",
+    "runs every section; CI fails if any item drifts.",
+    "",
+    "This file is EVOLUTIONARY by design: when a lived failure teaches a lesson,",
+    "freeze it here as a fixture and bump the version (v1 -> v2 -> ...). Never",
+    "edit an old lesson away — supersede it. Each fixture may carry a",
+    "'provenance' naming the run that taught it.",
+    "",
+    "Mechanical checklist fixtures assert the verdict of tools/owi-do's own",
+    "check engine: expect true (pass), false (fail), or null (needs a judge)."
+  ],
+  "version": "frozen-checks-v1",
+  "frozen_at": "2026-08-07T23:30:00Z",
+  "price_expectations": {
+    "minimum_offerings": 12,
+    "exact_micros": {
+      "offering:anthropic/claude-sonnet-5": [2000000, 10000000],
+      "offering:anthropic/claude-opus-5": [5000000, 25000000],
+      "offering:anthropic/claude-opus-4-5": [5000000, 25000000],
+      "offering:openai/gpt-5-mini": [250000, 2000000],
+      "offering:deepseek/deepseek-chat": [280000, 420000]
+    }
+  },
+  "roster_expectations": {
+    "minimum_workers": 24,
+    "minimum_evidence": 24,
+    "required_workers": [
+      "worker:haiku-4-5/text",
+      "worker:sonnet-5/code",
+      "worker:opus-5/cad",
+      "worker:gpt-5-mini/extract"
+    ]
+  },
+  "check_engine_fixtures": [
+    {
+      "item": "contains:thermal",
+      "output": "The thermal node model is exposed through a wasm ABI.",
+      "expect": true,
+      "kind": "contains"
+    },
+    {
+      "item": "contains:thermal",
+      "output": "Nothing about heat here at all.",
+      "expect": false,
+      "kind": "contains"
+    },
+    {
+      "item": "regex:v[0-9]+\\.[0-9]+",
+      "output": "Released as v1.2 today.",
+      "expect": true,
+      "kind": "regex"
+    },
+    {
+      "item": "json",
+      "output": "Here you go:\n```json\n{\"version\": \"1.0.0\", \"chemistry\": \"LiFePO4\"}\n```",
+      "expect": true,
+      "kind": "json"
+    },
+    {
+      "item": "json",
+      "output": "{\"version\": \"1.0.0\", \"chemistry\": }",
+      "expect": false,
+      "kind": "json",
+      "provenance": "truncated-json shape seen in early gpt-5-mini rejections"
+    },
+    {
+      "item": "python",
+      "output": "```python\ndef soc(v, curve):\n    return min(1.0, max(0.0, curve(v)))\n```",
+      "expect": true,
+      "kind": "python"
+    },
+    {
+      "item": "python",
+      "output": "```python\ndef soc(v curve):\n    return\n```",
+      "expect": false,
+      "kind": "python"
+    },
+    {
+      "item": "min-words:30",
+      "output": "far too short to pass",
+      "expect": false,
+      "kind": "min-words"
+    },
+    {
+      "item": "reads as a finished changelog entry, not questions back to the author",
+      "output": "anything at all",
+      "expect": null,
+      "kind": "judged",
+      "provenance": "first live split run, 2026-08-07: haiku asked clarifying questions instead of drafting; only a judged item caught it — free-form items MUST go to an independent judge, never silently pass"
+    }
+  ],
+  "planner_fixtures": [
+    {
+      "raw": [
+        {"summary": "Draft the changelog entry", "skill": "skill:text-editing",
+         "checklist": ["contains:import", "min-words:30"]},
+        {"summary": "Extract the profile fields as JSON",
+         "skill": "skill:structured-extraction", "checklist": ["json"]}
+      ],
+      "expect_parts": 2
+    },
+    {
+      "raw": [
+        {"summary": "Do something", "skill": "skill:made-up-nonsense"}
+      ],
+      "expect_parts": null,
+      "provenance": "a planner naming an unknown skill must reject the whole split"
+    },
+    {
+      "raw": [
+        {"summary": "", "skill": "skill:text-editing"}
+      ],
+      "expect_parts": null
+    },
+    {
+      "raw": [],
+      "expect_parts": null
+    }
+  ],
+  "prevention_fixtures": [
+    {
+      "entries": [
+        {"skill": "skill:text-editing", "cause": "worker", "detail": "asked questions instead of drafting"},
+        {"skill": "skill:text-editing", "cause": "environment", "detail": "network flake"},
+        {"skill": "skill:structured-extraction", "cause": "worker", "detail": "wrong schema draft"},
+        {"skill": "skill:text-editing", "cause": "task_spec", "detail": "task never named the audience"}
+      ],
+      "skill": "skill:text-editing",
+      "expect_notes": [
+        "asked questions instead of drafting",
+        "task never named the audience"
+      ],
+      "provenance": "environment/harness failures must never become prevention notes; no note to a model fixes broken plumbing"
+    }
+  ]
+}
