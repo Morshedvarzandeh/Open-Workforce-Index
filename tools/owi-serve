@@ -94,9 +94,12 @@ def harvest(home: Path) -> dict:
                                "b": cal["skills"][0]["posterior"]["beta"]}
             for cal in result["calibration"] if cal["skills"]}
 
+    models = {w["id"].split(":")[1].split("/")[0] for w in workers}
     return {"workers": workers, "posteriors": posteriors,
             "skillTools": SKILL_TOOLS, "fallbackMicros": 20000, "floor": 0.24,
-            "local": True}
+            "local": True,
+            "runnable": sorted(m for m in models
+                               if owi_do.resolve_runner(home, m))}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -141,8 +144,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/run":
             model = str(body.get("model", ""))
             task = str(body.get("task", ""))[:100_000]
-            runners = json.loads((self.home / "runners.json").read_text())
-            command = (runners.get(model) or "").strip()
+            command = owi_do.resolve_runner(self.home, model)
             if not command:
                 self._json(400, {"error":
                     f"no runner for '{model}' — add your command to "

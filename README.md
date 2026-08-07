@@ -49,6 +49,9 @@ a local link, with a run button and learning recorded to the real ledger:
 tools/owi-serve        # open http://127.0.0.1:7787
 ```
 
+The complete workflow, every level from this link to real measurement, is
+written in [docs/WORKFLOW.md](docs/WORKFLOW.md).
+
 Everything below this line is the advanced layer: manifests that plan whole
 projects from a file in git, consoles with live weighting dials, benchmark
 harnesses, and total-cost-of-ownership scenarios. Start with `owi-do`; go

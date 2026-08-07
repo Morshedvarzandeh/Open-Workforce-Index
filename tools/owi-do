@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 import time
@@ -54,6 +55,30 @@ SKILLS = {
 }
 DEFAULT_SKILL = "skill:text-editing"
 
+# Models the bundled `claude` CLI can run directly, when it is on PATH. The
+# command is written into runners.json where the user can see and change it —
+# never invoked invisibly.
+CLAUDE_MODELS = {
+    "haiku-4-5": "claude-haiku-4-5-20251001",
+    "sonnet-4-5": "claude-sonnet-4-5",
+    "opus-4-5": "claude-opus-4-5",
+}
+
+
+def builtin_runner(model: str) -> str | None:
+    if model in CLAUDE_MODELS and shutil.which("claude"):
+        return f"claude --model {CLAUDE_MODELS[model]} -p"
+    return None
+
+
+def resolve_runner(home: Path, model: str) -> str | None:
+    """The configured command for a model, or the built-in when unset."""
+    runners_path = home / "runners.json"
+    configured = ""
+    if runners_path.exists():
+        configured = (json.loads(runners_path.read_text()).get(model) or "").strip()
+    return configured or builtin_runner(model)
+
 
 def owi(*args: str) -> dict:
     completed = subprocess.run(
@@ -80,16 +105,18 @@ def bootstrap(home: Path) -> None:
     owi("database", "init", "--index", str(index), "--local", str(local))
     runners = home / "runners.json"
     if not runners.exists():
+        # Prefill anything runnable out of the box, visibly.
+        prefilled = {m: (builtin_runner(m) or "")
+                     for m in ["gpt-5-mini", "haiku-4-5", "gpt-5",
+                               "sonnet-4-5", "opus-4-5"]}
         runners.write_text(json.dumps({
             "_comment": [
                 "model -> the command that runs it. The task text arrives on",
                 "stdin. Your CLI, your key -- owi-do never sees credentials.",
-                "Examples (fill in the ones you have):",
-                "  \"haiku-4-5\": \"claude -m claude-haiku-4-5 -p\"",
-                "  \"gpt-5-mini\": \"llm -m gpt-5-mini\"",
+                "Anthropic models are prefilled when the `claude` CLI is on",
+                "PATH. Others: e.g. \"gpt-5-mini\": \"llm -m gpt-5-mini\"",
             ],
-            "gpt-5-mini": "", "haiku-4-5": "", "gpt-5": "",
-            "sonnet-4-5": "", "opus-4-5": "",
+            **prefilled,
         }, indent=2) + "\n")
 
 
@@ -217,16 +244,29 @@ def main() -> int:
           f"turned away {len(quote['rejected_candidates'])} · decision recorded")
 
     if not arguments.run:
-        print("\nrun it: add --run   (first set your command for "
-              f"'{model}' in {arguments.home}/runners.json)")
+        note = "" if resolve_runner(arguments.home, model) else (
+            f"   (first set your command for '{model}' in "
+            f"{arguments.home}/runners.json)")
+        print(f"\nrun it: add --run{note}")
         return 0
 
-    runners = json.loads((arguments.home / "runners.json").read_text())
-    command = (runners.get(model) or "").strip()
+    # A worker nobody can execute is unavailable for running: fall through the
+    # bench to the cheapest candidate with a working runner, and say so.
+    command = resolve_runner(arguments.home, model)
     if not command:
-        print(f"\nno runner configured for '{model}'. Put your CLI in "
-              f"{arguments.home}/runners.json, e.g.\n"
-              f'  "{model}": "claude -m claude-{model} -p"')
+        for candidate in eligible[1:]:
+            other_model = candidate["worker_id"].split(":")[1].split("/")[0]
+            other_command = resolve_runner(arguments.home, other_model)
+            if other_command:
+                print(f"\n{model} has no runner here — running with "
+                      f"{candidate['worker_id'].replace('worker:', '')} "
+                      "(cheapest runnable)")
+                worker, model, command = (candidate["worker_id"], other_model,
+                                          other_command)
+                break
+    if not command:
+        print(f"\nno runner for any eligible worker. Fill in "
+              f"{arguments.home}/runners.json")
         return 1
 
     print(f"\nrunning via: {command}\n" + "-" * 60)

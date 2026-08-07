@@ -246,16 +246,30 @@
         turned away ${turnedAway}</div>
       ${learnedNote ? `<div class="learned ${learnedNote.cls}">
         ${learnedNote.text}</div>` : ""}
-      ${LIVE ? `<div class="verdict">
-        <button type="button" id="go">run it</button>
-        <span id="runstate"></span></div>
-        <pre class="out" id="out" hidden></pre>` : ""}
+      ${LIVE ? (() => {
+        const runnable = rows.find(r =>
+          (data().runnable || []).includes(modelOf(r.c ? r.c.id : r.id)));
+        const target = runnable ? (runnable.c ? runnable.c.id : runnable.id) : null;
+        if (!target) return `<div class="meta">no runner configured for any
+          eligible worker — fill in .owi-quick/runners.json</div>`;
+        window.__runTarget = target;
+        const label = target === top.id ? "run it"
+          : `run with ${short(target)}`;
+        const why = target === top.id ? "" : `<span class="meta">
+          ${modelOf(top.id)} has no runner here</span>`;
+        return `<div class="verdict">
+          <button type="button" id="go">${label}</button>${why}
+          <span id="runstate"></span></div>
+          <pre class="out" id="out" hidden></pre>`;
+      })() : ""}
       <div class="verdict"><span>${LIVE ? "then:" : "after you run it:"}</span>
         <button type="button" id="yes">worked</button>
         <button type="button" class="no" id="no">didn't</button></div>`;
     document.getElementById("yes").onclick = () => verdict(true);
     document.getElementById("no").onclick = () => verdict(false);
-    if (LIVE) document.getElementById("go").onclick = () => runIt(text);
+    if (LIVE && document.getElementById("go"))
+      document.getElementById("go").onclick = () => {
+        last = { skill, id: window.__runTarget }; runIt(text); };
   }
 
   async function runIt(text) {
