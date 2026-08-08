@@ -367,6 +367,10 @@
       out.hidden = false;
       if (!response.ok) { out.textContent = result.error; state.textContent = ""; return; }
       out.textContent = result.output || result.stderr || "(no output)";
+      window.__inspection = result.inspection ? result.inspection.level : "";
+      if (result.inspection)
+        document.getElementById("checkrep").innerHTML =
+          `<div class="open">inspection: ${esc(result.inspection.level)} — ${esc(result.inspection.why)}</div>`;
       if (result.check) { await applyCheck(result.check, text); return; }
       state.textContent = result.exit === 0 ? "done — worked or didn't?"
                                             : `exit ${result.exit}`;
@@ -377,10 +381,11 @@
   // recorded to the real ledger immediately, and the report stays on screen.
   async function applyCheck(report, task) {
     const marks = { true: ["✓", "ok"], false: ["✗", "fail"], null: ["?", "open"] };
-    document.getElementById("checkrep").innerHTML = report.items.map(i => {
-      const [mark, cls] = marks[i.pass];
-      return `<div class="${cls}">[${mark}] ${esc(i.item)} — ${esc(i.note)}</div>`;
-    }).join("");
+    document.getElementById("checkrep").innerHTML +=
+      report.items.map(i => {
+        const [mark, cls] = marks[i.pass];
+        return `<div class="${cls}">[${mark}] ${esc(i.item)} — ${esc(i.note)}</div>`;
+      }).join("");
     const state = document.getElementById("runstate");
     const judged = report.judge ? ` · judge: ${report.judge}` : "";
     if (report.verdict === "accepted") {
@@ -405,7 +410,8 @@
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ worker: last.id, skill: last.skill,
           accepted: worked, cause, detail: detail || "", task: task || "",
-          checklist: checklist || [] }) });
+          checklist: checklist || [],
+          inspection: window.__inspection || "" }) });
       const result = await response.json();
       if (result.ok) LIVE = result.data;
     } catch (error) { /* server went away; the report stays on screen */ }

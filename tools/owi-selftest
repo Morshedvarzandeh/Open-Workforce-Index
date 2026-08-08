@@ -72,6 +72,42 @@ def run(no_cargo: bool) -> int:
         suite.check(f"planner fixture {position}", got == want,
                     f"got {got!r}, want {want!r}")
 
+    qc = frozen.get("qc_expectations")
+    if qc:
+        print("\nquality control (lean inspection contract)")
+        suite.check(f"clearance is {qc['clearance']} clean accepts",
+                    owi_do.QC["clearance"] == qc["clearance"],
+                    f"got {owi_do.QC['clearance']}")
+        suite.check(f"sampling is 1-in-{qc['sample_every']} once cleared",
+                    owi_do.QC["sample_every"] == qc["sample_every"],
+                    f"got {owi_do.QC['sample_every']}")
+        for position, fixture in enumerate(
+                frozen.get("sampling_fixtures", []), start=1):
+            with tempfile.TemporaryDirectory() as scratch:
+                report = owi_do.run_checklist(
+                    Path(scratch), "frozen-suite probe", fixture["output"],
+                    fixture["items"], maker_model="none",
+                    judge_enabled=False)
+            suite.check(f"sampling fixture {position}",
+                        report["verdict"] == fixture["expect_verdict"],
+                        f"got {report['verdict']!r}")
+        with tempfile.TemporaryDirectory() as scratch:
+            level = owi_do.inspection_for(Path(scratch), "worker:x/text",
+                                          "skill:text-editing")
+        suite.check("a worker with no history starts at full inspection",
+                    level["level"] == "full" and level["judge"],
+                    f"got {level!r}")
+
+    roles = frozen.get("role_order_expectations")
+    if roles:
+        print("\nrole ladders (spec from the top, judging from the bottom)")
+        suite.check("checklist writers are smartest-first",
+                    owi_do.WRITER_ORDER[:2] == roles["writer_head"],
+                    f"got {owi_do.WRITER_ORDER[:2]}")
+        suite.check("judges are cheapest-first",
+                    owi_do.JUDGE_ORDER[:2] == roles["judge_head"],
+                    f"got {owi_do.JUDGE_ORDER[:2]}")
+
     print("\nauto-checklist cleaning")
     for position, fixture in enumerate(
             frozen.get("auto_checklist_fixtures", []), start=1):

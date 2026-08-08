@@ -20,8 +20,11 @@ delegated too: attach a checklist with --check and it is given to the task as
 acceptance criteria, then verified against the output — mechanical items
 (contains:/regex:/json/python/min-words:N) in process, judgement items by a
 different model than the one that did the work, the same maker-is-not-checker
-rule the store enforces. --split asks a cheap planner whether the task holds
-different kinds of work and staffs each part separately.
+rule the store enforces. Give no checklist and the smartest runnable model
+writes one — the spec is the leverage point, so specs come from the top of the
+roster while execution stays with the cheapest qualified worker. --split asks
+that same planner whether the task holds different kinds of work and staffs
+each part separately.
 
 Every rejection lands in .owi-quick/root-causes.jsonl with its root cause and
 what failed; future runs of the same skill carry the recent notes as
@@ -35,6 +38,7 @@ import argparse
 import json
 import re
 import shutil
+import sqlite3
 import subprocess
 import sys
 import time
@@ -80,11 +84,24 @@ CLAUDE_MODELS = {
     "opus-5": "claude-opus-5",
 }
 
-# Cheapest first at published output rates. Used to pick the planner and the
-# independent judge: only models with a working runner are considered, and the
-# judge is never the model whose work is being judged.
+# Two ladders, opposite directions — that is the management structure.
+# JUDGE_ORDER is cheapest first: grading against a written checklist is easy
+# work, and the judge is never the model whose work is being judged.
 JUDGE_ORDER = ["gpt-5-mini", "haiku-4-5", "sonnet-5", "sonnet-4-5",
                "gpt-5", "opus-5", "opus-4-5"]
+# WRITER_ORDER is smartest first: the checklist and the split ARE the spec,
+# and the spec is the leverage point — written by the most capable runnable
+# model even though execution stays with the cheapest qualified worker.
+WRITER_ORDER = ["opus-5", "opus-4-5", "gpt-5", "sonnet-5", "sonnet-4-5",
+                "haiku-4-5", "gpt-5-mini"]
+
+# Lean inspection, CSP-1 style: 100% detailed inspection while a worker
+# qualifies on a skill; after `clearance` consecutive clean accepts the
+# judgement calls are sampled 1-in-`sample_every` and the spec writer steps
+# down from the smartest model to the cheapest. ANY worker-caused failure
+# resets to 100%. Mechanical items cost nothing and are always checked —
+# the inline sensors never come off the line.
+QC = {"clearance": 5, "sample_every": 3}
 
 
 def builtin_runner(model: str) -> str | None:
@@ -250,7 +267,8 @@ def build_payload(task: str, stdin_text: str, checklist: list[str],
 
 def record_outcome(home: Path, worker: str, skill: str, accepted: bool,
                    cause: str | None = None, task: str = "",
-                   detail: str = "", checklist: list | None = None) -> None:
+                   detail: str = "", checklist: list | None = None,
+                   inspection: str = "") -> None:
     """Record a verified outcome. On rejection, `cause` names the root cause;
     only 'worker' (the default) counts against the model's evidence, and the
     failure is appended to root-causes.jsonl for prevention. When a checklist
@@ -265,12 +283,15 @@ def record_outcome(home: Path, worker: str, skill: str, accepted: bool,
         "latency_ms": 0,
         "observed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     metadata: dict = {}
+    if inspection:
+        metadata["inspection"] = inspection[:20]
     if checklist:
         metadata["checklist"] = [
             {"item": str(entry.get("item", ""))[:200],
              "kind": str(entry.get("kind", ""))[:20],
              "pass": entry.get("pass"),
-             "note": str(entry.get("note", ""))[:200]}
+             "note": str(entry.get("note", ""))[:200],
+             **({"sampled": True} if entry.get("sampled") else {})}
             for entry in checklist[:10] if isinstance(entry, dict)]
     if not accepted:
         cause = cause or "worker"
@@ -319,6 +340,10 @@ def check_item(item: str, output: str) -> tuple[str, bool | None, str]:
     lowered = text.lower()
     if lowered.startswith("contains:"):
         needle = text[len("contains:"):].strip()
+        # Checklist writers habitually quote their needles; the quotes are
+        # not part of the requirement. Learned from a wrongly rejected run.
+        if len(needle) >= 2 and needle[0] == needle[-1] and needle[0] in "'\"":
+            needle = needle[1:-1].strip()
         return ("contains", needle.lower() in output.lower(),
                 f'output contains "{needle}"')
     if lowered.startswith("regex:"):
@@ -353,6 +378,61 @@ def judge_model_for(home: Path, exclude: str | None) -> str | None:
                  if m != exclude and resolve_runner(home, m)), None)
 
 
+def writer_model_for(home: Path) -> str | None:
+    return next((m for m in WRITER_ORDER if resolve_runner(home, m)), None)
+
+
+def qc_history(home: Path, worker: str, skill: str) -> tuple[int, int]:
+    """(consecutive clean accepts, total accepts) for worker × skill, read
+    from the real ledger — the outcome history IS the control chart. Excused
+    rejections (root cause not the worker) neither break nor extend the
+    streak, the same rule the posterior applies."""
+    path = home / "local.sqlite"
+    if not path.exists():
+        return 0, 0
+    connection = sqlite3.connect(path)
+    try:
+        rows = connection.execute(
+            "SELECT accepted, metadata_json FROM outcome_events "
+            "WHERE worker_id = ? AND skill_id = ? ORDER BY rowid DESC",
+            (worker, skill)).fetchall()
+    finally:
+        connection.close()
+    streak, total, counting = 0, 0, True
+    for accepted, metadata_json in rows:
+        if accepted:
+            total += 1
+            if counting:
+                streak += 1
+            continue
+        try:
+            cause = (json.loads(metadata_json or "{}") or {}).get("root_cause")
+        except json.JSONDecodeError:
+            cause = None
+        if cause in ("task_spec", "harness", "environment"):
+            continue
+        counting = False
+    return streak, total
+
+
+def inspection_for(home: Path, worker: str, skill: str) -> dict:
+    """How hard to look at this run, decided by evidence. Full inspection
+    until the pair earns `clearance` consecutive clean accepts; then reduced —
+    judgement sampled 1-in-`sample_every`, spec written by a cheap model.
+    One worker-caused failure and the streak (and the discount) is gone."""
+    streak, total = qc_history(home, worker, skill)
+    if streak < QC["clearance"]:
+        return {"level": "full", "streak": streak, "judge": True,
+                "why": (f"qualifying — {streak}/{QC['clearance']} "
+                        "consecutive clean accepts")}
+    sampled = total % QC["sample_every"] == 0
+    return {"level": "reduced", "streak": streak, "judge": sampled,
+            "why": (f"{streak} consecutive clean accepts; judgement sampled "
+                    f"1-in-{QC['sample_every']} — "
+                    + ("this run IS inspected" if sampled
+                       else "this run rides on the streak"))}
+
+
 def run_command(home: Path, model: str, payload: str,
                 timeout: int = 600) -> tuple[str, str, int]:
     completed = subprocess.run(
@@ -362,10 +442,12 @@ def run_command(home: Path, model: str, payload: str,
 
 
 def run_checklist(home: Path, task: str, output: str, items: list[str],
-                  maker_model: str) -> dict:
+                  maker_model: str, judge_enabled: bool = True) -> dict:
     """Verify output against the checklist. Verdict: 'accepted' (every item
     checked and passed), 'rejected' (any item failed), or 'undecided' (an item
-    could not be checked — no independent judge, or the judge was unusable)."""
+    could not be checked — no independent judge, or the judge was unusable).
+    With judge_enabled False (reduced inspection), judgement items are sampled
+    out: marked, non-blocking, and visible in the record as uninspected."""
     results = []
     for item in items:
         kind, verdict, note = check_item(item, output)
@@ -373,6 +455,11 @@ def run_checklist(home: Path, task: str, output: str, items: list[str],
                         "note": note})
 
     pending = [entry for entry in results if entry["pass"] is None]
+    if pending and not judge_enabled:
+        for entry in pending:
+            entry["note"] = "sampled out — reduced inspection"
+            entry["sampled"] = True
+        pending = []
     judge = judge_model_for(home, maker_model) if pending else None
     if pending and judge:
         numbered = "\n".join(f"{position}. {entry['item']}"
@@ -398,16 +485,17 @@ def run_checklist(home: Path, task: str, output: str, items: list[str],
                 entry["note"] = str(row.get("why", ""))[:200] or "judged"
 
     failed = [entry for entry in results if entry["pass"] is False]
-    unchecked = [entry for entry in results if entry["pass"] is None]
+    unchecked = [entry for entry in results
+                 if entry["pass"] is None and not entry.get("sampled")]
     verdict = ("rejected" if failed
                else "undecided" if unchecked else "accepted")
     return {"items": results, "verdict": verdict, "judge": judge}
 
 
 # ---------------------------------------------------------------------------
-# Splitting: a cheap planner decides whether the task holds different kinds of
-# work. It writes summaries and checklists — never staffing; models are picked
-# by the engine, part by part.
+# Splitting: the smartest runnable model decides whether the task holds
+# different kinds of work. It writes summaries and checklists — never
+# staffing; models are picked by the engine, part by part.
 
 CHECKLIST_PROMPT = """Write the acceptance checklist for this task: 2-4 short items
 its output must pass. Prefer mechanical items where natural — contains:TEXT,
@@ -426,11 +514,14 @@ def clean_checklist(raw) -> list[str]:
     return [str(item).strip() for item in raw if str(item).strip()][:4]
 
 
-def auto_checklist(home: Path, task: str) -> tuple[str | None, list[str]]:
-    """No checklist given? The cheapest runnable model writes the test
-    procedure before the run — printed, never silent. The verifier at the end
-    is still a different model than the maker."""
-    writer = judge_model_for(home, exclude=None)
+def auto_checklist(home: Path, task: str,
+                   tier: str = "full") -> tuple[str | None, list[str]]:
+    """No checklist given? A model writes the test procedure before the run —
+    printed, never silent. Under full inspection the smartest runnable model
+    writes it (the spec is the leverage point); under reduced inspection a
+    cheap model does, because the worker has already earned the discount."""
+    writer = (writer_model_for(home) if tier == "full"
+              else judge_model_for(home, exclude=None))
     if writer is None:
         return None, []
     try:
@@ -479,7 +570,7 @@ def clean_parts(raw_parts) -> list[dict] | None:
 
 
 def plan_parts(home: Path, task: str) -> tuple[str | None, list[dict] | None]:
-    planner = judge_model_for(home, exclude=None)
+    planner = writer_model_for(home)
     if planner is None:
         return None, None
     try:
@@ -533,9 +624,11 @@ def runnable_choice(home: Path, eligible: list) -> tuple[str, str, str] | None:
 
 def execute_and_verify(home: Path, worker: str, model: str, skill: str,
                        task: str, stdin_text: str, checklist: list[str],
-                       accepted_flag: str | None, cause_flag: str | None) -> str:
+                       accepted_flag: str | None, cause_flag: str | None,
+                       inspection: dict | None = None) -> str:
     """Run the task, verify against the checklist, record. Returns the verdict:
     accepted / rejected / unrecorded."""
+    inspection = inspection or {"level": "full", "judge": True}
     notes = prevention_notes(home, skill)
     if notes:
         print(f"prevention: carrying {len(notes)} note(s) from past "
@@ -566,16 +659,20 @@ def execute_and_verify(home: Path, worker: str, model: str, skill: str,
         return "accepted" if accepted else "rejected"
 
     if checklist:
-        report = run_checklist(home, task, stdout, checklist, maker_model=model)
+        report = run_checklist(home, task, stdout, checklist, maker_model=model,
+                               judge_enabled=inspection["judge"])
         marks = {True: "✓", False: "✗", None: "?"}
         for entry in report["items"]:
             print(f"  [{marks[entry['pass']]}] {entry['item']} — {entry['note']}")
         judged = f" · judge: {report['judge']}" if report["judge"] else ""
+        checked = sum(1 for entry in report["items"]
+                      if entry["pass"] is not None)
         if report["verdict"] == "accepted":
-            print(f"checklist: {len(checklist)}/{len(checklist)} "
-                  f"passed{judged} → accepted")
+            print(f"checklist: {checked}/{len(checklist)} "
+                  f"checked, all passed{judged} → accepted")
             record_outcome(home, worker, skill, True, task=task,
-                           checklist=report["items"])
+                           checklist=report["items"],
+                           inspection=inspection["level"])
             return "accepted"
         if report["verdict"] == "rejected":
             detail = "; ".join(f"failed: {entry['item']} ({entry['note']})"
@@ -583,7 +680,8 @@ def execute_and_verify(home: Path, worker: str, model: str, skill: str,
                                if entry["pass"] is False)
             print(f"checklist: failed{judged} → rejected, root cause: worker")
             record_outcome(home, worker, skill, False, "worker", task=task,
-                           detail=detail, checklist=report["items"])
+                           detail=detail, checklist=report["items"],
+                           inspection=inspection["level"])
             return "rejected"
         print(f"checklist: could not verify every item{judged} — your call")
 
@@ -663,13 +761,17 @@ def run_split(arguments, stdin_text: str) -> int:
             outcomes.append((part, eligible[0], "no runner"))
             continue
         worker, model, _ = chosen
+        inspection = inspection_for(home, worker, part["skill"])
+        print(f"   inspection: {inspection['level']} — {inspection['why']}")
         if not part["checklist"]:
-            writer, part["checklist"] = auto_checklist(home, part["summary"])
+            writer, part["checklist"] = auto_checklist(
+                home, part["summary"], tier=inspection["level"])
             for item in part["checklist"]:
                 print(f"   check (auto, by {writer}): {item}")
         verdict = execute_and_verify(home, worker, model, part["skill"],
                                      part["summary"], "", part["checklist"],
-                                     arguments.accepted, arguments.cause)
+                                     arguments.accepted, arguments.cause,
+                                     inspection)
         # The summary names who actually ran it, not who was merely cheapest.
         actual = next(candidate for candidate in eligible
                       if candidate["worker_id"] == worker)
@@ -705,13 +807,13 @@ def main() -> int:
                         help="checklist item the result must pass (repeatable). "
                              "Mechanical: contains:TEXT, regex:PATTERN, json, "
                              "python, min-words:N. Anything else is judged by "
-                             "a different model than the maker. Omitted? A "
-                             "cheap model writes the checklist for you. "
+                             "a different model than the maker. Omitted? The "
+                             "smartest runnable model writes it for you. "
                              "--check none = no checklist, manual y/n verdict")
     parser.add_argument("--split", action="store_true",
-                        help="let a cheap planner split the task into parts by "
-                             "kind of work; each part is staffed, run, and "
-                             "checked separately")
+                        help="let the smartest runnable model split the task "
+                             "into parts by kind of work; each part is "
+                             "staffed, run, and checked separately")
     parser.add_argument("--accepted", choices=["y", "n"],
                         help="record the result without prompting (for scripts)")
     parser.add_argument("--cause",
@@ -764,16 +866,27 @@ def main() -> int:
               f"{arguments.home}/runners.json")
         return 1
     worker, model, _ = chosen
-    checklist = [] if arguments.check == ["none"] else (arguments.check or [])
+    explicit = bool(arguments.check) and arguments.check != ["none"]
+    if explicit:
+        # An explicit checklist is the owner's instruction: always fully
+        # verified, whatever the streak says.
+        inspection = {"level": "full", "streak": None, "judge": True,
+                      "why": "explicit checklist — always fully verified"}
+    else:
+        inspection = inspection_for(arguments.home, worker, skill)
+    print(f"inspection: {inspection['level']} — {inspection['why']}")
+    checklist = arguments.check if explicit else []
     if not checklist and arguments.check != ["none"]:
-        writer, checklist = auto_checklist(arguments.home, arguments.task)
+        writer, checklist = auto_checklist(arguments.home, arguments.task,
+                                           tier=inspection["level"])
         if checklist:
-            print(f"\nchecklist (auto-written by {writer}; --check none to skip):")
+            print(f"checklist (auto-written by {writer}; --check none to skip):")
             for item in checklist:
                 print(f"   {item}")
     verdict = execute_and_verify(arguments.home, worker, model, skill,
                                  arguments.task, stdin_text, checklist,
-                                 arguments.accepted, arguments.cause)
+                                 arguments.accepted, arguments.cause,
+                                 inspection)
     return 0 if verdict in ("accepted", "unrecorded") else 1
 
 
