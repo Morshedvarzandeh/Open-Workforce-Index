@@ -99,6 +99,10 @@
       "provenance": "first live split run, 2026-08-07: haiku asked clarifying questions instead of drafting; only a judged item caught it — free-form items MUST go to an independent judge, never silently pass"
     }
   ],
+  "serve_gate_expectations": {
+    "_why": "binding beyond localhost exposes an execution endpoint; the token gate is the lock. A request without the token must be turned away, and localhost mode must stay gate-free.",
+    "unauthorized_status": 401
+  },
   "qc_expectations": {
     "_why": "lean inspection, CSP-1 style: 100% inspection while qualifying, skip-lot sampling once proven, any worker-caused failure resets. These constants and the sampling semantics are the quality-control contract.",
     "clearance": 5,

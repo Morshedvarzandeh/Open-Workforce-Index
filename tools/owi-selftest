@@ -72,6 +72,45 @@ def run(no_cargo: bool) -> int:
         suite.check(f"planner fixture {position}", got == want,
                     f"got {got!r}, want {want!r}")
 
+    gate = frozen.get("serve_gate_expectations")
+    if gate:
+        print("\nserve access gate")
+        import threading
+        import urllib.error
+        import urllib.request
+        from http.server import ThreadingHTTPServer
+        serve_loader = importlib.machinery.SourceFileLoader(
+            "owi_serve", str(TOOLS / "owi-serve"))
+        serve_spec = importlib.util.spec_from_loader("owi_serve", serve_loader)
+        owi_serve = importlib.util.module_from_spec(serve_spec)
+        serve_loader.exec_module(owi_serve)
+
+        def status(url: str, headers: dict | None = None) -> int:
+            request = urllib.request.Request(url, headers=headers or {})
+            try:
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    return response.status
+            except urllib.error.HTTPError as error:
+                return error.code
+
+        owi_serve.Handler.token = "frozen-suite-token"
+        owi_serve.Handler.data = {}
+        server = ThreadingHTTPServer(("127.0.0.1", 0), owi_serve.Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        base = f"http://127.0.0.1:{server.server_address[1]}"
+        want = gate["unauthorized_status"]
+        suite.check("a request without the token is turned away",
+                    status(f"{base}/api/data") == want)
+        suite.check("the token in a header admits",
+                    status(f"{base}/api/data",
+                           {"X-OWI-Token": "frozen-suite-token"}) == 200)
+        suite.check("the token as a query admits",
+                    status(f"{base}/api/data?token=frozen-suite-token") == 200)
+        owi_serve.Handler.token = None
+        suite.check("localhost mode stays gate-free",
+                    status(f"{base}/api/data") == 200)
+        server.shutdown()
+
     qc = frozen.get("qc_expectations")
     if qc:
         print("\nquality control (lean inspection contract)")

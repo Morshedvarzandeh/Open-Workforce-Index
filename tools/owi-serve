@@ -20,12 +20,14 @@ import argparse
 import importlib.machinery
 import importlib.util
 import json
+import secrets
 import subprocess
 import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 TOOLS = Path(__file__).resolve().parent
 REPO = TOOLS.parent
@@ -110,13 +112,36 @@ class Handler(BaseHTTPRequestHandler):
     home: Path
     lock = threading.Lock()
     data: dict = {}
+    # None = localhost-only mode, no token required. Set when binding beyond
+    # 127.0.0.1: every request must then carry the token (first page load via
+    # ?token=..., which is exchanged for a cookie; API calls via cookie or
+    # the X-OWI-Token header).
+    token: str | None = None
 
-    def _send(self, code: int, body: bytes, kind: str) -> None:
+    def _send(self, code: int, body: bytes, kind: str,
+              set_cookie: bool = False) -> None:
         self.send_response(code)
         self.send_header("Content-Type", kind)
         self.send_header("Content-Length", str(len(body)))
+        if set_cookie and self.token:
+            self.send_header("Set-Cookie",
+                             f"owi_token={self.token}; HttpOnly; "
+                             "SameSite=Strict; Path=/")
         self.end_headers()
         self.wfile.write(body)
+
+    def _route(self) -> str:
+        return self.path.split("?", 1)[0]
+
+    def _authorized(self) -> bool:
+        if self.token is None:
+            return True
+        query = parse_qs(urlparse(self.path).query)
+        if query.get("token", [None])[0] == self.token:
+            return True
+        if self.headers.get("X-OWI-Token") == self.token:
+            return True
+        return f"owi_token={self.token}" in (self.headers.get("Cookie") or "")
 
     def _json(self, code: int, payload: dict) -> None:
         self._send(code, json.dumps(payload).encode(), "application/json")
@@ -131,22 +156,31 @@ class Handler(BaseHTTPRequestHandler):
             return {}
 
     def do_GET(self) -> None:  # noqa: N802 (stdlib naming)
-        if self.path == "/":
+        if not self._authorized():
+            self._json(401, {"error": "missing or wrong token — open "
+                                      "/?token=<the token the server printed>"})
+            return
+        route = self._route()
+        if route == "/":
             template = (TOOLS / "owi_ask_template.html").read_text()
             with self.lock:
                 payload = json.dumps(self.data).replace("</", "<\\/")
             page = (template.replace("__DATA__", payload)
                     .replace("__BUILT__", "local — always current"))
-            self._send(200, page.encode(), "text/html; charset=utf-8")
-        elif self.path == "/api/data":
+            self._send(200, page.encode(), "text/html; charset=utf-8",
+                       set_cookie=True)
+        elif route == "/api/data":
             with self.lock:
                 self._json(200, self.data)
         else:
             self._json(404, {"error": "not found"})
 
     def do_POST(self) -> None:  # noqa: N802
+        if not self._authorized():
+            self._json(401, {"error": "missing or wrong token"})
+            return
         body = self._body()
-        if self.path == "/api/run":
+        if self._route() == "/api/run":
             model = str(body.get("model", ""))
             task = str(body.get("task", ""))[:100_000]
             skill = str(body.get("skill", ""))
@@ -198,7 +232,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.home, task, completed.stdout, checklist,
                     maker_model=model, judge_enabled=inspection["judge"])
             self._json(200, response)
-        elif self.path == "/api/outcome":
+        elif self._route() == "/api/outcome":
             worker, skill = str(body.get("worker", "")), str(body.get("skill", ""))
             accepted = bool(body.get("accepted"))
             if not worker.startswith("worker:") or not skill.startswith("skill:"):
@@ -230,15 +264,33 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--home", type=Path, default=REPO / ".owi-quick")
     parser.add_argument("--port", type=int, default=7787)
+    parser.add_argument("--host", default="127.0.0.1",
+                        help="bind address. Anything except 127.0.0.1 turns "
+                             "the token gate ON and should only face a "
+                             "network you trust (home Wi-Fi, Tailscale) — "
+                             "this is plain HTTP; never expose it to the "
+                             "open internet")
+    parser.add_argument("--token", default=None,
+                        help="access token for non-localhost binds "
+                             "(generated and printed if omitted)")
     arguments = parser.parse_args()
 
     owi_do.bootstrap(arguments.home)
     Handler.home = arguments.home
+    if arguments.host != "127.0.0.1":
+        Handler.token = arguments.token or secrets.token_urlsafe(16)
     print("loading current posteriors from the ledger...", file=sys.stderr)
     Handler.data = harvest(arguments.home)
 
-    server = ThreadingHTTPServer(("127.0.0.1", arguments.port), Handler)
-    print(f"\nopen  http://127.0.0.1:{arguments.port}\n"
+    server = ThreadingHTTPServer((arguments.host, arguments.port), Handler)
+    if Handler.token:
+        print(f"\ntoken gate ON — from your phone (same network) open:\n"
+              f"  http://<this-machine's-address>:{arguments.port}/"
+              f"?token={Handler.token}\n"
+              "requests without the token are turned away (401).",
+              file=sys.stderr)
+    print(f"\nopen  http://127.0.0.1:{arguments.port}"
+          f"{f'/?token={Handler.token}' if Handler.token else ''}\n"
           f"runs  via your commands in {arguments.home / 'runners.json'}\n"
           f"learns into the real ledger at {arguments.home / 'local.sqlite'}\n",
           file=sys.stderr)
