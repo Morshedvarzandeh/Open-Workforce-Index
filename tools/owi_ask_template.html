@@ -340,10 +340,13 @@
             <button type="button" id="checkbtn">check the result</button>
             <span id="checkstate" class="meta"></span></div>
           <div class="checkrep" id="checkrep"></div>` : "";
+        const handoff = link ? `<div class="meta">tapping run also copies the
+          task — if the app opens your previous chat, start a new chat there
+          and paste</div>` : "";
         return `<div class="verdict">${link}
           <button type="button" id="copybtn">copy task</button>
           <span class="meta">${after}</span>
-        </div>${pasteback}`;
+        </div>${handoff}${pasteback}`;
       })() : ""}
       ${LIVE ? (() => {
         const runnable = rows.find(r =>
@@ -378,6 +381,12 @@
             copyButton.textContent = "copied"; }
       catch { window.prompt("copy the task:", askText); }
     };
+    // Native provider apps sometimes swallow the ?q= hand-off and reopen the
+    // previous chat. Copy the task in the same tap so nothing is ever lost.
+    const goLink = box.querySelector("a.golink");
+    if (goLink) goLink.addEventListener("click", () => {
+      try { navigator.clipboard.writeText(askText); } catch (error) {}
+    });
     document.getElementById("yes").onclick = () => verdict(true);
     document.getElementById("no").onclick = () => {
       document.getElementById("causes").hidden = false;
@@ -492,7 +501,8 @@
           <div class="none">nobody qualified</div></div>`;
         const launch = LAUNCH[modelOf(d.top.id)];
         const link = (!LIVE && launch) ? `<a class="golink" target="_blank"
-            rel="noopener" href="${launch.url}${encodeURIComponent(d.text)}"
+            rel="noopener" data-launch="${i}"
+            href="${launch.url}${encodeURIComponent(d.text)}"
             >run in ${launch.name}</a>` : "";
         const runButton = LIVE ? `<button type="button" class="mini"
             data-run="${i}">run</button>` : "";
@@ -510,7 +520,7 @@
       <div class="meta">all parts: ${$(total)} ·
         ${distinct} different worker(s)${checks.length
           ? " · your checklist applies to single-part asks; the live page writes one per part"
-          : ""}</div>
+          : ""}${LIVE ? "" : " · tapping run also copies that part — if the app opens your previous chat, start a new chat and paste"}</div>
       ${learnedNote ? `<div class="learned ${learnedNote.cls}">
         ${learnedNote.text}</div>` : ""}`;
     wireClose();
@@ -519,6 +529,11 @@
       try { await navigator.clipboard.writeText(d.text); b.textContent = "copied"; }
       catch { window.prompt("copy the part:", d.text); }
     });
+    box.querySelectorAll("[data-launch]").forEach(a =>
+      a.addEventListener("click", () => {
+        const d = window.__parts[+a.dataset.launch];
+        try { navigator.clipboard.writeText(d.text); } catch (error) {}
+      }));
     box.querySelectorAll("[data-good]").forEach(b => b.onclick = () =>
       partVerdict(+b.dataset.good, true));
     box.querySelectorAll("[data-bad]").forEach(b => b.onclick = () =>
