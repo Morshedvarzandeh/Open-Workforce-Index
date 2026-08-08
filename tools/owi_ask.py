@@ -135,7 +135,10 @@ def main() -> int:
     if "__DATA__" not in template:
         raise SystemExit("template is missing the __DATA__ placeholder")
     payload = json.dumps(data).replace("</", "<\\/")
-    arguments.output.write_text(template.replace("__DATA__", payload))
+    import time
+    built = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
+    arguments.output.write_text(
+        template.replace("__DATA__", payload).replace("__BUILT__", built))
     print(f"ask page: {len(data['workers'])} workers, "
           f"{len(data['posteriors'])} skills -> {arguments.output}",
           file=sys.stderr)

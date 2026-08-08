@@ -135,8 +135,9 @@ class Handler(BaseHTTPRequestHandler):
             template = (TOOLS / "owi_ask_template.html").read_text()
             with self.lock:
                 payload = json.dumps(self.data).replace("</", "<\\/")
-            self._send(200, template.replace("__DATA__", payload).encode(),
-                       "text/html; charset=utf-8")
+            page = (template.replace("__DATA__", payload)
+                    .replace("__BUILT__", "local — always current"))
+            self._send(200, page.encode(), "text/html; charset=utf-8")
         elif self.path == "/api/data":
             with self.lock:
                 self._json(200, self.data)
