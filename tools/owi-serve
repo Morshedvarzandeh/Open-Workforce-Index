@@ -37,6 +37,10 @@ owi_do = importlib.util.module_from_spec(_spec)
 _loader.exec_module(owi_do)
 
 SKILL_TOOLS = {skill: spec["tools"] for skill, spec in owi_do.SKILLS.items()}
+SKILL_ROLE = {"skill:text-editing": "text",
+              "skill:structured-extraction": "extract",
+              "skill:python-numerical-implementation": "code",
+              "skill:parametric-cad": "cad"}
 
 
 def harvest(home: Path) -> dict:
@@ -154,11 +158,21 @@ class Handler(BaseHTTPRequestHandler):
                     f"no runner for '{model}' — add your command to "
                     f"{self.home / 'runners.json'}"})
                 return
+            explicit = bool(checklist)
+            worker = (f"worker:{model}/{SKILL_ROLE[skill]}"
+                      if skill in SKILL_ROLE else "")
+            if explicit or not worker:
+                inspection = {"level": "full", "judge": True,
+                              "why": "explicit checklist — always fully verified"
+                              if explicit else "unknown worker"}
+            else:
+                inspection = owi_do.inspection_for(self.home, worker, skill)
             if not checklist:
                 # Empty checklist box: the test procedure is written for the
-                # task by the cheapest runnable model, and returned with the
-                # report so nothing is decided out of sight.
-                _, checklist = owi_do.auto_checklist(self.home, task)
+                # task server-side — smartest model under full inspection, a
+                # cheap one once the worker has earned reduced inspection.
+                _, checklist = owi_do.auto_checklist(
+                    self.home, task, tier=inspection["level"])
             notes = (owi_do.prevention_notes(self.home, skill)
                      if skill in owi_do.SKILLS else [])
             payload = owi_do.build_payload(task, "", checklist, notes)
@@ -172,13 +186,16 @@ class Handler(BaseHTTPRequestHandler):
                 return
             response = {"output": completed.stdout[-100_000:],
                         "stderr": completed.stderr[-4_000:],
-                        "exit": completed.returncode, "notes": len(notes)}
+                        "exit": completed.returncode, "notes": len(notes),
+                        "inspection": {"level": inspection["level"],
+                                       "why": inspection["why"]}}
             if checklist and completed.returncode == 0:
                 # Maker is never checker: judgement items go to a different
-                # model, resolved server-side like everything else.
+                # model, resolved server-side like everything else — and only
+                # when this run's inspection level says to look.
                 response["check"] = owi_do.run_checklist(
                     self.home, task, completed.stdout, checklist,
-                    maker_model=model)
+                    maker_model=model, judge_enabled=inspection["judge"])
             self._json(200, response)
         elif self.path == "/api/outcome":
             worker, skill = str(body.get("worker", "")), str(body.get("skill", ""))
@@ -196,7 +213,8 @@ class Handler(BaseHTTPRequestHandler):
                                   None if accepted else cause,
                                   task=str(body.get("task", ""))[:200],
                                   detail=str(body.get("detail", ""))[:500],
-                                  checklist=checklist)
+                                  checklist=checklist,
+                                  inspection=str(body.get("inspection", ""))[:20])
             with self.lock:
                 Handler.data = harvest(self.home)
                 self._json(200, {"ok": True, "data": self.data})

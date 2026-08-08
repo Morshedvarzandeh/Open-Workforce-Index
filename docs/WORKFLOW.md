@@ -138,9 +138,11 @@ reads. Full detail: [BENCHMARKING.md](BENCHMARKING.md).
 ## The checklist: verdicts earned, not asked for
 
 Every `--run` has a test procedure. Give one yourself with `--check` (or the
-checklist box on the ask page); give none and the cheapest runnable model
+checklist box on the ask page); give none and the **smartest** runnable model
 writes it for the task — printed before the run, `--check none` to opt out
-into the manual `y/n`. Either way, three things happen:
+into the manual `y/n`. The spec is the leverage point, so it comes from the
+top of the roster; execution stays with the cheapest qualified worker and
+grading with a cheap non-maker judge. Either way, three things happen:
 
 1. **The checklist is given to the task.** The worker sees exactly what it
    will be checked against — a checklist you'd verify with is also the best
@@ -167,15 +169,37 @@ clarifying questions" — a genuine small-model failure a `min-words` item
 would have missed. Free-form items exist because that class of failure
 exists.
 
+## Inspection economics: quality control, not quality theater
+
+Checking everything forever is as wasteful as checking nothing — so
+inspection follows the discipline of a production line (CSP-1 skip-lot
+sampling, the lean answer to "how much QC"):
+
+| state | when | what runs |
+|---|---|---|
+| **full** (100%) | a worker×skill with fewer than 5 consecutive clean accepts, or any explicit `--check` | spec written by the smartest model, every judgement item judged |
+| **reduced** (skip-lot) | 5+ consecutive clean accepts | spec by a cheap model; judgement sampled 1-in-3 runs; sampled-out items marked in the record, never silently passed |
+| **reset** | any worker-caused failure | straight back to full — the streak and the discount are gone |
+
+Mechanical items (`contains`/`regex`/`json`/`python`/`min-words`) are free
+and never come off the line — the inline sensors run on every unit.
+Excused rejections (task_spec / harness / environment) neither break nor
+extend the streak, the same rule the posterior applies. The control chart
+is the ledger itself: streaks are computed from recorded outcomes, and
+every outcome records which inspection level produced it. The Beta lower
+bound remains the ongoing capability index — sampling reduces *inspection
+spend*, never the evidence standard for staffing.
+
 ## Splitting: one request, several kinds of work
 
-`--split` sends the request to the cheapest runnable model acting as a
-planner. It answers one question — does this hold different kinds of work? —
-and returns standalone part summaries with a small checklist each. The
-planner **never names models**; staffing stays with the engine, part by
-part, so a text part can go to the cheap writer while the extraction part
-goes to whoever the evidence favours. The summary table at the end names who
-actually ran each part, its price, and the checked verdict.
+`--split` sends the request to the smartest runnable model acting as a
+planner — planning, like checklist-writing, is spec work and comes from the
+top of the roster. It answers one question — does this hold different kinds
+of work? — and returns standalone part summaries with a small checklist
+each. The planner **never names models**; staffing stays with the engine,
+part by part, so a text part can go to the cheap writer while the extraction
+part goes to whoever the evidence favours. The summary table at the end
+names who actually ran each part, its price, and the checked verdict.
 
 ## Prevention: failures that teach the next run
 

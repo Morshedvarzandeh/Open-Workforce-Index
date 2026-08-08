@@ -48,6 +48,13 @@
       "kind": "contains"
     },
     {
+      "item": "contains: 'Friday'",
+      "output": "See you at the review on Friday.",
+      "expect": true,
+      "kind": "contains",
+      "provenance": "first reduced-inspection run, 2026-08-07: the checklist writer quoted its needle, the literal match kept the quotes, and a correct output was wrongly rejected (root cause: harness). Surrounding quotes are stripped from contains: needles ever since."
+    },
+    {
       "item": "regex:v[0-9]+\\.[0-9]+",
       "output": "Released as v1.2 today.",
       "expect": true,
@@ -92,6 +99,30 @@
       "provenance": "first live split run, 2026-08-07: haiku asked clarifying questions instead of drafting; only a judged item caught it — free-form items MUST go to an independent judge, never silently pass"
     }
   ],
+  "qc_expectations": {
+    "_why": "lean inspection, CSP-1 style: 100% inspection while qualifying, skip-lot sampling once proven, any worker-caused failure resets. These constants and the sampling semantics are the quality-control contract.",
+    "clearance": 5,
+    "sample_every": 3
+  },
+  "sampling_fixtures": [
+    {
+      "items": ["contains:ok", "reads professionally"],
+      "output": "everything is ok here",
+      "expect_verdict": "accepted",
+      "provenance": "under reduced inspection a sampled-out judgement item must not block acceptance — that is the lean discount"
+    },
+    {
+      "items": ["contains:ok", "reads professionally"],
+      "output": "nothing to see",
+      "expect_verdict": "rejected",
+      "provenance": "mechanical items never come off the line: they still reject under reduced inspection"
+    }
+  ],
+  "role_order_expectations": {
+    "_why": "the management structure itself: specs (checklists, splits) are written from the TOP of the roster, judging is done from the BOTTOM by a non-maker. A refactor must never swap the two ladders' directions.",
+    "writer_head": ["opus-5", "opus-4-5"],
+    "judge_head": ["gpt-5-mini", "haiku-4-5"]
+  },
   "auto_checklist_fixtures": [
     {
       "raw": ["contains:import", "  min-words:30 ", "", 42],
