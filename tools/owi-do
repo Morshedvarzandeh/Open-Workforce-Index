@@ -254,16 +254,21 @@ def prevention_notes(home: Path, skill: str, limit: int = 3) -> list[str]:
 
 
 def build_payload(task: str, stdin_text: str, checklist: list[str],
-                  notes: list[str]) -> str:
+                  notes: list[str], corrections: list[str] | None = None) -> str:
     """The checklist is given TO the task as acceptance criteria — the worker
-    sees exactly what it will be checked against — and prevention notes from
-    past rejections ride along."""
+    sees exactly what it will be checked against — prevention notes from past
+    rejections ride along, and within an iterating task the previous
+    attempt's exact failures arrive as corrections to fix."""
     sections = [task]
     if stdin_text:
         sections.append(stdin_text)
     if checklist:
         sections.append("Your output must pass every item on this checklist:\n"
                         + "\n".join(f"- {item}" for item in checklist))
+    if corrections:
+        sections.append("The previous attempt at this exact task was rejected."
+                        " Fix every one of these:\n"
+                        + "\n".join(f"- {item}" for item in corrections))
     if notes:
         sections.append("Previous runs of this kind of work were rejected for "
                         "the reasons below — do not repeat them:\n"
@@ -644,34 +649,86 @@ def print_pick(quote: dict, eligible: list, calibration=None) -> None:
           f"turned away {len(quote['rejected_candidates'])} · decision recorded")
 
 
-def runnable_choice(home: Path, eligible: list) -> tuple[str, str, str] | None:
-    """The cheapest eligible worker that can actually run here. A worker
-    nobody can execute is unavailable for running, not a bargain."""
-    for position, candidate in enumerate(eligible):
+def next_attempt_candidate(eligible: list, tried: list, is_runnable,
+                           prefer=None):
+    """Who takes the next attempt. First attempt: the cheapest runnable
+    worker. Retries: the preferred candidate (the quality option) when it is
+    runnable and untried — a failure is evidence the job was harder than its
+    price — otherwise the next untried runnable worker in bench order."""
+    def usable(candidate):
         model = candidate["worker_id"].split(":")[1].split("/")[0]
-        command = resolve_runner(home, model)
-        if command:
-            if position > 0:
-                skipped = eligible[0]["worker_id"].split(":")[1].split("/")[0]
-                print(f"\n{skipped} has no runner here — running with "
-                      f"{candidate['worker_id'].replace('worker:', '')} "
-                      "(cheapest runnable)")
-            return candidate["worker_id"], model, command
-    return None
+        return candidate["worker_id"] not in tried and is_runnable(model)
+    if prefer is not None and usable(prefer):
+        return prefer
+    return next((c for c in eligible if usable(c)), None)
 
 
-def execute_and_verify(home: Path, worker: str, model: str, skill: str,
-                       task: str, stdin_text: str, checklist: list[str],
-                       accepted_flag: str | None, cause_flag: str | None,
-                       inspection: dict | None = None) -> str:
-    """Run the task, verify against the checklist, record. Returns the verdict:
-    accepted / rejected / unrecorded."""
-    inspection = inspection or {"level": "full", "judge": True}
+def iterate(home: Path, eligible: list, calibration, skill: str, task: str,
+            stdin_text: str, checklist: list[str], arguments,
+            explicit: bool) -> tuple[str, str | None]:
+    """Redo until it is right, within bounds: attempt, verify, and on a
+    rejection feed the exact failed items back as corrections and escalate.
+    Every attempt is recorded — iteration never erases a failure, it answers
+    one. Returns (final verdict, worker that produced it)."""
+    runnable = lambda model: resolve_runner(home, model) is not None  # noqa: E731
+    tried: list = []
+    corrections: list[str] = []
+    quality, _ = quality_option(calibration, eligible)
+    for attempt in range(1, max(1, arguments.attempts) + 1):
+        candidate = next_attempt_candidate(
+            eligible, tried, runnable, prefer=quality if attempt > 1 else None)
+        if candidate is None:
+            if not tried:
+                print(f"\nno runner for any eligible worker. Fill in "
+                      f"{home}/runners.json")
+                return "no runner", None
+            print("  nobody left to escalate to")
+            break
+        worker = candidate["worker_id"]
+        model = worker.split(":")[1].split("/")[0]
+        if attempt == 1 and worker != eligible[0]["worker_id"]:
+            skipped = eligible[0]["worker_id"].split(":")[1].split("/")[0]
+            print(f"\n{skipped} has no runner here — running with "
+                  f"{worker.replace('worker:', '')} (cheapest runnable)")
+        if attempt > 1:
+            print(f"\niteration {attempt}/{arguments.attempts}: escalating to "
+                  f"{worker.replace('worker:', '')}")
+        if explicit:
+            inspection = {"level": "full", "judge": True,
+                          "why": "explicit checklist — always fully verified"}
+        else:
+            inspection = inspection_for(home, worker, skill)
+        print(f"inspection: {inspection['level']} — {inspection['why']}")
+        verdict, failed = attempt_run(home, worker, model, skill, task,
+                                      stdin_text, checklist,
+                                      arguments.accepted, arguments.cause,
+                                      inspection, corrections)
+        tried.append(worker)
+        if verdict == "accepted":
+            if attempt > 1:
+                print(f"verified after {attempt} iterations — "
+                      "the earlier failures stay in the ledger")
+            return "accepted", worker
+        if verdict == "unrecorded":
+            return "unrecorded", worker
+        corrections = [failed] if failed else []
+    print(f"still rejected after {len(tried)} attempt(s) — every failure is "
+          "in the ledger and the prevention memory")
+    return "rejected", tried[-1] if tried else None
+
+
+def attempt_run(home: Path, worker: str, model: str, skill: str,
+                task: str, stdin_text: str, checklist: list[str],
+                accepted_flag: str | None, cause_flag: str | None,
+                inspection: dict, corrections: list[str]) -> tuple[str, str]:
+    """One attempt: run, verify against the checklist, record. Returns
+    (verdict, failed-detail) — the detail feeds the next iteration's
+    corrections when the checklist rejected the work."""
     notes = prevention_notes(home, skill)
     if notes:
         print(f"prevention: carrying {len(notes)} note(s) from past "
               "rejections of this skill")
-    payload = build_payload(task, stdin_text, checklist, notes)
+    payload = build_payload(task, stdin_text, checklist, notes, corrections)
     print(f"\nrunning via: {resolve_runner(home, model)}\n" + "-" * 60)
     try:
         stdout, stderr, code = run_command(home, model, payload)
@@ -680,7 +737,7 @@ def execute_and_verify(home: Path, worker: str, model: str, skill: str,
         print("timed out after 600s")
         record_outcome(home, worker, skill, False, "environment", task=task,
                        detail="runner timed out after 600s")
-        return "rejected"
+        return "rejected", ""
     print(stdout.strip() or "(no output)")
     print("-" * 60)
     if code != 0:
@@ -688,13 +745,13 @@ def execute_and_verify(home: Path, worker: str, model: str, skill: str,
         print(f"runner exited {code} — the plumbing failed, not the model")
         record_outcome(home, worker, skill, False, "environment", task=task,
                        detail=f"runner exit {code}: {stderr[:300]}")
-        return "rejected"
+        return "rejected", ""
 
     if accepted_flag is not None:
         accepted = accepted_flag == "y"
         record_outcome(home, worker, skill, accepted,
                        cause_flag if not accepted else None, task=task)
-        return "accepted" if accepted else "rejected"
+        return ("accepted" if accepted else "rejected"), ""
 
     if checklist:
         report = run_checklist(home, task, stdout, checklist, maker_model=model,
@@ -711,7 +768,7 @@ def execute_and_verify(home: Path, worker: str, model: str, skill: str,
             record_outcome(home, worker, skill, True, task=task,
                            checklist=report["items"],
                            inspection=inspection["level"])
-            return "accepted"
+            return "accepted", ""
         if report["verdict"] == "rejected":
             detail = "; ".join(f"failed: {entry['item']} ({entry['note']})"
                                for entry in report["items"]
@@ -720,23 +777,23 @@ def execute_and_verify(home: Path, worker: str, model: str, skill: str,
             record_outcome(home, worker, skill, False, "worker", task=task,
                            detail=detail, checklist=report["items"],
                            inspection=inspection["level"])
-            return "rejected"
+            return "rejected", detail
         print(f"checklist: could not verify every item{judged} — your call")
 
     try:
         answer = input("accepted? [y/n] ").strip().lower()
         if answer == "y":
             record_outcome(home, worker, skill, True, task=task)
-            return "accepted"
+            return "accepted", ""
         if answer == "n":
             record_outcome(home, worker, skill, False,
                            cause_flag or ask_cause(), task=task)
-            return "rejected"
+            return "rejected", ""
         print("not recorded (answer y or n next time)", file=sys.stderr)
     except EOFError:
         print("not recorded (no answer; use --accepted y|n in scripts)",
               file=sys.stderr)
-    return "unrecorded"
+    return "unrecorded", ""
 
 
 CAUSES = {"m": "worker", "t": "task_spec", "s": "environment", "h": "harness"}
@@ -794,27 +851,28 @@ def run_split(arguments, stdin_text: str) -> int:
         if not arguments.run:
             outcomes.append((part, eligible[0], "planned"))
             continue
-        chosen = runnable_choice(home, eligible)
-        if chosen is None:
+        first = next_attempt_candidate(
+            eligible, [], lambda m: resolve_runner(home, m) is not None)
+        if first is None:
             print(f"   no runner for any eligible worker — fill in "
                   f"{home}/runners.json")
             outcomes.append((part, eligible[0], "no runner"))
             continue
-        worker, model, _ = chosen
-        inspection = inspection_for(home, worker, part["skill"])
-        print(f"   inspection: {inspection['level']} — {inspection['why']}")
         if not part["checklist"]:
+            tier = inspection_for(home, first["worker_id"],
+                                  part["skill"])["level"]
             writer, part["checklist"] = auto_checklist(
-                home, part["summary"], tier=inspection["level"])
+                home, part["summary"], tier=tier)
             for item in part["checklist"]:
                 print(f"   check (auto, by {writer}): {item}")
-        verdict = execute_and_verify(home, worker, model, part["skill"],
-                                     part["summary"], "", part["checklist"],
-                                     arguments.accepted, arguments.cause,
-                                     inspection)
-        # The summary names who actually ran it, not who was merely cheapest.
-        actual = next(candidate for candidate in eligible
-                      if candidate["worker_id"] == worker)
+        verdict, final_worker = iterate(home, eligible,
+                                        result.get("calibration"),
+                                        part["skill"], part["summary"], "",
+                                        part["checklist"], arguments, False)
+        # The summary names who actually produced the final verdict.
+        actual = next((candidate for candidate in eligible
+                       if candidate["worker_id"] == final_worker),
+                      eligible[0])
         outcomes.append((part, actual, verdict))
 
     print("\n" + "━" * 64)
@@ -845,6 +903,12 @@ def main() -> int:
                         help="pick the strongest qualified worker instead of "
                              "the cheapest (the quality option is always "
                              "printed either way)")
+    parser.add_argument("--attempts", type=int, default=2,
+                        help="iterate until the checklist passes: on a "
+                             "rejection the exact failures are fed back as "
+                             "corrections and the work escalates to the "
+                             "quality option, up to this many attempts "
+                             "(default 2, matching the priced max_attempts)")
     parser.add_argument("--run", action="store_true",
                         help="execute via your configured runner and record the outcome")
     parser.add_argument("--check", action="append", metavar="ITEM",
@@ -906,33 +970,26 @@ def main() -> int:
         print(f"\nrun it: add --run{note}")
         return 0
 
-    chosen = runnable_choice(arguments.home, eligible)
-    if chosen is None:
+    first = next_attempt_candidate(
+        eligible, [], lambda m: resolve_runner(arguments.home, m) is not None)
+    if first is None:
         print(f"\nno runner for any eligible worker. Fill in "
               f"{arguments.home}/runners.json")
         return 1
-    worker, model, _ = chosen
     explicit = bool(arguments.check) and arguments.check != ["none"]
-    if explicit:
-        # An explicit checklist is the owner's instruction: always fully
-        # verified, whatever the streak says.
-        inspection = {"level": "full", "streak": None, "judge": True,
-                      "why": "explicit checklist — always fully verified"}
-    else:
-        inspection = inspection_for(arguments.home, worker, skill)
-    print(f"inspection: {inspection['level']} — {inspection['why']}")
     checklist = arguments.check if explicit else []
     if not checklist and arguments.check != ["none"]:
+        tier = inspection_for(arguments.home, first["worker_id"],
+                              skill)["level"]
         writer, checklist = auto_checklist(arguments.home, arguments.task,
-                                           tier=inspection["level"])
+                                           tier=tier)
         if checklist:
             print(f"checklist (auto-written by {writer}; --check none to skip):")
             for item in checklist:
                 print(f"   {item}")
-    verdict = execute_and_verify(arguments.home, worker, model, skill,
-                                 arguments.task, stdin_text, checklist,
-                                 arguments.accepted, arguments.cause,
-                                 inspection)
+    verdict, _ = iterate(arguments.home, eligible, result.get("calibration"),
+                         skill, arguments.task, stdin_text, checklist,
+                         arguments, explicit)
     return 0 if verdict in ("accepted", "unrecorded") else 1
 
 
