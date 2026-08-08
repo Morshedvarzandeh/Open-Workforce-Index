@@ -67,6 +67,11 @@
   .checkrep .fail { color:var(--bad); }
   .checkrep .open { color:var(--ink-3); }
 
+  .part { border-top:1px solid var(--rule); padding-top:10px;
+    display:flex; flex-direction:column; gap:6px; }
+  .part .verdict { border-top:none; padding-top:0; flex-wrap:wrap; }
+  .verdict .mini { padding:7px 12px; font-size:12.5px; }
+
   .answer { background:var(--panel); border:1px solid var(--rule);
     padding:16px 18px; display:none; flex-direction:column; gap:10px;
     position:relative; }
@@ -212,6 +217,19 @@
     return best;
   };
 
+  // A task that says "do X, then Y" holds parts. The cut is mechanical and
+  // visible — sequence markers, newlines, numbered steps — so each part can
+  // be classified and staffed on its own bench instead of one model getting
+  // everything.
+  function splitTask(text) {
+    const pieces = text
+      .split(/\n+|;\s+|,?\s+(?:and\s+)?then\s+|\bafter that,?\s*|\s\d+[.)]\s+/i)
+      .map(s => s.replace(/^(?:and|also|then|next|finally|second|third)[,\s]+/i, "")
+                 .trim())
+      .filter(s => s.split(/\s+/).filter(Boolean).length >= 2);
+    return pieces.length >= 2 ? pieces : [text];
+  }
+
   function posterior(skill, workerId) {
     const base = (data().posteriors[skill] || {})[workerId] || { a: 1, b: 1 };
     const mine = (local()[skill] || {})[workerId] || { s: 0, f: 0 };
@@ -275,6 +293,8 @@
     const askText = checks.length ? text
       + "\n\nYour output must pass every item on this checklist:\n"
       + checks.map(c => "- " + c).join("\n") : text;
+    const parts = splitTask(text);
+    if (parts.length > 1) { renderParts(parts, checks, learnedNote); return; }
     const skill = guess(text);
     const tokensIn = 1500 + Math.floor(text.length / 4);
     const { rows, turnedAway } = evaluate(skill, tokensIn, 800);
@@ -445,6 +465,135 @@
     }
   }
 
+  // Several parts: each is classified and staffed on its own bench. A code
+  // part and a text part land on different workers — one model never gets
+  // everything by default.
+  function renderParts(parts, checks, learnedNote) {
+    const box = document.getElementById("answer");
+    box.classList.add("show");
+    const detail = parts.map(p => {
+      const skill = guess(p);
+      const { rows } = evaluate(skill, 1500 + Math.floor(p.length / 4), 800);
+      return { text: p, skill, top: rows[0] || null };
+    });
+    window.__parts = detail;
+    const staffed = detail.filter(d => d.top);
+    const distinct = new Set(staffed.map(d => d.top.id)).size;
+    const total = staffed.reduce((s, d) => s + d.top.total, 0);
+    box.innerHTML = `<button type="button" class="close" id="closeAnswer"
+        aria-label="close">✕</button>
+      <div class="line">${detail.length} parts — different work goes to
+        different workers</div>
+      ${detail.map((d, i) => {
+        const head = `<div class="line">part ${i + 1} ·
+          ${d.skill.replace("skill:", "")} —
+          “${esc(d.text.slice(0, 90))}”</div>`;
+        if (!d.top) return `<div class="part">${head}
+          <div class="none">nobody qualified</div></div>`;
+        const launch = LAUNCH[modelOf(d.top.id)];
+        const link = (!LIVE && launch) ? `<a class="golink" target="_blank"
+            rel="noopener" href="${launch.url}${encodeURIComponent(d.text)}"
+            >run in ${launch.name}</a>` : "";
+        const runButton = LIVE ? `<button type="button" class="mini"
+            data-run="${i}">run</button>` : "";
+        return `<div class="part">${head}
+          <div class="pick">→ ${short(d.top.id)}
+            <span class="price">${$(d.top.total)}</span></div>
+          <div class="verdict">${runButton}${link}
+            <button type="button" class="mini" data-copy="${i}">copy</button>
+            <button type="button" class="mini" data-good="${i}">worked</button>
+            <button type="button" class="mini no" data-bad="${i}">didn't</button>
+            <span class="meta" id="pstate-${i}"></span></div>
+          <pre class="out" id="pout-${i}" hidden></pre>
+          <div class="checkrep" id="prep-${i}"></div></div>`;
+      }).join("")}
+      <div class="meta">all parts: ${$(total)} ·
+        ${distinct} different worker(s)${checks.length
+          ? " · your checklist applies to single-part asks; the live page writes one per part"
+          : ""}</div>
+      ${learnedNote ? `<div class="learned ${learnedNote.cls}">
+        ${learnedNote.text}</div>` : ""}`;
+    wireClose();
+    box.querySelectorAll("[data-copy]").forEach(b => b.onclick = async () => {
+      const d = window.__parts[+b.dataset.copy];
+      try { await navigator.clipboard.writeText(d.text); b.textContent = "copied"; }
+      catch { window.prompt("copy the part:", d.text); }
+    });
+    box.querySelectorAll("[data-good]").forEach(b => b.onclick = () =>
+      partVerdict(+b.dataset.good, true));
+    box.querySelectorAll("[data-bad]").forEach(b => b.onclick = () =>
+      partVerdict(+b.dataset.bad, false));
+    box.querySelectorAll("[data-run]").forEach(b => b.onclick = () =>
+      runPart(+b.dataset.run));
+  }
+
+  async function partVerdict(i, worked) {
+    const d = window.__parts[i];
+    if (!d.top) return;
+    const who = { skill: d.skill, id: d.top.id };
+    const state = document.getElementById("pstate-" + i);
+    if (LIVE) {
+      await postOutcome(worked, worked ? null : "worker", "", d.text, [], who, "");
+      state.textContent = worked ? "recorded accepted" : "recorded rejected";
+    } else {
+      state.textContent = learn(worked, worked ? null : "worker", who);
+    }
+  }
+
+  async function runPart(i) {
+    const d = window.__parts[i];
+    if (!d.top) return;
+    const who = { skill: d.skill, id: d.top.id };
+    const state = document.getElementById("pstate-" + i);
+    const out = document.getElementById("pout-" + i);
+    let model = modelOf(who.id);
+    if (!(data().runnable || []).includes(model)) {
+      const { rows } = evaluate(d.skill, 1500 + Math.floor(d.text.length / 4), 800);
+      const alt = rows.find(r => (data().runnable || []).includes(modelOf(r.id)));
+      if (!alt) { state.textContent = "no runner configured"; return; }
+      who.id = alt.id; model = modelOf(alt.id);
+      state.textContent = `running with ${short(alt.id)} (cheapest runnable)…`;
+    } else {
+      state.textContent = "running via your CLI…";
+    }
+    try {
+      const response = await fetch("/api/run", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model, task: d.text, skill: d.skill, check: [] }) });
+      const result = await response.json();
+      out.hidden = false;
+      if (!response.ok) { out.textContent = result.error; state.textContent = ""; return; }
+      out.textContent = result.output || result.stderr || "(no output)";
+      const inspection = result.inspection ? result.inspection.level : "";
+      const rep = document.getElementById("prep-" + i);
+      if (result.inspection)
+        rep.innerHTML = `<div class="open">inspection:
+          ${esc(result.inspection.level)} — ${esc(result.inspection.why)}</div>`;
+      if (!result.check) {
+        state.textContent = result.exit === 0
+          ? "done — worked or didn't?" : `exit ${result.exit}`;
+        return;
+      }
+      const marks = { true: ["✓", "ok"], false: ["✗", "fail"], null: ["?", "open"] };
+      rep.innerHTML += result.check.items.map(it => {
+        const [mark, cls] = marks[it.pass];
+        return `<div class="${cls}">[${mark}] ${esc(it.item)} — ${esc(it.note)}</div>`;
+      }).join("");
+      const judged = result.check.judge ? ` · judge: ${result.check.judge}` : "";
+      if (result.check.verdict === "accepted") {
+        await postOutcome(true, null, "", d.text, result.check.items, who, inspection);
+        state.textContent = `passed${judged} → recorded accepted`;
+      } else if (result.check.verdict === "rejected") {
+        const det = result.check.items.filter(x => x.pass === false)
+          .map(x => `failed: ${x.item} (${x.note})`).join("; ");
+        await postOutcome(false, "worker", det, d.text, result.check.items, who, inspection);
+        state.textContent = `failed${judged} → recorded rejected`;
+      } else {
+        state.textContent = `not fully checked${judged} — worked/didn't is your call`;
+      }
+    } catch (error) { state.textContent = "server went away"; }
+  }
+
   async function runIt(text, checks) {
     const state = document.getElementById("runstate");
     const out = document.getElementById("out");
@@ -495,14 +644,17 @@
     }
   }
 
-  async function postOutcome(worked, cause, detail, task, checklist) {
+  async function postOutcome(worked, cause, detail, task, checklist, who,
+                             inspection) {
+    who = who || last;
     try {
       const response = await fetch("/api/outcome", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ worker: last.id, skill: last.skill,
+        body: JSON.stringify({ worker: who.id, skill: who.skill,
           accepted: worked, cause, detail: detail || "", task: task || "",
           checklist: checklist || [],
-          inspection: window.__inspection || "" }) });
+          inspection: inspection !== undefined ? inspection
+                      : (window.__inspection || "") }) });
       const result = await response.json();
       if (result.ok) LIVE = result.data;
     } catch (error) { /* server went away; the report stays on screen */ }
@@ -534,18 +686,20 @@
     render({ cls: worked ? "up" : "down", text: learn(worked, cause) });
   }
 
-  // The browser-only Beta update, shared by the buttons and the paste-back
-  // checker. Only worker-caused failures count against the model, here too.
-  function learn(worked, cause) {
+  // The browser-only Beta update, shared by the buttons, the paste-back
+  // checker, and per-part verdicts. Only worker-caused failures count
+  // against the model, here too.
+  function learn(worked, cause, who) {
+    who = who || last;
     const store = local();
-    store[last.skill] = store[last.skill] || {};
-    const mine = store[last.skill][last.id] || { s: 0, f: 0 };
+    store[who.skill] = store[who.skill] || {};
+    const mine = store[who.skill][who.id] || { s: 0, f: 0 };
     if (worked) mine.s += 1;
     else if (!cause || cause === "worker") mine.f += 1;
-    store[last.skill][last.id] = mine;
+    store[who.skill][who.id] = mine;
     save(store);
-    const p = posterior(last.skill, last.id);
-    return `${short(last.id)} ${worked ? "credited" : "marked down"} — its
+    const p = posterior(who.skill, who.id);
+    return `${short(who.id)} ${worked ? "credited" : "marked down"} — its
       estimate is now ${(p.a / (p.a + p.b)).toFixed(2)}
       (${mine.s} worked / ${mine.f} didn't, this browser only)`;
   }
