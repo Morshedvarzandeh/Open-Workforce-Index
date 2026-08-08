@@ -17,7 +17,7 @@ jobs:
     name: Rust workspace
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy,rustfmt
@@ -78,6 +78,6 @@ jobs:
     name: Rust 1.87 compatibility
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.87.0
       - run: cargo check --workspace --all-targets --locked
