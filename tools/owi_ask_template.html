@@ -1,3 +1,4 @@
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OWI — ask</title>
 <style>
   :root {
@@ -46,13 +47,21 @@
   :root[data-theme="dark"] button { color:#0F1420; }
   button:focus-visible { outline:2px solid var(--ink); outline-offset:1px; }
 
-  details.checks { font-size:12.5px; color:var(--ink-3); margin-top:-10px; }
-  details.checks summary { cursor:pointer; }
-  details.checks[open] summary { color:var(--ink-2); }
+  .checks { margin-top:-8px; }
+  .checks label { display:block; font-size:12.5px; color:var(--ink-3); }
   textarea { width:100%; font:inherit; font-size:13px; padding:10px 12px;
     background:var(--panel); color:var(--ink);
     border:1.5px solid var(--rule); resize:vertical; margin-top:8px; }
   textarea:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+
+  /* Small screens: stack the form, big touch targets, no zoom-on-focus. */
+  @media (max-width: 520px) {
+    .shell { padding:20px 14px 40px; gap:16px; }
+    form { flex-direction:column; }
+    button, a.golink { min-height:46px; }
+    .verdict { flex-wrap:wrap; }
+    input[type=text], textarea { font-size:16px; }
+  }
   .checkrep { font-size:13px; line-height:1.7; }
   .checkrep .ok { color:var(--good); }
   .checkrep .fail { color:var(--bad); }
@@ -61,10 +70,10 @@
   .answer { background:var(--panel); border:1px solid var(--rule);
     padding:16px 18px; display:none; flex-direction:column; gap:10px;
     position:relative; }
-  .close { position:absolute; top:6px; right:6px; background:none; border:none;
-    color:var(--ink-3); font:inherit; font-size:15px; line-height:1;
-    padding:6px 8px; cursor:pointer; }
-  .close:hover { color:var(--ink); }
+  .close { position:absolute; top:2px; right:2px; background:none; border:none;
+    color:var(--ink-3); font:inherit; font-size:18px; line-height:1;
+    padding:12px 14px; cursor:pointer; min-width:44px; min-height:44px; }
+  .close:hover, .close:active { color:var(--ink); }
   .answer.show { display:flex; }
   .line { color:var(--ink-2); font-size:13px; }
   .pick { font-size:18px; font-weight:700; }
@@ -104,10 +113,12 @@
     <button type="submit">ask</button>
   </form>
 
-  <details class="checks" id="checkwrap">
-    <summary>checklist — what the result must pass (optional)</summary>
-    <textarea id="checks" rows="3" placeholder="one item per line. Mechanical items verify in process: contains:thermal · regex:… · json · python · min-words:60. Anything else is judged by a different model than the one that did the work (live page only)."></textarea>
-  </details>
+  <div class="checks">
+    <label for="checks">checklist — one line per item the result must pass
+      (optional; the live page writes one for you if empty)</label>
+    <textarea id="checks" rows="3" autocapitalize="off" autocorrect="off"
+      spellcheck="false" placeholder="contains:thermal · min-words:60 · anything else is judged by a different model (live page)"></textarea>
+  </div>
 
   <div class="answer" id="answer"></div>
 
@@ -301,13 +312,18 @@
         const link = launch ? `<a class="golink" target="_blank" rel="noopener"
             href="${launch.url}${encodeURIComponent(askText)}">run in
             ${launch.name}</a>` : "";
-        const note = checks.length ? `<div class="meta">the checklist rides
-          with the task; automatic verification needs the live page
-          (tools/owi-serve)</div>` : "";
+        const after = checks.length ? "run it there, paste the result below"
+                                    : "run it there, come back, answer below";
+        const pasteback = checks.length ? `
+          <textarea id="pasteback" rows="4" placeholder="paste the model's answer here — it is checked against your checklist right in this page"></textarea>
+          <div class="verdict">
+            <button type="button" id="checkbtn">check the result</button>
+            <span id="checkstate" class="meta"></span></div>
+          <div class="checkrep" id="checkrep"></div>` : "";
         return `<div class="verdict">${link}
           <button type="button" id="copybtn">copy task</button>
-          <span class="meta">run it there, come back, answer below</span>
-        </div>${note}`;
+          <span class="meta">${after}</span>
+        </div>${pasteback}`;
       })() : ""}
       ${LIVE ? (() => {
         const runnable = rows.find(r =>
@@ -352,6 +368,81 @@
     if (LIVE && document.getElementById("go"))
       document.getElementById("go").onclick = () => {
         last = { skill, id: window.__runTarget }; runIt(text, checks); };
+    const checkButton = document.getElementById("checkbtn");
+    if (checkButton) checkButton.onclick = () => checkPasted(checks);
+  }
+
+  // The checklist is a system input even without a server: mechanical items
+  // are verified right here, in the page, against the pasted result — the
+  // same rules the terminal applies (quote-stripped contains, regex, json,
+  // min-words). Only judgement items need the live page's judge.
+  function checkItemJS(item, output) {
+    const text = item.trim(), low = text.toLowerCase();
+    const strip = (s) => {
+      s = s.trim();
+      if (s.length >= 2 && s[0] === s[s.length - 1] && "'\"".includes(s[0]))
+        s = s.slice(1, -1).trim();
+      return s;
+    };
+    if (low.startsWith("contains:")) {
+      const needle = strip(text.slice(9));
+      return ["contains", output.toLowerCase().includes(needle.toLowerCase()),
+              `output contains "${needle}"`];
+    }
+    if (low.startsWith("regex:")) {
+      try { return ["regex", new RegExp(text.slice(6).trim(), "s").test(output),
+                    "matches the pattern"]; }
+      catch (error) { return ["regex", null, "unusable regex"]; }
+    }
+    if (low === "json")
+      return ["json", findJsonJS(output) !== undefined, "contains valid JSON"];
+    if (low.startsWith("min-words:")) {
+      const floor = parseInt(text.slice(10).trim(), 10);
+      if (isNaN(floor)) return ["min-words", null, "unusable min-words"];
+      return ["min-words",
+              output.split(/\s+/).filter(Boolean).length >= floor,
+              `at least ${floor} words`];
+    }
+    if (low === "python")
+      return ["python", null, "needs the live page (code compiles there)"];
+    return ["judged", null, "needs a judge — the live page has one"];
+  }
+  function findJsonJS(t) {
+    const candidates = [];
+    const fence = /```(?:json)?\s*([\s\S]*?)```/g;
+    let m; while ((m = fence.exec(t))) candidates.push(m[1]);
+    candidates.push(t);
+    const embedded = t.match(/[\[{][\s\S]*[\]}]/);
+    if (embedded) candidates.push(embedded[0]);
+    for (const c of candidates) { try { return JSON.parse(c); } catch (e) {} }
+    return undefined;
+  }
+
+  function checkPasted(checks) {
+    const output = document.getElementById("pasteback").value;
+    const state = document.getElementById("checkstate");
+    if (!output.trim()) { state.textContent = "paste the result first"; return; }
+    const marks = { true: ["✓", "ok"], false: ["✗", "fail"], null: ["?", "open"] };
+    const results = checks.map(item => {
+      const [kind, pass, note] = checkItemJS(item, output);
+      return { item, kind, pass, note };
+    });
+    document.getElementById("checkrep").innerHTML = results.map(i => {
+      const [mark, cls] = marks[i.pass];
+      return `<div class="${cls}">[${mark}] ${esc(i.item)} — ${esc(i.note)}</div>`;
+    }).join("");
+    const failed = results.some(i => i.pass === false);
+    const open = results.filter(i => i.pass === null).length;
+    if (failed) {
+      state.textContent = "checklist failed → " + learn(false, "worker");
+      hideManualVerdict();
+    } else if (!open) {
+      state.textContent = "all items passed → " + learn(true);
+      hideManualVerdict();
+    } else {
+      state.textContent =
+        `${open} item(s) need judgement — your call below, or use the live page`;
+    }
   }
 
   async function runIt(text, checks) {
@@ -440,21 +531,23 @@
           return; }
       } catch (error) { /* fall through to browser-only */ }
     }
+    render({ cls: worked ? "up" : "down", text: learn(worked, cause) });
+  }
+
+  // The browser-only Beta update, shared by the buttons and the paste-back
+  // checker. Only worker-caused failures count against the model, here too.
+  function learn(worked, cause) {
     const store = local();
     store[last.skill] = store[last.skill] || {};
     const mine = store[last.skill][last.id] || { s: 0, f: 0 };
-    // Only worker-caused failures count against the model, here too.
     if (worked) mine.s += 1;
     else if (!cause || cause === "worker") mine.f += 1;
     store[last.skill][last.id] = mine;
     save(store);
     const p = posterior(last.skill, last.id);
-    render({
-      cls: worked ? "up" : "down",
-      text: `${short(last.id)} ${worked ? "credited" : "marked down"} — its
-        estimate is now ${(p.a / (p.a + p.b)).toFixed(2)}
-        (${mine.s} worked / ${mine.f} didn't, this browser only)`,
-    });
+    return `${short(last.id)} ${worked ? "credited" : "marked down"} — its
+      estimate is now ${(p.a / (p.a + p.b)).toFixed(2)}
+      (${mine.s} worked / ${mine.f} didn't, this browser only)`;
   }
 
   function wireClose() {
