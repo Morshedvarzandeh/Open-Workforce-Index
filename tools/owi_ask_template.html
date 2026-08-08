@@ -294,6 +294,11 @@
     const ok = rows.filter(r => (LAUNCH[modelOf(r.id)] || {}).reliable);
     return ok.length ? ok : rows;
   };
+
+  // On phones, provider apps intercept ?q= links and drop the task — no
+  // deep link survives, for any provider. So mobile gets no launch links at
+  // all: copy → paste → bring the answer back. Desktop web honors ?q=.
+  const MOBILE = matchMedia("(max-width: 520px), (pointer: coarse)").matches;
   const esc = (s) => String(s).replace(/[&<>"]/g,
     c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   let last = null;
@@ -374,22 +379,27 @@
         ${learnedNote.text}</div>` : ""}
       ${!LIVE ? (() => {
         const topLaunch = LAUNCH[modelOf(top.id)];
-        const links = topLaunch ? `<a class="golink" target="_blank"
-            rel="noopener" data-worker="${top.id}"
+        const links = (!MOBILE && topLaunch) ? `<a class="golink"
+            target="_blank" rel="noopener" data-worker="${top.id}"
             href="${topLaunch.url}${encodeURIComponent(askText)}"
             >run in ${topLaunch.name}</a>` : "";
-        const after = checks.length ? "run it there, paste the result below"
-                                    : "run it there, come back, answer below";
+        const after = MOBILE
+          ? "paste it into your Claude, then bring the answer back"
+          : (checks.length ? "run it there, paste the result below"
+                           : "run it there, come back, answer below");
         const pasteback = checks.length ? `
           <textarea id="pasteback" rows="4" placeholder="paste the model's answer here — it is checked against your checklist right in this page"></textarea>
           <div class="verdict">
             <button type="button" id="checkbtn">check the result</button>
             <span id="checkstate" class="meta"></span></div>
           <div class="checkrep" id="checkrep"></div>` : "";
-        const handoff = links ? `<div class="meta">Tapping run also copies
-          the task. The app still uses its own selected model — exact-model
-          runs: open this repo in Claude Code and say the task, or
-          tools/owi-serve.</div>` : "";
+        const handoff = MOBILE ? `<div class="meta">phone apps drop link
+          hand-offs, so the page hands you the task instead. One-tap real
+          runs live in the router: open this repo in Claude Code and say
+          the task.</div>`
+          : (links ? `<div class="meta">Tapping run also copies the task.
+          The app still uses its own selected model — exact-model runs:
+          open this repo in Claude Code, or tools/owi-serve.</div>` : "");
         return `<div class="verdict">${links}
           <button type="button" id="copybtn">copy task</button>
           <span class="meta">${after}</span>
@@ -557,7 +567,7 @@
         if (!d.top) return `<div class="part">${head}
           <div class="none">nobody qualified</div></div>`;
         const topLaunch = LAUNCH[modelOf(d.top.id)];
-        const link = (!LIVE && topLaunch) ? `<a class="golink"
+        const link = (!LIVE && !MOBILE && topLaunch) ? `<a class="golink"
             target="_blank" rel="noopener" data-launch="${i}"
             data-worker="${d.top.id}"
             href="${topLaunch.url}${encodeURIComponent(d.text)}"
@@ -590,7 +600,7 @@
       <div class="meta">all parts: ${$(total)} ·
         ${distinct} different worker(s)${checks.length
           ? " · your checklist applies to single-part asks; the live page writes one per part"
-          : ""}${LIVE ? "" : " · tapping run also copies the part · exact-model runs: open this repo in Claude Code and say the task"}</div>
+          : ""}${LIVE ? "" : (MOBILE ? " · copy each part, paste it into your Claude, mark worked/didn't here · one-tap real runs: open this repo in Claude Code and say the task" : " · tapping run also copies the part · exact-model runs: open this repo in Claude Code and say the task")}</div>
       ${learnedNote ? `<div class="learned ${learnedNote.cls}">
         ${learnedNote.text}</div>` : ""}`;
     wireClose();
