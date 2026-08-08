@@ -99,8 +99,11 @@ tools/owi-serve        # open http://127.0.0.1:7787
 The same one-box page, served locally: it detects the server, shows
 "local — runs for real", and grows a run button. Output streams into the
 page; `worked` / `didn't` goes to the real ledger and every number refreshes
-from the engine immediately. Localhost only; the browser can only *name* a
-model — the command executed is resolved server-side from `runners.json`.
+from the engine immediately. Localhost by default; the browser can only
+*name* a model — the command executed is resolved server-side from
+`runners.json`. `--host 0.0.0.0` opens it to your own network behind a
+required access token, so your phone can use the real router — see
+[ROUTER.md](ROUTER.md) for the complete setup, provider keys included.
 
 ## Level 3 — a project, planned automatically
 
