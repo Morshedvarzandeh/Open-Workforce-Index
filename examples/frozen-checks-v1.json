@@ -170,6 +170,40 @@
       "expect_parts": null
     }
   ],
+  "escalation_fixtures": [
+    {
+      "eligible": ["worker:cheap/text", "worker:mid/text", "worker:strong/text"],
+      "runnable": ["worker:cheap/text", "worker:mid/text", "worker:strong/text"],
+      "tried": [],
+      "prefer": null,
+      "expect": "worker:cheap/text",
+      "provenance": "first attempt goes to the cheapest runnable worker"
+    },
+    {
+      "eligible": ["worker:cheap/text", "worker:mid/text", "worker:strong/text"],
+      "runnable": ["worker:cheap/text", "worker:mid/text", "worker:strong/text"],
+      "tried": ["worker:cheap/text"],
+      "prefer": "worker:strong/text",
+      "expect": "worker:strong/text",
+      "provenance": "a rejection escalates to the quality option, not the next-cheapest — the failure is evidence the job was harder than its price"
+    },
+    {
+      "eligible": ["worker:cheap/text", "worker:mid/text", "worker:strong/text"],
+      "runnable": ["worker:cheap/text", "worker:mid/text"],
+      "tried": ["worker:cheap/text"],
+      "prefer": "worker:strong/text",
+      "expect": "worker:mid/text",
+      "provenance": "an unrunnable quality option falls back to the next untried runnable worker"
+    },
+    {
+      "eligible": ["worker:cheap/text", "worker:mid/text"],
+      "runnable": ["worker:cheap/text", "worker:mid/text"],
+      "tried": ["worker:cheap/text", "worker:mid/text"],
+      "prefer": null,
+      "expect": null,
+      "provenance": "when everyone has been tried, iteration ends — bounded, never a loop"
+    }
+  ],
   "prevention_fixtures": [
     {
       "entries": [

@@ -154,6 +154,22 @@ def run(no_cargo: bool) -> int:
         suite.check(f"auto-checklist fixture {position}",
                     got == fixture["expect"], f"got {got!r}")
 
+    print("\nescalation (iterate-until-verified)")
+    for position, fixture in enumerate(
+            frozen.get("escalation_fixtures", []), start=1):
+        eligible = [{"worker_id": w} for w in fixture["eligible"]]
+        runnable_models = {w.split(":")[1].split("/")[0]
+                           for w in fixture["runnable"]}
+        prefer = ({"worker_id": fixture["prefer"]}
+                  if fixture["prefer"] else None)
+        got = owi_do.next_attempt_candidate(
+            eligible, fixture["tried"],
+            lambda model: model in runnable_models, prefer)
+        got_id = got["worker_id"] if got else None
+        suite.check(f"escalation fixture {position}",
+                    got_id == fixture["expect"],
+                    f"got {got_id!r}, want {fixture['expect']!r}")
+
     print("\nprevention filter")
     for fixture in frozen["prevention_fixtures"]:
         with tempfile.TemporaryDirectory() as scratch:

@@ -26,6 +26,10 @@ do not discuss it, route it:
   they care about. Add `--quality` when they ask for the strongest rather
   than the cheapest. Add `--check "<item>"` lines when they give acceptance
   criteria; otherwise the engine writes the checklist itself.
+- Iteration is automatic: a rejected checklist feeds its exact failures back
+  as corrections and escalates to the quality option, up to `--attempts`
+  (default 2). Relay how many iterations the verdict took — do not re-run
+  manually on a rejection; the engine already did.
 
 ## Relay, don't rewrite
 

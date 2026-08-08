@@ -212,6 +212,22 @@ part by part, so a text part can go to the cheap writer while the extraction
 part goes to whoever the evidence favours. The summary table at the end
 names who actually ran each part, its price, and the checked verdict.
 
+## Iteration: rejected work gets redone, within bounds
+
+A failed checklist is not the end of the task — it is the start of the next
+attempt. The runner iterates, up to `--attempts` (default 2, matching the
+priced `max_attempts`):
+
+1. the exact failed items are fed back as **corrections** the next attempt
+   must fix — not a vague retry, a spec of what was wrong;
+2. the work **escalates to the quality option** — a rejection is evidence
+   the job was harder than its price — falling back to the next runnable
+   worker when the strongest has no runner;
+3. every attempt is recorded. Iteration never erases a failure; it answers
+   one. The first worker's rejection stays in its ledger and in the
+   prevention memory, and the verdict reports who finally earned the accept
+   and after how many iterations.
+
 ## Prevention: failures that teach the next run
 
 Every rejection is appended to `.owi-quick/root-causes.jsonl` — when, task,
