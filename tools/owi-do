@@ -586,13 +586,38 @@ def plan_parts(home: Path, task: str) -> tuple[str | None, list[dict] | None]:
 # ---------------------------------------------------------------------------
 
 def choose(home: Path, task: str, skill: str, tokens_in: int, tokens_out: int,
-           rate: int) -> tuple[dict, list]:
+           rate: int) -> tuple[dict, dict, list]:
     result = pick(home, task, skill, tokens_in, tokens_out, rate)
     quote = result["quote"]
-    return quote, quote["eligible_candidates"]
+    return result, quote, quote["eligible_candidates"]
 
 
-def print_pick(quote: dict, eligible: list) -> None:
+def quality_option(calibration, eligible: list):
+    """The eligible worker with the highest posterior mean — the other corner
+    of the cost/quality/time triangle, surfaced so the trade is the owner's
+    to make, not buried under the cost ranking."""
+    means = {}
+    for cal in calibration or []:
+        if cal.get("skills"):
+            post = cal["skills"][0]["posterior"]
+            means[cal["worker_id"]] = post["alpha"] / (post["alpha"]
+                                                       + post["beta"])
+    ranked = sorted((c for c in eligible if c["worker_id"] in means),
+                    key=lambda c: (-means[c["worker_id"]],
+                                   c["cost"]["expected_accepted_cost_micros"]))
+    return (ranked[0] if ranked else None), means
+
+
+def prefer_quality(result: dict, eligible: list) -> list:
+    best, _ = quality_option(result.get("calibration"), eligible)
+    if best and best["worker_id"] != eligible[0]["worker_id"]:
+        print("quality mode: picking the strongest qualified worker")
+        return [best] + [c for c in eligible
+                         if c["worker_id"] != best["worker_id"]]
+    return eligible
+
+
+def print_pick(quote: dict, eligible: list, calibration=None) -> None:
     top = eligible[0]
     print(f"\n→ {top['worker_id'].replace('worker:', '')}   "
           f"${top['cost']['expected_accepted_cost_micros'] / MICROS:.4f} "
@@ -602,6 +627,13 @@ def print_pick(quote: dict, eligible: list) -> None:
                  - top["cost"]["expected_accepted_cost_micros"]) / MICROS
         print(f"  next: {alt['worker_id'].replace('worker:', ''):22} "
               f"+${extra:.4f}")
+    best, means = quality_option(calibration, eligible)
+    if best is not None and best["worker_id"] != top["worker_id"]:
+        extra = (best["cost"]["expected_accepted_cost_micros"]
+                 - top["cost"]["expected_accepted_cost_micros"]) / MICROS
+        print(f"  quality option: {best['worker_id'].replace('worker:', ''):13} "
+              f"+${extra:.4f} · est {means[best['worker_id']]:.2f} vs "
+              f"{means.get(top['worker_id'], 0.0):.2f}  (--quality to use)")
     print(f"  checked {len(eligible) + len(quote['rejected_candidates'])}, "
           f"turned away {len(quote['rejected_candidates'])} · decision recorded")
 
@@ -741,8 +773,8 @@ def run_split(arguments, stdin_text: str) -> int:
         for item in part["checklist"]:
             print(f"   check: {item}")
         tokens_in = 1500 + len(part["summary"]) // 4
-        quote, eligible = choose(home, part["summary"], part["skill"],
-                                 tokens_in, 800, arguments.rate)
+        result, quote, eligible = choose(home, part["summary"], part["skill"],
+                                         tokens_in, 800, arguments.rate)
         if not eligible:
             reasons = sorted({reason["code"]
                               for candidate in quote["rejected_candidates"]
@@ -750,7 +782,9 @@ def run_split(arguments, stdin_text: str) -> int:
             print(f"   nobody qualified: {', '.join(reasons)}")
             outcomes.append((part, None, "unstaffed"))
             continue
-        print_pick(quote, eligible)
+        if arguments.quality:
+            eligible = prefer_quality(result, eligible)
+        print_pick(quote, eligible, result.get("calibration"))
         if not arguments.run:
             outcomes.append((part, eligible[0], "planned"))
             continue
@@ -801,6 +835,10 @@ def main() -> int:
     parser.add_argument("--rate", type=int, default=0,
                         help="advanced: also charge your own time at this "
                              "many dollars per hour (default 0 = cash only)")
+    parser.add_argument("--quality", action="store_true",
+                        help="pick the strongest qualified worker instead of "
+                             "the cheapest (the quality option is always "
+                             "printed either way)")
     parser.add_argument("--run", action="store_true",
                         help="execute via your configured runner and record the outcome")
     parser.add_argument("--check", action="append", metavar="ITEM",
@@ -833,8 +871,8 @@ def main() -> int:
     tokens_in = 1500 + (len(arguments.task) + len(stdin_text)) // 4
     tokens_out = 800
 
-    quote, eligible = choose(arguments.home, arguments.task, skill, tokens_in,
-                             tokens_out, arguments.rate)
+    result, quote, eligible = choose(arguments.home, arguments.task, skill,
+                                     tokens_in, tokens_out, arguments.rate)
 
     guessed = "" if arguments.skill else "  (guessed — --skill to change)"
     print(f"task : {arguments.task}")
@@ -850,7 +888,9 @@ def main() -> int:
         print("advanced: docs/BENCHMARKING.md explains how measurement fixes this")
         return 1
 
-    print_pick(quote, eligible)
+    if arguments.quality:
+        eligible = prefer_quality(result, eligible)
+    print_pick(quote, eligible, result.get("calibration"))
     model = eligible[0]["worker_id"].split(":")[1].split("/")[0]
 
     if not arguments.run:

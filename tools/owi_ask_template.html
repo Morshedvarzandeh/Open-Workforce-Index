@@ -264,15 +264,20 @@
   const short = (id) => id.replace("worker:", "");
   const modelOf = (id) => id.split(":")[1].split("/")[0];
   // Where each roster model can be run in a browser with the task prefilled.
-  // Navigation only — the page never calls a provider itself.
+  // Navigation only — the page never calls a provider itself. The ChatGPT
+  // URLs request the exact model too; the provider's own app may still keep
+  // its selection, which is why the page says to check it. Only the live
+  // page / terminal can guarantee which model runs.
   const LAUNCH = {
     "haiku-4-5":  { name: "Claude",  url: "https://claude.ai/new?q=" },
     "sonnet-4-5": { name: "Claude",  url: "https://claude.ai/new?q=" },
     "opus-4-5":   { name: "Claude",  url: "https://claude.ai/new?q=" },
     "sonnet-5":   { name: "Claude",  url: "https://claude.ai/new?q=" },
     "opus-5":     { name: "Claude",  url: "https://claude.ai/new?q=" },
-    "gpt-5":      { name: "ChatGPT", url: "https://chatgpt.com/?q=" },
-    "gpt-5-mini": { name: "ChatGPT", url: "https://chatgpt.com/?q=" },
+    "gpt-5":      { name: "ChatGPT",
+                    url: "https://chatgpt.com/?model=gpt-5&q=" },
+    "gpt-5-mini": { name: "ChatGPT",
+                    url: "https://chatgpt.com/?model=gpt-5-mini&q=" },
   };
   const esc = (s) => String(s).replace(/[&<>"]/g,
     c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -285,7 +290,14 @@
         '<span class="mode"> · local — runs for real</span>'); }
   }).catch(() => {});
 
-  function render(learnedNote) {
+  // Highest quality bound wins; among equals, cheaper. The counterpart to
+  // the cost ranking — the other corner of the cost/quality/time triangle.
+  const qualityBest = (rows) => rows.length
+    ? [...rows].sort((x, y) => y.bound - x.bound || y.mean - x.mean
+        || x.total - y.total)[0]
+    : null;
+
+  function render(learnedNote, preferId) {
     const text = document.getElementById("q").value.trim();
     if (!text) return;
     // The checklist is given TO the task as acceptance criteria, then the
@@ -315,7 +327,10 @@
         forgive, or measure for real with the terminal.</div>`;
       return;
     }
-    const top = rows[0];
+    const cheapest = rows[0];
+    const top = preferId
+      ? (rows.find(r => r.id === preferId) || cheapest) : cheapest;
+    const best = qualityBest(rows);
     last = { skill, id: top.id };
     box.innerHTML = closeButton + `
       <div class="line">skill: ${skill.replace("skill:", "")}
@@ -323,8 +338,15 @@
       <div class="pick">→ ${short(top.id)}
         <span class="price">${$(top.total)}</span>
         <span class="meta">per accepted result</span></div>
-      ${rows.slice(1, 3).map(r => `<div class="alt">next:
+      ${top.id !== cheapest.id ? `<div class="meta">picked for quality —
+        cheapest qualified is ${short(cheapest.id)}
+        at ${$(cheapest.total)}</div>` : ""}
+      ${rows.filter(r => r.id !== top.id).slice(0, 2).map(r => `<div class="alt">next:
         ${short(r.id)} &nbsp;+${$(r.total - top.total)}</div>`).join("")}
+      ${best && best.id !== top.id ? `<div class="alt">quality option:
+        ${short(best.id)} ${$(best.total)} · confidence
+        ${best.bound.toFixed(2)} vs ${top.bound.toFixed(2)}
+        <button type="button" class="mini" id="preferq">use it</button></div>` : ""}
       <div class="meta">checked ${data().workers.length},
         turned away ${turnedAway}</div>
       ${learnedNote ? `<div class="learned ${learnedNote.cls}">
@@ -344,7 +366,10 @@
           <div class="checkrep" id="checkrep"></div>` : "";
         const handoff = link ? `<div class="meta">tapping run also copies the
           task — if the app opens your previous chat, start a new chat there
-          and paste</div>` : "";
+          and paste. Check the app's model picker shows
+          <b>${esc(modelOf(top.id))}</b>: the link requests it, but the app
+          keeps its own selection and may run a different model. Guaranteed
+          model choice needs the live page (tools/owi-serve).</div>` : "";
         return `<div class="verdict">${link}
           <button type="button" id="copybtn">copy task</button>
           <span class="meta">${after}</span>
@@ -401,6 +426,8 @@
         last = { skill, id: window.__runTarget }; runIt(text, checks); };
     const checkButton = document.getElementById("checkbtn");
     if (checkButton) checkButton.onclick = () => checkPasted(checks);
+    const preferButton = document.getElementById("preferq");
+    if (preferButton) preferButton.onclick = () => render(undefined, best.id);
   }
 
   // The checklist is a system input even without a server: mechanical items
@@ -482,10 +509,14 @@
   function renderParts(parts, checks, learnedNote) {
     const box = document.getElementById("answer");
     box.classList.add("show");
-    const detail = parts.map(p => {
+    window.__partsArgs = { parts, checks };
+    const detail = parts.map((p, i) => {
       const skill = guess(p);
       const { rows } = evaluate(skill, 1500 + Math.floor(p.length / 4), 800);
-      return { text: p, skill, top: rows[0] || null };
+      const cheapest = rows[0] || null;
+      const pref = (window.__qpref || {})[i];
+      const top = pref ? (rows.find(r => r.id === pref) || cheapest) : cheapest;
+      return { text: p, skill, top, cheapest, best: qualityBest(rows) };
     });
     window.__parts = detail;
     const staffed = detail.filter(d => d.top);
@@ -508,9 +539,18 @@
             >run in ${launch.name}</a>` : "";
         const runButton = LIVE ? `<button type="button" class="mini"
             data-run="${i}">run</button>` : "";
+        const quality = d.best && d.best.id !== d.top.id ? `<div class="alt">
+          quality option: ${short(d.best.id)} ${$(d.best.total)} · confidence
+          ${d.best.bound.toFixed(2)} vs ${d.top.bound.toFixed(2)}
+          <button type="button" class="mini" data-qswap="${i}">use it</button>
+          </div>` : "";
+        const preferred = d.cheapest && d.top.id !== d.cheapest.id
+          ? `<div class="meta">picked for quality — cheapest is
+             ${short(d.cheapest.id)} at ${$(d.cheapest.total)}</div>` : "";
         return `<div class="part">${head}
           <div class="pick">→ ${short(d.top.id)}
             <span class="price">${$(d.top.total)}</span></div>
+          ${preferred}${quality}
           <div class="verdict">${runButton}${link}
             <button type="button" class="mini" data-copy="${i}">copy</button>
             <button type="button" class="mini" data-good="${i}">worked</button>
@@ -522,7 +562,7 @@
       <div class="meta">all parts: ${$(total)} ·
         ${distinct} different worker(s)${checks.length
           ? " · your checklist applies to single-part asks; the live page writes one per part"
-          : ""}${LIVE ? "" : " · tapping run also copies that part — if the app opens your previous chat, start a new chat and paste"}</div>
+          : ""}${LIVE ? "" : " · tapping run also copies that part — if the app opens your previous chat, start a new chat and paste · check the app's model picker matches each pick; apps keep their own selection"}</div>
       ${learnedNote ? `<div class="learned ${learnedNote.cls}">
         ${learnedNote.text}</div>` : ""}`;
     wireClose();
@@ -542,6 +582,12 @@
       partVerdict(+b.dataset.bad, false));
     box.querySelectorAll("[data-run]").forEach(b => b.onclick = () =>
       runPart(+b.dataset.run));
+    box.querySelectorAll("[data-qswap]").forEach(b => b.onclick = () => {
+      const i = +b.dataset.qswap;
+      window.__qpref = window.__qpref || {};
+      window.__qpref[i] = window.__parts[i].best.id;
+      renderParts(window.__partsArgs.parts, window.__partsArgs.checks);
+    });
   }
 
   async function partVerdict(i, worked) {
@@ -734,7 +780,7 @@
       document.getElementById("answer").classList.remove("show");
   });
   document.getElementById("form").addEventListener("submit", (e) => {
-    e.preventDefault(); render();
+    e.preventDefault(); window.__qpref = {}; render();
   });
   document.getElementById("reset").addEventListener("click", (e) => {
     e.preventDefault(); localStorage.removeItem(STORE);
