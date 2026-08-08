@@ -33,6 +33,9 @@ accepted?  [y/n]  ──►  verified outcome in the private ledger
 Open the ask page, type a task, press enter.
 
 - picks the cheapest qualified model at real prices
+- give a checklist and it travels with the task; paste the result back and
+  the mechanical items are verified right in the page — the verdict feeds
+  the same learning update, no server involved
 - `worked` / `didn't` applies the engine's own Beta update, stored in that
   browser only — the page says so itself
 - cannot execute: a published page holds no credentials by design
