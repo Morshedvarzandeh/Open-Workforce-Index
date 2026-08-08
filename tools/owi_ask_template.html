@@ -286,8 +286,14 @@
     "gpt-5-mini": { name: "ChatGPT",
                     url: "https://chatgpt.com/?model=gpt-5-mini&q=", reliable: false },
   };
-  const reliableRun = (rows) =>
-    rows.find(r => (LAUNCH[modelOf(r.id)] || {}).reliable) || null;
+  // The bench the page actually stands behind. Without a server, a worker
+  // whose hand-off is unreliable cannot be delivered — so it cannot be the
+  // pick. It stays visible as "cheaper on paper", pointing at the router.
+  const launchBench = (rows) => {
+    if (LIVE) return rows;
+    const ok = rows.filter(r => (LAUNCH[modelOf(r.id)] || {}).reliable);
+    return ok.length ? ok : rows;
+  };
   const esc = (s) => String(s).replace(/[&<>"]/g,
     c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   let last = null;
@@ -336,10 +342,12 @@
         forgive, or measure for real with the terminal.</div>`;
       return;
     }
-    const cheapest = rows[0];
+    const bench = launchBench(rows);
+    const cheapest = bench[0];
     const top = preferId
-      ? (rows.find(r => r.id === preferId) || cheapest) : cheapest;
-    const best = qualityBest(rows);
+      ? (bench.find(r => r.id === preferId) || cheapest) : cheapest;
+    const best = qualityBest(bench);
+    const paper = rows[0].id !== bench[0].id ? rows[0] : null;
     last = { skill, id: top.id };
     box.innerHTML = closeButton + `
       <div class="line">skill: ${skill.replace("skill:", "")}
@@ -350,7 +358,11 @@
       ${top.id !== cheapest.id ? `<div class="meta">picked for quality —
         cheapest qualified is ${short(cheapest.id)}
         at ${$(cheapest.total)}</div>` : ""}
-      ${rows.filter(r => r.id !== top.id).slice(0, 2).map(r => `<div class="alt">next:
+      ${paper ? `<div class="meta">cheaper on paper: ${short(paper.id)}
+        ${$(paper.total)} — its app drops phone hand-offs, so it runs as
+        itself only in the router (this repo in Claude Code, or
+        tools/owi-serve)</div>` : ""}
+      ${bench.filter(r => r.id !== top.id).slice(0, 2).map(r => `<div class="alt">next:
         ${short(r.id)} &nbsp;+${$(r.total - top.total)}</div>`).join("")}
       ${best && best.id !== top.id ? `<div class="alt">quality option:
         ${short(best.id)} ${$(best.total)} · confidence
@@ -362,25 +374,10 @@
         ${learnedNote.text}</div>` : ""}
       ${!LIVE ? (() => {
         const topLaunch = LAUNCH[modelOf(top.id)];
-        const runner = (topLaunch && topLaunch.reliable)
-          ? top : reliableRun(rows);
-        const mkLink = (row, cls, label) => `<a class="golink${cls}"
-            target="_blank" rel="noopener" data-worker="${row.id}"
-            href="${LAUNCH[modelOf(row.id)].url}${encodeURIComponent(askText)}"
-            >${label}</a>`;
-        let links = "", why = "";
-        if (runner && runner.id === top.id) {
-          links = mkLink(top, "", `run in ${LAUNCH[modelOf(top.id)].name}`);
-        } else if (runner) {
-          links = mkLink(runner, "",
-              `run in Claude · ${short(runner.id)} ${$(runner.total)}`)
-            + (topLaunch ? mkLink(top, " alt-link",
-              `${topLaunch.name} anyway`) : "");
-          why = `${topLaunch ? esc(topLaunch.name) + " hand-offs drop the "
-            + "task and run the app's own model on phones, so the run "
-            + "button goes to Claude — a fresh chat with the task carried. "
-            : ""}`;
-        }
+        const links = topLaunch ? `<a class="golink" target="_blank"
+            rel="noopener" data-worker="${top.id}"
+            href="${topLaunch.url}${encodeURIComponent(askText)}"
+            >run in ${topLaunch.name}</a>` : "";
         const after = checks.length ? "run it there, paste the result below"
                                     : "run it there, come back, answer below";
         const pasteback = checks.length ? `
@@ -389,10 +386,10 @@
             <button type="button" id="checkbtn">check the result</button>
             <span id="checkstate" class="meta"></span></div>
           <div class="checkrep" id="checkrep"></div>` : "";
-        const handoff = links ? `<div class="meta">${why}Tapping run also
-          copies the task. Any app still uses its own selected model —
-          exact-model runs: open this repo in Claude Code and say the task,
-          or tools/owi-serve.</div>` : "";
+        const handoff = links ? `<div class="meta">Tapping run also copies
+          the task. The app still uses its own selected model — exact-model
+          runs: open this repo in Claude Code and say the task, or
+          tools/owi-serve.</div>` : "";
         return `<div class="verdict">${links}
           <button type="button" id="copybtn">copy task</button>
           <span class="meta">${after}</span>
@@ -537,11 +534,13 @@
     const detail = parts.map((p, i) => {
       const skill = guess(p);
       const { rows } = evaluate(skill, 1500 + Math.floor(p.length / 4), 800);
-      const cheapest = rows[0] || null;
+      const bench = launchBench(rows);
+      const cheapest = bench[0] || null;
       const pref = (window.__qpref || {})[i];
-      const top = pref ? (rows.find(r => r.id === pref) || cheapest) : cheapest;
-      return { text: p, skill, top, cheapest, best: qualityBest(rows),
-               rel: reliableRun(rows) };
+      const top = pref ? (bench.find(r => r.id === pref) || cheapest) : cheapest;
+      const paper = rows[0] && cheapest && rows[0].id !== cheapest.id
+        ? rows[0] : null;
+      return { text: p, skill, top, cheapest, best: qualityBest(bench), paper };
     });
     window.__parts = detail;
     const staffed = detail.filter(d => d.top);
@@ -558,21 +557,14 @@
         if (!d.top) return `<div class="part">${head}
           <div class="none">nobody qualified</div></div>`;
         const topLaunch = LAUNCH[modelOf(d.top.id)];
-        const runner = (topLaunch && topLaunch.reliable) ? d.top : d.rel;
-        const partLink = (row, cls, label) => `<a class="golink${cls}"
+        const link = (!LIVE && topLaunch) ? `<a class="golink"
             target="_blank" rel="noopener" data-launch="${i}"
-            data-worker="${row.id}"
-            href="${LAUNCH[modelOf(row.id)].url}${encodeURIComponent(d.text)}"
-            >${label}</a>`;
-        let link = "";
-        if (!LIVE && runner && runner.id === d.top.id) {
-          link = partLink(d.top, "", `run in ${topLaunch.name}`);
-        } else if (!LIVE && runner) {
-          link = partLink(runner, "",
-              `run in Claude · ${short(runner.id)} ${$(runner.total)}`)
-            + (topLaunch ? partLink(d.top, " alt-link",
-              `${topLaunch.name} anyway`) : "");
-        }
+            data-worker="${d.top.id}"
+            href="${topLaunch.url}${encodeURIComponent(d.text)}"
+            >run in ${topLaunch.name}</a>` : "";
+        const paperNote = (!LIVE && d.paper) ? `<div class="meta">cheaper on
+          paper: ${short(d.paper.id)} ${$(d.paper.total)} — runs as itself
+          only in the router</div>` : "";
         const runButton = LIVE ? `<button type="button" class="mini"
             data-run="${i}">run</button>` : "";
         const quality = d.best && d.best.id !== d.top.id ? `<div class="alt">
@@ -586,7 +578,7 @@
         return `<div class="part">${head}
           <div class="pick">→ ${short(d.top.id)}
             <span class="price">${$(d.top.total)}</span></div>
-          ${preferred}${quality}
+          ${preferred}${paperNote}${quality}
           <div class="verdict">${runButton}${link}
             <button type="button" class="mini" data-copy="${i}">copy</button>
             <button type="button" class="mini" data-good="${i}">worked</button>
@@ -598,7 +590,7 @@
       <div class="meta">all parts: ${$(total)} ·
         ${distinct} different worker(s)${checks.length
           ? " · your checklist applies to single-part asks; the live page writes one per part"
-          : ""}${LIVE ? "" : " · run buttons prefer Claude's dependable fresh-chat hand-off; tapping also copies the part · exact-model runs: open this repo in Claude Code and say the task"}</div>
+          : ""}${LIVE ? "" : " · tapping run also copies the part · exact-model runs: open this repo in Claude Code and say the task"}</div>
       ${learnedNote ? `<div class="learned ${learnedNote.cls}">
         ${learnedNote.text}</div>` : ""}`;
     wireClose();
