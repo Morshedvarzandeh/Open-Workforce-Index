@@ -103,6 +103,9 @@
   a.golink { display:inline-block; padding:7px 14px; background:var(--accent);
     color:#fff; text-decoration:none; font-weight:700; font-size:13px; }
   :root[data-theme="dark"] a.golink { color:#0F1420; }
+  a.golink.alt-link, :root[data-theme="dark"] a.golink.alt-link {
+    background:var(--panel-sunk); color:var(--ink-2);
+    border:1px solid var(--rule-firm); font-weight:400; }
 
   footer { font-family:var(--sans); font-size:12px; color:var(--ink-3);
     line-height:1.6; border-top:1px solid var(--rule-firm); padding-top:12px; }
@@ -265,21 +268,26 @@
   const short = (id) => id.replace("worker:", "");
   const modelOf = (id) => id.split(":")[1].split("/")[0];
   // Where each roster model can be run in a browser with the task prefilled.
-  // Navigation only — the page never calls a provider itself. The ChatGPT
-  // URLs request the exact model too; the provider's own app may still keep
-  // its selection, which is why the page says to check it. Only the live
-  // page / terminal can guarantee which model runs.
+  // Navigation only — the page never calls a provider itself. `reliable`
+  // marks hand-offs that dependably open a FRESH chat carrying the task
+  // (Claude's /new route). ChatGPT's app has been observed dropping the
+  // task and reopening old chats on phones, so it is never the primary run
+  // path — the same rule the terminal applies: a worker that cannot be
+  // dependably executed is unavailable, not a bargain. No deep link can
+  // force an app's model selection; exact models need the router.
   const LAUNCH = {
-    "haiku-4-5":  { name: "Claude",  url: "https://claude.ai/new?q=" },
-    "sonnet-4-5": { name: "Claude",  url: "https://claude.ai/new?q=" },
-    "opus-4-5":   { name: "Claude",  url: "https://claude.ai/new?q=" },
-    "sonnet-5":   { name: "Claude",  url: "https://claude.ai/new?q=" },
-    "opus-5":     { name: "Claude",  url: "https://claude.ai/new?q=" },
+    "haiku-4-5":  { name: "Claude",  url: "https://claude.ai/new?q=", reliable: true },
+    "sonnet-4-5": { name: "Claude",  url: "https://claude.ai/new?q=", reliable: true },
+    "opus-4-5":   { name: "Claude",  url: "https://claude.ai/new?q=", reliable: true },
+    "sonnet-5":   { name: "Claude",  url: "https://claude.ai/new?q=", reliable: true },
+    "opus-5":     { name: "Claude",  url: "https://claude.ai/new?q=", reliable: true },
     "gpt-5":      { name: "ChatGPT",
-                    url: "https://chatgpt.com/?model=gpt-5&q=" },
+                    url: "https://chatgpt.com/?model=gpt-5&q=", reliable: false },
     "gpt-5-mini": { name: "ChatGPT",
-                    url: "https://chatgpt.com/?model=gpt-5-mini&q=" },
+                    url: "https://chatgpt.com/?model=gpt-5-mini&q=", reliable: false },
   };
+  const reliableRun = (rows) =>
+    rows.find(r => (LAUNCH[modelOf(r.id)] || {}).reliable) || null;
   const esc = (s) => String(s).replace(/[&<>"]/g,
     c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   let last = null;
@@ -353,10 +361,26 @@
       ${learnedNote ? `<div class="learned ${learnedNote.cls}">
         ${learnedNote.text}</div>` : ""}
       ${!LIVE ? (() => {
-        const launch = LAUNCH[modelOf(top.id)];
-        const link = launch ? `<a class="golink" target="_blank" rel="noopener"
-            href="${launch.url}${encodeURIComponent(askText)}">run in
-            ${launch.name}</a>` : "";
+        const topLaunch = LAUNCH[modelOf(top.id)];
+        const runner = (topLaunch && topLaunch.reliable)
+          ? top : reliableRun(rows);
+        const mkLink = (row, cls, label) => `<a class="golink${cls}"
+            target="_blank" rel="noopener" data-worker="${row.id}"
+            href="${LAUNCH[modelOf(row.id)].url}${encodeURIComponent(askText)}"
+            >${label}</a>`;
+        let links = "", why = "";
+        if (runner && runner.id === top.id) {
+          links = mkLink(top, "", `run in ${LAUNCH[modelOf(top.id)].name}`);
+        } else if (runner) {
+          links = mkLink(runner, "",
+              `run in Claude · ${short(runner.id)} ${$(runner.total)}`)
+            + (topLaunch ? mkLink(top, " alt-link",
+              `${topLaunch.name} anyway`) : "");
+          why = `${topLaunch ? esc(topLaunch.name) + " hand-offs drop the "
+            + "task and run the app's own model on phones, so the run "
+            + "button goes to Claude — a fresh chat with the task carried. "
+            : ""}`;
+        }
         const after = checks.length ? "run it there, paste the result below"
                                     : "run it there, come back, answer below";
         const pasteback = checks.length ? `
@@ -365,13 +389,11 @@
             <button type="button" id="checkbtn">check the result</button>
             <span id="checkstate" class="meta"></span></div>
           <div class="checkrep" id="checkrep"></div>` : "";
-        const handoff = link ? `<div class="meta">tapping run also copies the
-          task — if the app opens your previous chat, start a new chat there
-          and paste. Check the app's model picker shows
-          <b>${esc(modelOf(top.id))}</b>: the link requests it, but the app
-          keeps its own selection and may run a different model. Guaranteed
-          model choice needs the live page (tools/owi-serve).</div>` : "";
-        return `<div class="verdict">${link}
+        const handoff = links ? `<div class="meta">${why}Tapping run also
+          copies the task. Any app still uses its own selected model —
+          exact-model runs: open this repo in Claude Code and say the task,
+          or tools/owi-serve.</div>` : "";
+        return `<div class="verdict">${links}
           <button type="button" id="copybtn">copy task</button>
           <span class="meta">${after}</span>
         </div>${handoff}${pasteback}`;
@@ -409,12 +431,13 @@
             copyButton.textContent = "copied"; }
       catch { window.prompt("copy the task:", askText); }
     };
-    // Native provider apps sometimes swallow the ?q= hand-off and reopen the
-    // previous chat. Copy the task in the same tap so nothing is ever lost.
-    const goLink = box.querySelector("a.golink");
-    if (goLink) goLink.addEventListener("click", () => {
-      try { navigator.clipboard.writeText(askText); } catch (error) {}
-    });
+    // Copy the task in the same tap so nothing is ever lost, and point the
+    // verdict at whichever worker's link was actually tapped.
+    box.querySelectorAll("a.golink").forEach(a =>
+      a.addEventListener("click", () => {
+        if (a.dataset.worker) last = { skill, id: a.dataset.worker };
+        try { navigator.clipboard.writeText(askText); } catch (error) {}
+      }));
     document.getElementById("yes").onclick = () => verdict(true);
     document.getElementById("no").onclick = () => {
       document.getElementById("causes").hidden = false;
@@ -517,7 +540,8 @@
       const cheapest = rows[0] || null;
       const pref = (window.__qpref || {})[i];
       const top = pref ? (rows.find(r => r.id === pref) || cheapest) : cheapest;
-      return { text: p, skill, top, cheapest, best: qualityBest(rows) };
+      return { text: p, skill, top, cheapest, best: qualityBest(rows),
+               rel: reliableRun(rows) };
     });
     window.__parts = detail;
     const staffed = detail.filter(d => d.top);
@@ -533,11 +557,22 @@
           “${esc(d.text.slice(0, 90))}”</div>`;
         if (!d.top) return `<div class="part">${head}
           <div class="none">nobody qualified</div></div>`;
-        const launch = LAUNCH[modelOf(d.top.id)];
-        const link = (!LIVE && launch) ? `<a class="golink" target="_blank"
-            rel="noopener" data-launch="${i}"
-            href="${launch.url}${encodeURIComponent(d.text)}"
-            >run in ${launch.name}</a>` : "";
+        const topLaunch = LAUNCH[modelOf(d.top.id)];
+        const runner = (topLaunch && topLaunch.reliable) ? d.top : d.rel;
+        const partLink = (row, cls, label) => `<a class="golink${cls}"
+            target="_blank" rel="noopener" data-launch="${i}"
+            data-worker="${row.id}"
+            href="${LAUNCH[modelOf(row.id)].url}${encodeURIComponent(d.text)}"
+            >${label}</a>`;
+        let link = "";
+        if (!LIVE && runner && runner.id === d.top.id) {
+          link = partLink(d.top, "", `run in ${topLaunch.name}`);
+        } else if (!LIVE && runner) {
+          link = partLink(runner, "",
+              `run in Claude · ${short(runner.id)} ${$(runner.total)}`)
+            + (topLaunch ? partLink(d.top, " alt-link",
+              `${topLaunch.name} anyway`) : "");
+        }
         const runButton = LIVE ? `<button type="button" class="mini"
             data-run="${i}">run</button>` : "";
         const quality = d.best && d.best.id !== d.top.id ? `<div class="alt">
@@ -563,7 +598,7 @@
       <div class="meta">all parts: ${$(total)} ·
         ${distinct} different worker(s)${checks.length
           ? " · your checklist applies to single-part asks; the live page writes one per part"
-          : ""}${LIVE ? "" : " · tapping run also copies that part — if the app opens your previous chat, start a new chat and paste · check the app's model picker matches each pick; apps keep their own selection"}</div>
+          : ""}${LIVE ? "" : " · run buttons prefer Claude's dependable fresh-chat hand-off; tapping also copies the part · exact-model runs: open this repo in Claude Code and say the task"}</div>
       ${learnedNote ? `<div class="learned ${learnedNote.cls}">
         ${learnedNote.text}</div>` : ""}`;
     wireClose();
@@ -575,6 +610,7 @@
     box.querySelectorAll("[data-launch]").forEach(a =>
       a.addEventListener("click", () => {
         const d = window.__parts[+a.dataset.launch];
+        if (a.dataset.worker) d.ran = a.dataset.worker;
         try { navigator.clipboard.writeText(d.text); } catch (error) {}
       }));
     box.querySelectorAll("[data-good]").forEach(b => b.onclick = () =>
@@ -594,7 +630,7 @@
   async function partVerdict(i, worked) {
     const d = window.__parts[i];
     if (!d.top) return;
-    const who = { skill: d.skill, id: d.top.id };
+    const who = { skill: d.skill, id: d.ran || d.top.id };
     const state = document.getElementById("pstate-" + i);
     if (LIVE) {
       await postOutcome(worked, worked ? null : "worker", "", d.text, [], who, "");
