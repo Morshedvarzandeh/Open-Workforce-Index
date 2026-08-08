@@ -33,6 +33,11 @@ accepted?  [y/n]  ──►  verified outcome in the private ledger
 Open the ask page, type a task, press enter.
 
 - picks the cheapest qualified model at real prices
+- a task that says "do X, then Y" is cut into parts right in the page
+  (sequence markers, newlines, numbered steps — mechanical and visible);
+  each part is classified and staffed on its own bench with its own launch
+  button and verdict, so a code part and a CAD part land on different
+  workers instead of one model getting everything
 - give a checklist and it travels with the task; paste the result back and
   the mechanical items are verified right in the page — the verdict feeds
   the same learning update, no server involved
