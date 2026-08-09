@@ -54,6 +54,12 @@ jobs:
       - name: Page math matches the engine
         run: python3 tools/check_page_math.py
 
+      - name: Bright office GUI contract
+        run: python3 tools/check_office_gui.py
+
+      - name: Local office launcher and execution gate
+        run: python3 tools/check_serve_launcher.py
+
       - name: Closed-loop vertical slice
         run: |
           INDEX="${RUNNER_TEMP}/loop-index.sqlite"

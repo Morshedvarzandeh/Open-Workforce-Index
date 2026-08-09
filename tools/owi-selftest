@@ -93,8 +93,27 @@ def run(no_cargo: bool) -> int:
             except urllib.error.HTTPError as error:
                 return error.code
 
+        def post_status(url: str, headers: dict) -> int:
+            request = urllib.request.Request(
+                url, data=b"{}", headers=headers, method="POST")
+            try:
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    return response.status
+            except urllib.error.HTTPError as error:
+                return error.code
+
+        with tempfile.TemporaryDirectory() as scratch:
+            missing = Path(scratch) / "empty-workspace"
+            empty = owi_serve.load_workspace(missing)
+            suite.check(
+                "empty server workspace stays honestly unconfigured",
+                empty["configured"] is gate["empty_workspace_configured"]
+                and len(empty["workers"]) == gate["empty_workspace_workers"]
+                and not missing.exists(),
+                "default launcher must not create or seed a roster")
+
         owi_serve.Handler.token = "frozen-suite-token"
-        owi_serve.Handler.data = {}
+        owi_serve.Handler.data = owi_serve.setup_payload(Path("frozen-empty"))
         server = ThreadingHTTPServer(("127.0.0.1", 0), owi_serve.Handler)
         threading.Thread(target=server.serve_forever, daemon=True).start()
         base = f"http://127.0.0.1:{server.server_address[1]}"
@@ -106,9 +125,28 @@ def run(no_cargo: bool) -> int:
                            {"X-OWI-Token": "frozen-suite-token"}) == 200)
         suite.check("the token as a query admits",
                     status(f"{base}/api/data?token=frozen-suite-token") == 200)
+        suite.check("localhost also requires the token",
+                    status(f"{base}/api/data") == want
+                    if gate.get("localhost_requires_token") else True)
+        auth = {"X-OWI-Token": "frozen-suite-token"}
+        suite.check("non-JSON writes are rejected",
+                    post_status(f"{base}/api/run",
+                                {**auth, "Content-Type": "text/plain"})
+                    == gate["non_json_post_status"])
+        suite.check("cross-origin writes are rejected",
+                    post_status(f"{base}/api/run", {
+                        **auth, "Content-Type": "application/json",
+                        "Origin": "https://attacker.example",
+                        "Sec-Fetch-Site": "cross-site",
+                    }) == gate["cross_origin_post_status"])
+        suite.check("same-origin JSON reaches the unconfigured guard",
+                    post_status(f"{base}/api/run", {
+                        **auth, "Content-Type": "application/json",
+                        "Origin": base, "Sec-Fetch-Site": "same-origin",
+                    }) == gate["unconfigured_run_status"])
         owi_serve.Handler.token = None
-        suite.check("localhost mode stays gate-free",
-                    status(f"{base}/api/data") == 200)
+        suite.check("a missing server token fails closed",
+                    status(f"{base}/api/data") == want)
         server.shutdown()
 
     qc = frozen.get("qc_expectations")

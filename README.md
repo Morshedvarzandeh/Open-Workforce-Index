@@ -43,11 +43,38 @@ pick. Reject a worker often enough and it stops being chosen. That is the
 entire idea, in one command.
 
 Prefer a page over a terminal? One more command serves the same experience at
-a local link, with a run button and learning recorded to the real ledger:
+a real local application and opens it in your browser. The default is a bright
+graphical office with three simple
+views: **Office** shows the exact roster, **Work** recommends and runs the
+right-sized worker, and **Results** shows recorded feedback without inventing
+cash, savings, CO₂, or water values. Learning is recorded to the real ledger:
 
 ```bash
-tools/owi-serve        # open http://127.0.0.1:7787
+tools/owi-serve
 ```
+
+Unlike `owi-do`, the application does **not** silently create the demo roster.
+With no configured index it opens an honest setup screen containing no models,
+abilities, recommendations, or costs. Point it at an existing OWI workspace,
+or request the labelled sample explicitly:
+
+```bash
+tools/owi-serve --home PATH_TO_EXISTING_OWI_WORKSPACE
+tools/owi-serve --demo
+```
+
+Every bind, including localhost, uses a per-process access token. The launcher
+opens the tokenized URL and exchanges it for an HTTP-only cookie; non-JSON and
+cross-origin write requests are rejected. Use `--no-open` only when running
+headless—the terminal prints the one-time URL.
+
+The reusable game-art pack lives in
+[`ui/assets/office/v1`](ui/assets/office/v1/README.md). Backgrounds and
+characters are separate, versioned assets with runtime WebP renditions, PNG
+masters, source prompts, checksums, placement metadata, and a strict release
+gate. The initial generated artwork remains marked `pending` until a
+maintainer completes its rights review; development validation never silently
+turns that into an Apache-2.0 approval.
 
 The complete workflow, every level from this link to real measurement, is
 written in [docs/WORKFLOW.md](docs/WORKFLOW.md).
