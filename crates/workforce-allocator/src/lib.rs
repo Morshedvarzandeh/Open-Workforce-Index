@@ -1098,7 +1098,7 @@ mod tests {
                 latency_ms: 28_000,
                 observed_at: "2026-08-07T01:00:00Z".to_owned(),
                 repository_scope: None,
-                metadata: serde_json::Value::Null,
+                metadata: serde_json::json!({ "root_cause": "worker" }),
             },
             None,
         )
@@ -1517,9 +1517,10 @@ mod tests {
             let mut record = failure(&format!("outcome:rc-{index}"), "worker:cheap");
             // No quote was recorded in this test; an unlinked outcome is valid.
             record.decision_id = None;
-            if let Some(cause) = cause {
-                record.event.metadata = serde_json::json!({ "root_cause": cause });
-            }
+            record.event.metadata = cause.map_or(
+                serde_json::Value::Null,
+                |cause| serde_json::json!({ "root_cause": cause }),
+            );
             private.append_outcome(&record).expect("append outcome");
         }
 
