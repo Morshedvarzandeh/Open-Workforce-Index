@@ -206,7 +206,7 @@ def pick(home: Path, task: str, skill: str, tokens_in: int, tokens_out: int,
     request = {
         "decision_id": f"decision:do-{time.time_ns()}",
         "snapshot_id": "snapshot:manager-scenario-v1",
-        "at_epoch_ms": 1_785_500_000_000,
+        "at_epoch_ms": 1_786_400_000_000,
         "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "task": {
             "id": f"task:do-{time.time_ns()}",
