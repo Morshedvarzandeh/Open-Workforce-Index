@@ -20,8 +20,8 @@
   ],
   "adapter_version": "litellm-prices@1",
   "source_url": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json",
-  "retrieved_at": "2026-08-07T22:58:00Z",
-  "retrieved_at_epoch_ms": 1785106680000,
+  "retrieved_at": "2026-08-09T13:30:00Z",
+  "retrieved_at_epoch_ms": 1785245400000,
   "currency": "USD",
   "required_mode": "chat",
   "include_providers": [
@@ -30,7 +30,8 @@
     "gemini",
     "deepseek",
     "mistral",
-    "xai"
+    "xai",
+    "ollama"
   ],
   "include_models": [
     "claude-opus-5",
@@ -44,6 +45,10 @@
     "gemini/gemini-2.5-flash",
     "deepseek/deepseek-chat",
     "mistral/mistral-large-latest",
-    "xai/grok-4"
+    "xai/grok-4",
+    "gpt-5-nano",
+    "gemini/gemini-2.5-flash-lite",
+    "deepseek/deepseek-reasoner",
+    "ollama/llama3.1"
   ]
 }

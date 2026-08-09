@@ -73,6 +73,7 @@ def harvest() -> dict:
                 "id": w["id"],
                 "skills": w["supported_skill_ids"],
                 "tools": w["tools"],
+                "clearance": w.get("privacy_clearance", "private_metadata"),
                 "inRate": rate[0], "outRate": rate[1],
             })
 
@@ -81,7 +82,7 @@ def harvest() -> dict:
             request = {
                 "decision_id": f"decision:ask-harvest-{position}",
                 "snapshot_id": "snapshot:manager-scenario-v1",
-                "at_epoch_ms": 1_785_110_400_000,
+                "at_epoch_ms": 1_785_500_000_000,
                 "created_at": "2026-08-07T18:00:00Z",
                 "task": {"id": f"task:ask-harvest-{position}",
                          "summary": f"harvest posteriors for {skill}",
