@@ -139,7 +139,11 @@
     Prices are real (published, content-hashed import). Abilities are assumed
     starting points; your <b>worked / didn't</b> answers reshape them with the
     same Beta update the engine uses — stored only in this browser
-    (<a href="#" id="reset">reset</a>). "Run in Claude/ChatGPT" opens the
+    (<a href="#" id="reset">reset</a>). This page ranks on <b>public evidence
+    only</b>: it runs the engine's exact arithmetic — same gates, same quality
+    floor, same micros, checked against it on every build — but it carries no
+    private ledger, so a terminal that has lived through real work knows more
+    and may rank differently. That gap is the privacy boundary, not a bug. "Run in Claude/ChatGPT" opens the
     picked model's own chat with your task prefilled — your account, your
     keys; this page never calls a provider. For real runs with nothing to
     install, open this repo in Claude Code and say the task; on your own
@@ -175,6 +179,15 @@
   const STORE = "owi-ask-v1";
   const local = () => JSON.parse(localStorage.getItem(STORE) || "{}");
   const save = (d) => localStorage.setItem(STORE, JSON.stringify(d));
+
+  // >>> decision-math >>>
+  // Everything between these markers is a second implementation of the
+  // engine's decision rule, running in a browser with no server. It is not
+  // trusted on its word: tools/check_page_math.py slices this block out of
+  // the built page, runs it in plain node, and asserts it returns the exact
+  // same eligible set, order, and micros as the Rust allocator on a pristine
+  // ledger — every skill, every row. Keep this block free of DOM and storage
+  // access so it stays extractable; glue belongs below the closing marker.
 
   // Exact Beta lower bound — the same regularized-incomplete-beta quantile the
   // engine gates on, not a normal approximation.
@@ -261,9 +274,6 @@
   const cleared = (worker, required) =>
     PRIVACY_ORDER.indexOf(worker.clearance || "private_metadata")
       >= PRIVACY_ORDER.indexOf(required);
-  const requiredPrivacy = () =>
-    document.getElementById("confid").checked
-      ? "confidential_content" : "private_metadata";
 
   function evaluate(skill, tokensIn, tokensOut, required) {
     required = required || "private_metadata";
@@ -288,6 +298,11 @@
       || x.id.localeCompare(y.id));
     return { rows, turnedAway };
   }
+  // <<< decision-math <<<
+
+  const requiredPrivacy = () =>
+    document.getElementById("confid").checked
+      ? "confidential_content" : "private_metadata";
 
   const $ = (m) => "$" + (m / 1e6).toFixed(4);
   const short = (id) => id.replace("worker:", "");

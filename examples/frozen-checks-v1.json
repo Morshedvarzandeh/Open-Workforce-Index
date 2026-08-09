@@ -380,5 +380,34 @@
   "skill_coverage_expectations": {
     "_why": "comprehensiveness: every skill in the taxonomy must have at least one seeded worker \u2014 a skill nobody can be staffed for is a promise the index cannot keep. Grown from the role rosters people hand-build in agent workspaces (planner, architect, debugger, designer).",
     "every_skill_staffed": true
+  },
+  "page_math_expectations": {
+    "_why": [
+      "The ask page is a static file with no server, so it carries a second",
+      "implementation of the decision rule in JavaScript. Two copies of a",
+      "money path drift silently unless something holds them together.",
+      "tools/check_page_math.py runs the block in node and asserts it",
+      "returns the engine's exact eligible set, order, and micros on a",
+      "pristine ledger; this frozen entry keeps the block extractable so",
+      "that check can never be quietly disabled by refactoring the page.",
+      "The page ranks on public evidence only \u2014 a terminal with lived",
+      "outcomes ranks differently on purpose, and that is the privacy",
+      "boundary, not drift."
+    ],
+    "start_marker": "// >>> decision-math >>>",
+    "end_marker": "// <<< decision-math <<<",
+    "forbidden_in_block": [
+      "document.",
+      "localStorage",
+      "window."
+    ],
+    "required_functions": [
+      "lcb",
+      "betaCdf",
+      "evaluate",
+      "posterior",
+      "cleared",
+      "guess"
+    ]
   }
 }

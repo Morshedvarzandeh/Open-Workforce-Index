@@ -330,6 +330,30 @@ The file is *evolutionary*: when a lived failure teaches a lesson, it is
 frozen in as a new fixture with its provenance, and the version bumps. Old
 lessons are superseded, never silently edited away.
 
+## Two implementations, one rule
+
+The ask page is a static file with no server, so it necessarily carries its
+own copy of the decision rule in JavaScript — the exact Beta lower bound, the
+capability, tool and clearance gates, and the expected-accepted-cost
+arithmetic. Two implementations of a money path drift silently unless
+something holds them together.
+
+`tools/check_page_math.py` is that something, and it runs in CI. It slices
+the marked `decision-math` block out of the built page, runs it in plain node
+— no browser, no DOM, no storage — and asserts that for every skill it
+returns the same eligible workers, in the same order, at the same micros as
+the Rust allocator on a pristine ledger. The keyword classifier is held to
+the same standard: the page and `owi-do` must route identical wording to
+identical skills. The frozen suite adds a structural guard so the block
+cannot quietly stop being extractable.
+
+One divergence is expected and is *not* drift: **the page ranks on public
+evidence only.** A published file must not carry your private ledger, so the
+page never sees the outcomes your terminal has lived through. Ask both after
+a few weeks of real work and the terminal will rank differently — it knows
+more. Pristine is therefore the baseline the page is checked against, and
+the page says so in its own footer.
+
 ## What lives where
 
 | file | what it is |

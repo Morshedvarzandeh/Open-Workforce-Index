@@ -46,6 +46,10 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 MICROS = 1_000_000
+# The instant decisions are dated at. Offerings carry effective-from dates, so
+# this must sit after the newest price revision or its workers look
+# unavailable; it is pinned rather than "now" so a decision stays reproducible.
+AT_EPOCH_MS = 1_786_400_000_000
 
 # Plain-words → skill. A visible keyword heuristic, not a model: the guess is
 # printed and --skill overrides it.
@@ -206,7 +210,7 @@ def pick(home: Path, task: str, skill: str, tokens_in: int, tokens_out: int,
     request = {
         "decision_id": f"decision:do-{time.time_ns()}",
         "snapshot_id": "snapshot:manager-scenario-v1",
-        "at_epoch_ms": 1_786_400_000_000,
+        "at_epoch_ms": AT_EPOCH_MS,
         "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "task": {
             "id": f"task:do-{time.time_ns()}",
