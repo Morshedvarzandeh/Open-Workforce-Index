@@ -51,6 +51,9 @@ jobs:
       - name: Frozen high-level suite
         run: python3 tools/owi-selftest
 
+      - name: Page math matches the engine
+        run: python3 tools/check_page_math.py
+
       - name: Closed-loop vertical slice
         run: |
           INDEX="${RUNNER_TEMP}/loop-index.sqlite"

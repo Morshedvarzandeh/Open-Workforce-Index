@@ -263,6 +263,27 @@ def run(no_cargo: bool) -> int:
                     offered <= set(offerings),
                     f"unpriced: {sorted(offered - set(offerings))[:3]}")
 
+        page_rules = frozen.get("page_math_expectations")
+        if page_rules:
+            print("\npage math (the browser's copy stays verifiable)")
+            template = (REPO / "tools/owi_ask_template.html").read_text()
+            start, end = page_rules["start_marker"], page_rules["end_marker"]
+            marked = start in template and end in template
+            suite.check("the decision-math block is still marked", marked,
+                        "the page's copy of the rule can no longer be sliced "
+                        "out and checked against the engine")
+            if marked:
+                block = template.split(start, 1)[1].split(end, 1)[0]
+                impure = [name for name in page_rules["forbidden_in_block"]
+                          if name in block]
+                suite.check("the block is pure enough to run outside a "
+                            "browser", not impure, f"reaches for: {impure}")
+                missing = [name for name in page_rules["required_functions"]
+                           if f"function {name}" not in block
+                           and f"const {name}" not in block]
+                suite.check("the block still defines the whole rule",
+                            not missing, f"missing: {missing}")
+
         blame = frozen.get("blame_expectations")
         if blame:
             print("\nblame rule (empty output is plumbing, not the worker)")
