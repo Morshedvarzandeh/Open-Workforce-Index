@@ -15,7 +15,7 @@
   "version": "frozen-checks-v1",
   "frozen_at": "2026-08-07T23:30:00Z",
   "price_expectations": {
-    "minimum_offerings": 12,
+    "minimum_offerings": 16,
     "exact_micros": {
       "offering:anthropic/claude-sonnet-5": [
         2000000,
@@ -36,18 +36,27 @@
       "offering:deepseek/deepseek-chat": [
         280000,
         420000
+      ],
+      "offering:openai/gpt-5-nano": [
+        50000,
+        400000
+      ],
+      "offering:ollama/llama3.1": [
+        0,
+        0
       ]
     }
   },
   "roster_expectations": {
-    "minimum_workers": 25,
-    "minimum_evidence": 24,
+    "minimum_workers": 30,
+    "minimum_evidence": 29,
     "required_workers": [
       "worker:haiku-4-5/text",
       "worker:sonnet-5/code",
       "worker:opus-5/cad",
       "worker:gpt-5-mini/extract",
-      "worker:openhands-sonnet-5/code"
+      "worker:openhands-sonnet-5/code",
+      "worker:local-llama/text"
     ]
   },
   "check_engine_fixtures": [
@@ -336,6 +345,12 @@
           "skill": "skill:text-editing",
           "cause": "task_spec",
           "detail": "task never named the audience"
+        },
+        {
+          "skill": "skill:text-editing",
+          "cause": "worker",
+          "detail": "confidential leak that must never ride along",
+          "confidential": true
         }
       ],
       "skill": "skill:text-editing",
@@ -343,7 +358,13 @@
         "asked questions instead of drafting",
         "task never named the audience"
       ],
-      "provenance": "environment/harness failures must never become prevention notes; no note to a model fixes broken plumbing"
+      "provenance": "environment/harness failures must never become prevention notes; no note to a model fixes broken plumbing; confidential entries are excluded even when their cause is the worker's"
     }
-  ]
+  ],
+  "privacy_expectations": {
+    "_why": "confidentiality is a gate, not a preference: a task above a worker's clearance must turn that worker away whatever it costs, and the local zero-price worker is the one cleared for confidential content. Prevention memory must never carry confidential task text into future prompts.",
+    "confidential_task_privacy": "confidential_content",
+    "cloud_clearance": "private_metadata",
+    "cleared_worker": "worker:local-llama/text"
+  }
 }

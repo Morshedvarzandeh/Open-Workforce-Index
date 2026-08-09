@@ -212,6 +212,23 @@ part by part, so a text part can go to the cheap writer while the extraction
 part goes to whoever the evidence favours. The summary table at the end
 names who actually ran each part, its price, and the checked verdict.
 
+## Confidentiality: a gate, not a preference
+
+Every task carries a privacy level (`--privacy public|metadata|confidential|
+secret`, the checkbox on the ask page) and every worker a clearance. A task
+above a worker's clearance turns that worker away whatever it costs — the
+same lexicographic rule as capability and tools. Cloud workers carry
+`private_metadata`; only workers running on your own machine are cleared for
+confidential content — the roster's `local-llama` (ollama, $0.00/Mtok) is
+the first. Flip the gate and the pick moves from the cheap cloud worker to
+the cleared local one; where no cleared worker exists for a skill, the
+answer is "nobody cleared", never a quiet downgrade.
+
+Confidential work also leaves only a redacted trace: the prevention memory
+keeps the statistics (worker, skill, cause) but no task text, no failure
+detail, no checklist items — nothing that could ride into a future prompt
+sent to a less-cleared worker.
+
 ## Iteration: rejected work gets redone, within bounds
 
 A failed checklist is not the end of the task — it is the start of the next

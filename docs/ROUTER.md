@@ -66,6 +66,14 @@ Requests without the token are refused (401) — the gate is part of the
 frozen suite. Plain HTTP: keep it to networks you trust; never port-forward
 it to the open internet.
 
+## The confidential worker: a model on your own machine
+
+Install [ollama](https://ollama.com) and pull `llama3.1`; the runner
+prefills automatically. `worker:local-llama` is priced $0.00/Mtok and is
+the only worker cleared for confidential content — `--privacy confidential`
+staffs it and nothing else, and confidential failures are redacted in the
+prevention memory. Nothing leaves your machine.
+
 ## Hiring an external platform (OpenHands, or any agent server)
 
 A worker is a command; a platform that runs agents is therefore a hire away.

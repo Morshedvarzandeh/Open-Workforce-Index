@@ -126,6 +126,9 @@
       (optional; the live page writes one for you if empty)</label>
     <textarea id="checks" rows="3" autocapitalize="off" autocorrect="off"
       spellcheck="false" placeholder="contains:thermal · min-words:60 · anything else is judged by a different model (live page)"></textarea>
+    <label><input type="checkbox" id="confid"> confidential — only workers
+      cleared for confidential content; your text never leaves this browser
+      until you paste it somewhere yourself</label>
   </div>
 
   <div class="answer" id="answer"></div>
@@ -242,13 +245,26 @@
     return { a: base.a + mine.s, b: base.b + mine.f };
   }
 
-  function evaluate(skill, tokensIn, tokensOut) {
+  // Confidentiality is a gate: a worker whose clearance sits below the
+  // task's level is out, whatever it costs — same ladder the engine uses.
+  const PRIVACY_ORDER = ["public", "private_metadata",
+                         "confidential_content", "secret"];
+  const cleared = (worker, required) =>
+    PRIVACY_ORDER.indexOf(worker.clearance || "private_metadata")
+      >= PRIVACY_ORDER.indexOf(required);
+  const requiredPrivacy = () =>
+    document.getElementById("confid").checked
+      ? "confidential_content" : "private_metadata";
+
+  function evaluate(skill, tokensIn, tokensOut, required) {
+    required = required || "private_metadata";
     const need = data().skillTools[skill] || [];
     const rows = [];
     let turnedAway = 0;
     for (const w of data().workers) {
       const qualified = w.skills.includes(skill)
-        && need.every(t => w.tools.includes(t));
+        && need.every(t => w.tools.includes(t))
+        && cleared(w, required);
       if (!qualified) { turnedAway++; continue; }
       const p = posterior(skill, w.id);
       const bound = lcb(p.a, p.b);
@@ -330,8 +346,10 @@
     const parts = splitTask(text);
     if (parts.length > 1) { renderParts(parts, checks, learnedNote); return; }
     const skill = guess(text);
+    const privacy = requiredPrivacy();
+    window.__privacy = privacy;
     const tokensIn = 1500 + Math.floor(text.length / 4);
-    const { rows, turnedAway } = evaluate(skill, tokensIn, 800);
+    const { rows, turnedAway } = evaluate(skill, tokensIn, 800, privacy);
     const box = document.getElementById("answer");
     box.classList.add("show");
 
@@ -339,12 +357,19 @@
       aria-label="close">✕</button>`;
     if (!rows.length) {
       last = null;
+      const why = privacy === "confidential_content"
+        ? `<div class="none">no worker on this roster is cleared for
+           confidential content in this skill.</div>
+           <div class="meta">confidential work belongs to workers on your own
+           machine — the roster's local-llama (via ollama) is cleared; see
+           docs/ROUTER.md. Cloud workers carry metadata clearance only.</div>`
+        : `<div class="none">nobody qualified — every capable worker has
+           fallen below the quality floor.</div>
+           <div class="meta">that is your own feedback speaking; reset below
+           to forgive, or measure for real with the terminal.</div>`;
       box.innerHTML = closeButton + `<div class="line">skill:
-        ${skill.replace("skill:", "")}</div>
-        <div class="none">nobody qualified — every capable worker has fallen
-        below the quality floor.</div>
-        <div class="meta">that is your own feedback speaking; reset below to
-        forgive, or measure for real with the terminal.</div>`;
+        ${skill.replace("skill:", "")}</div>` + why;
+      wireClose();
       return;
     }
     const bench = launchBench(rows);
@@ -541,9 +566,12 @@
     const box = document.getElementById("answer");
     box.classList.add("show");
     window.__partsArgs = { parts, checks };
+    const privacy = requiredPrivacy();
+    window.__privacy = privacy;
     const detail = parts.map((p, i) => {
       const skill = guess(p);
-      const { rows } = evaluate(skill, 1500 + Math.floor(p.length / 4), 800);
+      const { rows } = evaluate(skill, 1500 + Math.floor(p.length / 4), 800,
+                                privacy);
       const bench = launchBench(rows);
       const cheapest = bench[0] || null;
       const pref = (window.__qpref || {})[i];
@@ -650,7 +678,8 @@
     const out = document.getElementById("pout-" + i);
     let model = modelOf(who.id);
     if (!(data().runnable || []).includes(model)) {
-      const { rows } = evaluate(d.skill, 1500 + Math.floor(d.text.length / 4), 800);
+      const { rows } = evaluate(d.skill, 1500 + Math.floor(d.text.length / 4),
+                                800, window.__privacy);
       const alt = rows.find(r => (data().runnable || []).includes(modelOf(r.id)));
       if (!alt) { state.textContent = "no runner configured"; return; }
       who.id = alt.id; model = modelOf(alt.id);
@@ -755,6 +784,7 @@
         body: JSON.stringify({ worker: who.id, skill: who.skill,
           accepted: worked, cause, detail: detail || "", task: task || "",
           checklist: checklist || [],
+          privacy: window.__privacy || "private_metadata",
           inspection: inspection !== undefined ? inspection
                       : (window.__inspection || "") }) });
       const result = await response.json();

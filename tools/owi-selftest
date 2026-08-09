@@ -181,6 +181,25 @@ def run(no_cargo: bool) -> int:
                         code == 0 and Path(stdout.strip()) == home,
                         f"got {stdout.strip()!r}")
 
+    privacy_rules = frozen.get("privacy_expectations")
+    if privacy_rules:
+        print("\nconfidentiality (redaction and the memory)")
+        with tempfile.TemporaryDirectory() as scratch:
+            home = Path(scratch)
+            owi_do.log_root_cause(
+                home, "the secret battery recipe", "worker:x/text",
+                "skill:text-editing", "worker", "leaked detail",
+                privacy=privacy_rules["confidential_task_privacy"])
+            raw = (home / "root-causes.jsonl").read_text()
+            entry = json.loads(raw)
+            suite.check("confidential failures are redacted in the memory",
+                        entry["task"] == "[redacted]" and not entry["detail"]
+                        and entry.get("confidential") is True
+                        and "secret battery" not in raw, raw[:120])
+            notes = owi_do.prevention_notes(home, "skill:text-editing")
+            suite.check("confidential entries never become prevention notes",
+                        notes == [], f"got {notes!r}")
+
     print("\nprevention filter")
     for fixture in frozen["prevention_fixtures"]:
         with tempfile.TemporaryDirectory() as scratch:
@@ -285,6 +304,17 @@ def run(no_cargo: bool) -> int:
                 top = eligible[0]["worker_id"]
                 suite.check("the pick is a text worker",
                             top.endswith("/text"), f"got {top}")
+            if privacy_rules:
+                confidential = owi_do.pick(
+                    home, "frozen confidential probe", "skill:text-editing",
+                    2000, 800, 0,
+                    privacy_rules["confidential_task_privacy"])
+                staffed = {c["worker_id"] for c in
+                           confidential["quote"]["eligible_candidates"]}
+                suite.check(
+                    "a confidential task staffs only cleared workers",
+                    staffed == {privacy_rules["cleared_worker"]},
+                    f"got {sorted(staffed)}")
 
     total = suite.passed + len(suite.failed)
     print(f"\n{frozen['version']}: {suite.passed}/{total} passed")

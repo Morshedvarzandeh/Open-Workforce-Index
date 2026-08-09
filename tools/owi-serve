@@ -57,6 +57,7 @@ def harvest(home: Path) -> dict:
              for o in prices["offerings"]}
     workers = [{"id": w["id"], "skills": w["supported_skill_ids"],
                 "tools": w["tools"],
+                "clearance": w.get("privacy_clearance", "private_metadata"),
                 "inRate": rates[w["offering_id"]][0],
                 "outRate": rates[w["offering_id"]][1]}
                for w in seed["worker_profiles"] if w["offering_id"] in rates]
@@ -66,7 +67,7 @@ def harvest(home: Path) -> dict:
         request = {
             "decision_id": f"decision:serve-{position}-{int(time.time())}",
             "snapshot_id": "snapshot:manager-scenario-v1",
-            "at_epoch_ms": 1_785_110_400_000,
+            "at_epoch_ms": 1_785_500_000_000,
             "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "task": {"id": f"task:serve-harvest-{position}",
                      "summary": f"harvest posteriors for {skill}",
@@ -253,7 +254,12 @@ class Handler(BaseHTTPRequestHandler):
                                   task=str(body.get("task", ""))[:200],
                                   detail=str(body.get("detail", ""))[:500],
                                   checklist=checklist,
-                                  inspection=str(body.get("inspection", ""))[:20])
+                                  inspection=str(body.get("inspection", ""))[:20],
+                                  privacy=body.get("privacy")
+                                  if body.get("privacy") in
+                                  ("public", "private_metadata",
+                                   "confidential_content", "secret")
+                                  else "private_metadata")
             with self.lock:
                 Handler.data = harvest(self.home)
                 self._json(200, {"ok": True, "data": self.data})

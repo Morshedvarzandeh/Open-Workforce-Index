@@ -86,6 +86,14 @@ CLAUDE_MODELS = {
     "opus-5": "claude-opus-5",
 }
 OPENAI_MODELS = {"gpt-5": "gpt-5", "gpt-5-mini": "gpt-5-mini"}
+OLLAMA_MODELS = {"local-llama": "llama3.1"}
+
+# Confidentiality is a GATE, not a preference: a task above a worker's
+# clearance turns that worker away whatever it costs. Cloud workers carry
+# private_metadata; only workers running on your own machine (ollama) are
+# cleared for confidential content. Plain words -> the domain's ladder.
+PRIVACY = {"public": "public", "metadata": "private_metadata",
+           "confidential": "confidential_content", "secret": "secret"}
 
 # Two ladders, opposite directions — that is the management structure.
 # JUDGE_ORDER is cheapest first: grading against a written checklist is easy
@@ -112,6 +120,8 @@ def builtin_runner(model: str) -> str | None:
         return f"claude --model {CLAUDE_MODELS[model]} -p"
     if model in OPENAI_MODELS and shutil.which("llm"):
         return f"llm -m {OPENAI_MODELS[model]}"
+    if model in OLLAMA_MODELS and shutil.which("ollama"):
+        return f"ollama run {OLLAMA_MODELS[model]}"
     return None
 
 
@@ -152,7 +162,8 @@ def bootstrap(home: Path) -> None:
         # Prefill anything runnable out of the box, visibly.
         prefilled = {m: (builtin_runner(m) or "")
                      for m in ["gpt-5-mini", "haiku-4-5", "gpt-5",
-                               "sonnet-5", "sonnet-4-5", "opus-5", "opus-4-5"]}
+                               "sonnet-5", "sonnet-4-5", "opus-5", "opus-4-5",
+                               "local-llama"]}
         runners.write_text(json.dumps({
             "_comment": [
                 "model -> the command that runs it. The task text arrives on",
@@ -176,20 +187,20 @@ def classify(task: str) -> str:
 
 
 def pick(home: Path, task: str, skill: str, tokens_in: int, tokens_out: int,
-         rate: int) -> dict:
+         rate: int, privacy: str = "private_metadata") -> dict:
     request = {
-        "decision_id": f"decision:do-{int(time.time())}",
+        "decision_id": f"decision:do-{time.time_ns()}",
         "snapshot_id": "snapshot:manager-scenario-v1",
-        "at_epoch_ms": 1_785_110_400_000,
+        "at_epoch_ms": 1_785_500_000_000,
         "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "task": {
-            "id": f"task:do-{int(time.time())}",
+            "id": f"task:do-{time.time_ns()}",
             "summary": task[:200],
             "required_skills": [{"skill_id": skill,
                                  "minimum_success_probability": 0.24,
                                  "minimum_evidence_count": 0}],
             "required_tools": SKILLS[skill]["tools"],
-            "privacy": "private_metadata", "risk": "low",
+            "privacy": privacy, "risk": "low",
             "verification": "deterministic",
             "minimum_success_probability": 0.24,
             "minimum_evidence_count": 0,
@@ -222,12 +233,21 @@ def pick(home: Path, task: str, skill: str, tokens_in: int, tokens_out: int,
 # notes for the same skill ride along with the next task as prevention.
 
 def log_root_cause(home: Path, task: str, worker: str, skill: str,
-                   cause: str, detail: str,
-                   checklist: list | None = None) -> None:
+                   cause: str, detail: str, checklist: list | None = None,
+                   privacy: str = "private_metadata") -> None:
+    """Confidential tasks leave a redacted trace: the statistics (worker,
+    skill, cause) survive for the posteriors, but no task text, no failure
+    detail, no checklist items — nothing that could ride into a future
+    prompt sent to a less-cleared worker."""
+    confidential = privacy in ("confidential_content", "secret")
     entry = {"when": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-             "task": task[:200], "worker": worker, "skill": skill,
-             "cause": cause, "detail": detail[:500]}
-    if checklist:
+             "task": "[redacted]" if confidential else task[:200],
+             "worker": worker, "skill": skill,
+             "cause": cause,
+             "detail": "" if confidential else detail[:500]}
+    if confidential:
+        entry["confidential"] = True
+    elif checklist:
         entry["checklist"] = checklist
     with (home / "root-causes.jsonl").open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(entry) + "\n")
@@ -248,6 +268,7 @@ def prevention_notes(home: Path, skill: str, limit: int = 3) -> list[str]:
         except json.JSONDecodeError:
             continue
         if (entry.get("skill") == skill and entry.get("detail")
+                and not entry.get("confidential")
                 and entry.get("cause") in ("worker", "task_spec")):
             notes.append(str(entry["detail"]))
     return notes[-limit:]
@@ -279,15 +300,16 @@ def build_payload(task: str, stdin_text: str, checklist: list[str],
 def record_outcome(home: Path, worker: str, skill: str, accepted: bool,
                    cause: str | None = None, task: str = "",
                    detail: str = "", checklist: list | None = None,
-                   inspection: str = "") -> None:
+                   inspection: str = "",
+                   privacy: str = "private_metadata") -> None:
     """Record a verified outcome. On rejection, `cause` names the root cause;
     only 'worker' (the default) counts against the model's evidence, and the
     failure is appended to root-causes.jsonl for prevention. When a checklist
     produced the verdict, every item's labelled result rides along in the
     event metadata — pass and fail alike, so no evidence is lost."""
     event = {
-        "id": f"outcome:do-{int(time.time())}",
-        "task_id": f"task:do-{int(time.time())}",
+        "id": f"outcome:do-{time.time_ns()}",
+        "task_id": f"task:do-{time.time_ns()}",
         "worker_id": worker, "skill_id": skill, "accepted": accepted,
         "validation_kind": "human",
         "actual_cash_micros": 0, "actual_quota_milliunits": 0,
@@ -310,7 +332,7 @@ def record_outcome(home: Path, worker: str, skill: str, accepted: bool,
         if detail:
             metadata["detail"] = detail[:500]
         log_root_cause(home, task, worker, skill, cause, detail,
-                       metadata.get("checklist"))
+                       metadata.get("checklist"), privacy=privacy)
     if metadata:
         event["metadata"] = metadata
     path = home / "last-outcome.json"
@@ -602,8 +624,8 @@ def plan_parts(home: Path, task: str) -> tuple[str | None, list[dict] | None]:
 # ---------------------------------------------------------------------------
 
 def choose(home: Path, task: str, skill: str, tokens_in: int, tokens_out: int,
-           rate: int) -> tuple[dict, dict, list]:
-    result = pick(home, task, skill, tokens_in, tokens_out, rate)
+           rate: int, privacy: str = "private_metadata") -> tuple[dict, dict, list]:
+    result = pick(home, task, skill, tokens_in, tokens_out, rate, privacy)
     quote = result["quote"]
     return result, quote, quote["eligible_candidates"]
 
@@ -671,6 +693,7 @@ def next_attempt_candidate(eligible: list, tried: list, is_runnable,
 def iterate(home: Path, eligible: list, calibration, skill: str, task: str,
             stdin_text: str, checklist: list[str], arguments,
             explicit: bool) -> tuple[str, str | None]:
+    privacy = PRIVACY[getattr(arguments, "privacy", "metadata")]
     """Redo until it is right, within bounds: attempt, verify, and on a
     rejection feed the exact failed items back as corrections and escalate.
     Every attempt is recorded — iteration never erases a failure, it answers
@@ -707,7 +730,7 @@ def iterate(home: Path, eligible: list, calibration, skill: str, task: str,
         verdict, failed = attempt_run(home, worker, model, skill, task,
                                       stdin_text, checklist,
                                       arguments.accepted, arguments.cause,
-                                      inspection, corrections)
+                                      inspection, corrections, privacy=privacy)
         tried.append(worker)
         if verdict == "accepted":
             if attempt > 1:
@@ -725,7 +748,8 @@ def iterate(home: Path, eligible: list, calibration, skill: str, task: str,
 def attempt_run(home: Path, worker: str, model: str, skill: str,
                 task: str, stdin_text: str, checklist: list[str],
                 accepted_flag: str | None, cause_flag: str | None,
-                inspection: dict, corrections: list[str]) -> tuple[str, str]:
+                inspection: dict, corrections: list[str],
+                privacy: str = "private_metadata") -> tuple[str, str]:
     """One attempt: run, verify against the checklist, record. Returns
     (verdict, failed-detail) — the detail feeds the next iteration's
     corrections when the checklist rejected the work."""
@@ -741,7 +765,7 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
         print("-" * 60)
         print("timed out after 600s")
         record_outcome(home, worker, skill, False, "environment", task=task,
-                       detail="runner timed out after 600s")
+                       detail="runner timed out after 600s", privacy=privacy)
         return "rejected", ""
     print(stdout.strip() or "(no output)")
     print("-" * 60)
@@ -749,7 +773,7 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
         sys.stderr.write(stderr[-1500:])
         print(f"runner exited {code} — the plumbing failed, not the model")
         record_outcome(home, worker, skill, False, "environment", task=task,
-                       detail=f"runner exit {code}: {stderr[:300]}")
+                       detail=f"runner exit {code}: {stderr[:300]}", privacy=privacy)
         return "rejected", ""
     if not stdout.strip():
         # A model never replies with literally nothing. Empty stdout is
@@ -758,13 +782,14 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
         # Learned from two misattributed rejections during concurrent runs.
         print("runner produced no output — the plumbing failed, not the model")
         record_outcome(home, worker, skill, False, "environment", task=task,
-                       detail="runner produced no output")
+                       detail="runner produced no output", privacy=privacy)
         return "rejected", ""
 
     if accepted_flag is not None:
         accepted = accepted_flag == "y"
         record_outcome(home, worker, skill, accepted,
-                       cause_flag if not accepted else None, task=task)
+                       cause_flag if not accepted else None, task=task,
+                       privacy=privacy)
         return ("accepted" if accepted else "rejected"), ""
 
     if checklist:
@@ -781,7 +806,7 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
                   f"checked, all passed{judged} → accepted")
             record_outcome(home, worker, skill, True, task=task,
                            checklist=report["items"],
-                           inspection=inspection["level"])
+                           inspection=inspection["level"], privacy=privacy)
             return "accepted", ""
         if report["verdict"] == "rejected":
             detail = "; ".join(f"failed: {entry['item']} ({entry['note']})"
@@ -790,18 +815,20 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
             print(f"checklist: failed{judged} → rejected, root cause: worker")
             record_outcome(home, worker, skill, False, "worker", task=task,
                            detail=detail, checklist=report["items"],
-                           inspection=inspection["level"])
+                           inspection=inspection["level"], privacy=privacy)
             return "rejected", detail
         print(f"checklist: could not verify every item{judged} — your call")
 
     try:
         answer = input("accepted? [y/n] ").strip().lower()
         if answer == "y":
-            record_outcome(home, worker, skill, True, task=task)
+            record_outcome(home, worker, skill, True, task=task,
+                           privacy=privacy)
             return "accepted", ""
         if answer == "n":
             record_outcome(home, worker, skill, False,
-                           cause_flag or ask_cause(), task=task)
+                           cause_flag or ask_cause(), task=task,
+                           privacy=privacy)
             return "rejected", ""
         print("not recorded (answer y or n next time)", file=sys.stderr)
     except EOFError:
@@ -851,7 +878,9 @@ def run_split(arguments, stdin_text: str) -> int:
             print(f"   check: {item}")
         tokens_in = 1500 + len(part["summary"]) // 4
         result, quote, eligible = choose(home, part["summary"], part["skill"],
-                                         tokens_in, 800, arguments.rate)
+                                         tokens_in, 800, arguments.rate,
+                                         PRIVACY[getattr(arguments, "privacy",
+                                                         "metadata")])
         if not eligible:
             reasons = sorted({reason["code"]
                               for candidate in quote["rejected_candidates"]
@@ -917,6 +946,13 @@ def main() -> int:
                         help="pick the strongest qualified worker instead of "
                              "the cheapest (the quality option is always "
                              "printed either way)")
+    parser.add_argument("--privacy",
+                        choices=["public", "metadata", "confidential", "secret"],
+                        default="metadata",
+                        help="confidentiality of this task. Above 'metadata', "
+                             "only workers whose clearance covers it are "
+                             "considered (a gate, not a preference), and the "
+                             "prevention memory keeps only redacted statistics")
     parser.add_argument("--attempts", type=int, default=2,
                         help="iterate until the checklist passes: on a "
                              "rejection the exact failures are fed back as "
@@ -955,8 +991,13 @@ def main() -> int:
     tokens_in = 1500 + (len(arguments.task) + len(stdin_text)) // 4
     tokens_out = 800
 
+    privacy = PRIVACY[arguments.privacy]
     result, quote, eligible = choose(arguments.home, arguments.task, skill,
-                                     tokens_in, tokens_out, arguments.rate)
+                                     tokens_in, tokens_out, arguments.rate,
+                                     privacy)
+    if privacy != "private_metadata":
+        print(f"privacy: {privacy} — clearance gate active; the prevention "
+              "memory will keep only redacted statistics")
 
     guessed = "" if arguments.skill else "  (guessed — --skill to change)"
     print(f"task : {arguments.task}")
