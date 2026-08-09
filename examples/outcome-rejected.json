@@ -3,7 +3,8 @@
     "One verified local outcome. The deterministic validation kind means a",
     "test suite decided this, not a model's opinion of its own work.",
     "Appending several of these and re-running `owi allocate` moves the",
-    "decision: that is the whole loop."
+    "decision: that is the whole loop. The root cause is explicit so OWI",
+    "does not blame a worker for an unknown task, harness, or environment bug."
   ],
   "decision_id": "decision:example-0001",
   "event": {
@@ -16,6 +17,9 @@
     "actual_cash_micros": 9000,
     "actual_quota_milliunits": 0,
     "latency_ms": 28000,
-    "observed_at": "2026-08-07T01:00:00Z"
+    "observed_at": "2026-08-07T01:00:00Z",
+    "metadata": {
+      "root_cause": "worker"
+    }
   }
 }
