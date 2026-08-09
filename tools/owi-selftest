@@ -251,6 +251,13 @@ def run(no_cargo: bool) -> int:
         suite.check("every evidence row names a rostered worker",
                     evidence_workers <= workers,
                     f"orphans: {sorted(evidence_workers - workers)[:3]}")
+        if frozen.get("skill_coverage_expectations", {}).get(
+                "every_skill_staffed"):
+            staffed_skills = {s for w in seed["worker_profiles"]
+                              for s in w["supported_skill_ids"]}
+            missing = [s for s in owi_do.SKILLS if s not in staffed_skills]
+            suite.check("every skill in the taxonomy has a seeded worker",
+                        not missing, f"unstaffed: {missing}")
         offered = {w["offering_id"] for w in seed["worker_profiles"]}
         suite.check("every rostered offering has a price",
                     offered <= set(offerings),

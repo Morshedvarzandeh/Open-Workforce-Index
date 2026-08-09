@@ -1,0 +1,54 @@
+{
+  "name": "buzz-style six-agent team",
+  "source": "a hand-built agent roster shared publicly in July 2026: six named roles, each pinned to a model by feel, with no prices and no evidence attached",
+  "team": [
+    {
+      "role": "assistant",
+      "task": "Keep the running notes tidy: rewrite today's scratch log into a short status update, fix the grammar, keep every decision",
+      "tokens_in": 1500,
+      "tokens_out": 600,
+      "hand_pick": null,
+      "hand_label": "terra-high"
+    },
+    {
+      "role": "builder",
+      "task": "Implement the python module for the pack thermal solver with vectorized numpy and a convergence test",
+      "tokens_in": 3000,
+      "tokens_out": 2000,
+      "hand_pick": null,
+      "hand_label": "sol-med"
+    },
+    {
+      "role": "designer",
+      "task": "Design the dashboard landing page: layout, css, and a mobile-first wireframe for the summary cards",
+      "tokens_in": 2500,
+      "tokens_out": 1500,
+      "hand_pick": "worker:opus-5/design",
+      "hand_label": "opus-5"
+    },
+    {
+      "role": "planner",
+      "task": "Write the roadmap for the quarter: decompose the spec into milestones with owners and exit criteria",
+      "tokens_in": 3000,
+      "tokens_out": 1200,
+      "hand_pick": "worker:opus-5/plan",
+      "hand_label": "opus-5 / sol-high"
+    },
+    {
+      "role": "architect",
+      "task": "Write the architecture design doc: module boundaries, data flow, and the strategy for splitting the service",
+      "tokens_in": 3500,
+      "tokens_out": 1500,
+      "hand_pick": null,
+      "hand_label": "(a frontier model outside this index)"
+    },
+    {
+      "role": "debugger",
+      "task": "Diagnose the failing regression: read the stack trace, find the root cause, and explain why does it only fail under load",
+      "tokens_in": 4000,
+      "tokens_out": 1000,
+      "hand_pick": null,
+      "hand_label": "sol-high"
+    }
+  ]
+}
