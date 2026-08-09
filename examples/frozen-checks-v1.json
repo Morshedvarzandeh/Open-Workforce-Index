@@ -15,7 +15,7 @@
   "version": "frozen-checks-v1",
   "frozen_at": "2026-08-07T23:30:00Z",
   "price_expectations": {
-    "minimum_offerings": 16,
+    "minimum_offerings": 18,
     "exact_micros": {
       "offering:anthropic/claude-sonnet-5": [
         2000000,
@@ -44,19 +44,29 @@
       "offering:ollama/llama3.1": [
         0,
         0
+      ],
+      "offering:lambda_ai/hermes3-8b": [
+        25000,
+        40000
+      ],
+      "offering:lambda_ai/hermes3-405b": [
+        800000,
+        800000
       ]
     }
   },
   "roster_expectations": {
-    "minimum_workers": 43,
-    "minimum_evidence": 42,
+    "minimum_workers": 47,
+    "minimum_evidence": 46,
     "required_workers": [
       "worker:haiku-4-5/text",
       "worker:sonnet-5/code",
       "worker:opus-5/cad",
       "worker:gpt-5-mini/extract",
       "worker:openhands-sonnet-5/code",
-      "worker:local-llama/text"
+      "worker:local-llama/text",
+      "worker:hermes-8b/text",
+      "worker:hermes-405b/debug"
     ]
   },
   "check_engine_fixtures": [

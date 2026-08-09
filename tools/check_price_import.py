@@ -18,6 +18,8 @@ EXPECTED = {
     "offering:anthropic/claude-opus-4-5": (5_000_000, 25_000_000),
     "offering:openai/gpt-5-mini": (250_000, 2_000_000),
     "offering:deepseek/deepseek-chat": (280_000, 420_000),
+    "offering:lambda_ai/hermes3-8b": (25_000, 40_000),
+    "offering:lambda_ai/hermes3-405b": (800_000, 800_000),
 }
 for offering_id, (want_in, want_out) in EXPECTED.items():
     got = offerings[offering_id]
