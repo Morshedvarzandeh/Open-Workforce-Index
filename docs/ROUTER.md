@@ -66,6 +66,37 @@ Requests without the token are refused (401) — the gate is part of the
 frozen suite. Plain HTTP: keep it to networks you trust; never port-forward
 it to the open internet.
 
+## Hiring an external platform (OpenHands, or any agent server)
+
+A worker is a command; a platform that runs agents is therefore a hire away.
+The roster already carries the first one: `worker:openhands-sonnet-5/code` —
+the same claude-sonnet-5 offering, but `harness_id: openhands`, because the
+same model in a different workshop is a **different worker** with its own
+record (that is what configuration identity is for).
+
+External hires follow the measurement-first rule: they join with **zero
+assumed evidence**, so the quality floor keeps them unstaffable until the
+bench proves them. Onboarding:
+
+1. Install the platform's CLI/agent server on your machine (see the
+   platform's own install docs) and give it your model credentials.
+2. Point a runner at it in `.owi-quick/runners.json`, e.g.
+   `"openhands-sonnet-5": "<the platform's headless run command>"` — task on
+   stdin, result on stdout, same contract as every runner.
+3. Earn the seat on the bench:
+
+   ```bash
+   python3 tools/run_bench.py --corpus corpus.json --repo <repo> \
+     --worker-id worker:openhands-sonnet-5/code --adapter command \
+     --command "<the same headless command>" --observed-at <now> \
+     --outcome-dir out/ && for f in out/*.json; do \
+     cargo run -q -p workforce-cli -- outcome --local .owi-quick/local.sqlite --input "$f"; done
+   ```
+
+Pass enough deterministic tasks and the posterior clears the floor — the
+platform's agent starts winning staffing decisions on its measured record,
+priced at its offering's real rates, retireable like everyone else.
+
 ## What runs where — the honest boundary
 
 | surface | picks | executes | model guaranteed? |
