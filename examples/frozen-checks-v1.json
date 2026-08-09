@@ -135,14 +135,14 @@
     }
   ],
   "serve_gate_expectations": {
-    "_why": "The local server exposes paid execution and outcome writes. Every bind, including localhost, must require the per-process token so an unrelated web page cannot drive it.",
+    "_why": "The local server exposes paid execution and outcome writes only through persisted project tasks. Every bind, including localhost, must require the per-process token; legacy endpoints where the browser supplied a model or worker stay disabled.",
     "unauthorized_status": 401,
     "localhost_requires_token": true,
     "empty_workspace_configured": false,
     "empty_workspace_workers": 0,
     "non_json_post_status": 415,
     "cross_origin_post_status": 403,
-    "unconfigured_run_status": 409
+    "legacy_run_status": 410
   },
   "qc_expectations": {
     "_why": "lean inspection, CSP-1 style: 100% inspection while qualifying, skip-lot sampling once proven, any worker-caused failure resets. These constants and the sampling semantics are the quality-control contract.",

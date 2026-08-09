@@ -115,17 +115,55 @@ def check_stored_catalog_and_ledger() -> None:
                  '{"root_cause":"worker"}', "2"),
                 ("o3", "worker:mine/text", "skill:text-editing", 0,
                  '{"root_cause":"environment"}', "3"),
+                ("o4", "worker:mine/text", "skill:text-editing", 0,
+                 '{}', "4"),
             ],
         )
         local.commit()
         local.close()
         feedback = owi_serve.ledger_feedback(home)
-        require(feedback["total"] == 3 and feedback["accepted"] == 1,
+        require(feedback["total"] == 4 and feedback["accepted"] == 1,
                 "ledger totals are not derived from outcome_events")
         require(feedback["modelRejected"] == 1,
                 "environment failure was counted against the model")
-        require(feedback["rows"][0]["otherRejected"] == 1,
-                "non-model rejection disappeared from the ledger report")
+        require(feedback["rows"][0]["otherRejected"] == 2,
+                "non-model/unknown rejection disappeared or blamed the model")
+
+        # A predictable request filename inside a user-selected workspace can
+        # be pre-created as a symlink. Harvest must use a private random input
+        # file instead of following that link and overwriting its target.
+        victim = home / "must-not-change.txt"
+        victim.write_text("owner data", encoding="utf-8")
+        (home / "serve-harvest.json").symlink_to(victim)
+        allocated_inputs: list[Path] = []
+        original_owi = owi_serve.owi_do.owi
+        original_resolve = owi_serve.owi_do.resolve_runner
+
+        def fake_owi(*args: str) -> dict:
+            input_path = Path(args[args.index("--input") + 1])
+            allocated_inputs.append(input_path)
+            require(input_path.name != "serve-harvest.json",
+                    "harvest reused its predictable request filename")
+            require(input_path.stat().st_mode & 0o777 == 0o600,
+                    "harvest request is not owner-only")
+            return {
+                "calibration": [{
+                    "worker_id": "worker:mine/text",
+                    "skills": [{"posterior": {"alpha": 1, "beta": 1}}],
+                }]
+            }
+
+        owi_serve.owi_do.owi = fake_owi
+        owi_serve.owi_do.resolve_runner = lambda *_args: None
+        try:
+            owi_serve.harvest(home)
+        finally:
+            owi_serve.owi_do.owi = original_owi
+            owi_serve.owi_do.resolve_runner = original_resolve
+        require(victim.read_text(encoding="utf-8") == "owner data",
+                "harvest followed a pre-created request symlink")
+        require(allocated_inputs and not allocated_inputs[0].exists(),
+                "harvest left its private allocation request on disk")
 
 
 def request_status(request: urllib.request.Request) -> tuple[int, object]:
@@ -178,8 +216,8 @@ def check_http_gate() -> None:
                          "Origin": base, "Sec-Fetch-Site": "same-origin"},
             )
             status, _ = request_status(same)
-            require(status == 409,
-                    "unconfigured office did not stop execution before a runner")
+            require(status == 410,
+                    "legacy browser-supplied execution endpoint is still active")
         finally:
             server.shutdown()
 
@@ -189,7 +227,8 @@ def main() -> int:
     check_stored_catalog_and_ledger()
     check_http_gate()
     print("serve launcher verified: no implicit demo, stored roster/prices, "
-          "ledger feedback, token gate, JSON-only same-origin writes")
+          "ledger feedback, token gate, JSON-only same-origin writes, and "
+          "disabled legacy execution")
     return 0
 
 

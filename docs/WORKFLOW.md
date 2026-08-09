@@ -93,17 +93,46 @@ recorded: accepted — the next pick will know
 ## Level 2 — the running page
 
 ```bash
-tools/owi-serve        # open http://127.0.0.1:7787
+tools/owi-serve        # opens a token-gated local URL
 ```
 
-The same one-box page, served locally: it detects the server, shows
-"local — runs for real", and grows a run button. Output streams into the
-page; `worked` / `didn't` goes to the real ledger and every number refreshes
-from the engine immediately. Localhost by default; the browser can only
-*name* a model — the command executed is resolved server-side from
-`runners.json`. `--host 0.0.0.0` opens it to your own network behind a
-required access token, so your phone can use the real router — see
-[ROUTER.md](ROUTER.md) for the complete setup, provider keys included.
+This is a persisted project workflow, not a browser-only task splitter:
+
+1. Create a project goal. A configured planning model may propose specialist
+   tasks only when you explicitly enable that paid, unmetered planning call.
+   It is disabled for zero-budget, confidential, and secret projects;
+   otherwise the server exposes a clearly labelled deterministic fallback.
+2. Inspect, add, edit, or remove draft tasks and their acceptance checks.
+3. Press **Staff**. The Rust allocator evaluates each task independently and
+   stores the exact worker, alternatives, exclusions, and accepted-result cost
+   forecast. Drafting does not silently staff or execute work.
+4. Press **Run** on a staffed task. The browser sends only the persisted task
+   identifier; the server derives the saved worker, model, brief, and local
+   runner command. A missing runner becomes `setup_required` and cannot run.
+5. Mechanical checks run automatically. Uncheckable work becomes
+   `needs_review`; the owner can accept it, reject it with a cause, retry the
+   same assignment, or restaff after failure so new evidence can change the
+   next allocation.
+
+Projects, task states, outputs, check reports, and workflow events survive a
+reload in the private `workflow.sqlite`. Decisive outcomes are also recorded
+in the append-only OWI evidence ledger. The server enforces the forecast budget
+before execution and keeps actual cash unknown until a provider or invoice
+receipt exists.
+
+The graphical office is intentionally disabled on a published static page: a
+web page without your local credentials cannot pretend to run a model. In the
+local server every bind requires a per-process token, JSON and same-origin
+writes are enforced, and the legacy browser-supplied `/api/run` and
+`/api/outcome` paths return `410`.
+
+The launcher first resolves a packaged or installed `owi` CLI (`OWI_BIN`,
+`PATH`, or repository release/debug binary), then uses Cargo only as a
+developer fallback. Model execution requires an explicit command in the
+workspace's `runners.json` keyed by the exact staffed worker ID. Model-only
+keys are not enough for project execution because they cannot prove the
+quoted provider/harness/tool/privacy identity. `--host 0.0.0.0` is only for a
+trusted private network behind the token gate; see [ROUTER.md](ROUTER.md).
 
 ## Level 3 — a project, planned automatically
 

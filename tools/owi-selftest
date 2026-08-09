@@ -139,11 +139,11 @@ def run(no_cargo: bool) -> int:
                         "Origin": "https://attacker.example",
                         "Sec-Fetch-Site": "cross-site",
                     }) == gate["cross_origin_post_status"])
-        suite.check("same-origin JSON reaches the unconfigured guard",
+        suite.check("legacy browser-supplied execution stays disabled",
                     post_status(f"{base}/api/run", {
                         **auth, "Content-Type": "application/json",
                         "Origin": base, "Sec-Fetch-Site": "same-origin",
-                    }) == gate["unconfigured_run_status"])
+                    }) == gate["legacy_run_status"])
         owi_serve.Handler.token = None
         suite.check("a missing server token fails closed",
                     status(f"{base}/api/data") == want)

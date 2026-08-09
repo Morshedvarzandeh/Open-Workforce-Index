@@ -258,6 +258,132 @@
     margin:0; border:1px solid var(--rule); border-radius:11px; background:var(--paper);
     color:var(--ink); font:12px/1.55 var(--mono); }
 
+  /* The project board is the product workflow. Every status, assignment,
+     cost and output rendered here comes from the local OWI server. */
+  .workflow-shell { display:grid; grid-template-columns:minmax(230px,.48fr) 1.52fr;
+    gap:18px; align-items:start; }
+  .project-workspace { min-width:0; display:grid; gap:16px; }
+  .project-create,.project-board { background:var(--paper); border:1px solid var(--rule);
+    border-radius:24px; box-shadow:var(--shadow); padding:clamp(20px,4vw,34px); }
+  .project-create header,.board-head { display:flex; justify-content:space-between;
+    align-items:flex-start; gap:18px; }
+  .project-create h2,.project-board h2 { margin:5px 0 0; font-size:26px;
+    letter-spacing:-.035em; }
+  .project-create header p,.board-goal { color:var(--ink-2); line-height:1.55;
+    font-size:13px; margin:9px 0 0; }
+  .project-form { display:grid; grid-template-columns:1fr 1fr; gap:14px;
+    margin-top:22px; }
+  .field { display:grid; gap:7px; color:var(--ink-2); font-size:12px;
+    font-weight:760; }
+  .field.wide { grid-column:1/-1; }
+  .field input,.field textarea,.field select { width:100%; min-width:0; padding:12px 13px;
+    margin:0; color:var(--ink); background:var(--paper-2); border:1.5px solid var(--rule);
+    border-radius:12px; font-size:14px; font-weight:500; }
+  .field textarea { min-height:104px; font-family:var(--sans); }
+  .field small { color:var(--ink-3); font-size:10px; font-weight:550; line-height:1.4; }
+  .choice-field { grid-column:1/-1; display:flex; align-items:flex-start; gap:9px;
+    padding:12px 13px; border:1px solid var(--rule); border-radius:12px;
+    background:var(--paper-2); color:var(--ink-2); font-size:12px; line-height:1.45; }
+  .choice-field input { flex:0 0 auto; width:auto; margin:2px 0 0; }
+  .choice-field span { display:block; }
+  .choice-field small { display:block; margin-top:3px; color:var(--ink-3); font-size:10px; }
+  .form-actions { grid-column:1/-1; display:flex; align-items:center; gap:11px;
+    flex-wrap:wrap; }
+  .form-actions .primary { align-self:auto; }
+  .inline-state { color:var(--ink-2); font-size:12px; }
+  .inline-state.error,.workflow-notice.error { color:var(--bad); }
+  .static-notice,.workflow-notice { padding:14px 16px; border-radius:14px;
+    background:#FFF6D9; border:1px solid #EBCF79; color:#645425;
+    font-size:12px; line-height:1.55; }
+  .workflow-notice { background:var(--paper); border-color:var(--rule); color:var(--ink-2); }
+  .workflow-notice:empty { display:none; }
+  .board-warning { margin-top:14px; padding:12px 14px; border-radius:12px;
+    background:#FFF6D9; border:1px solid #EBCF79; color:#645425;
+    font-size:11px; line-height:1.5; }
+  .board-warning.blocking { background:#FFF1F1; border-color:#F0CACA; color:var(--bad); }
+  .workflow-steps { margin-top:22px; display:grid; gap:9px; }
+  .workflow-step { display:grid; grid-template-columns:30px 1fr; gap:10px;
+    align-items:start; padding:10px; border:1px solid var(--rule); border-radius:13px;
+    background:var(--paper-2); }
+  .workflow-step b { display:grid; place-items:center; width:30px; height:30px;
+    border-radius:10px; background:var(--blue-soft); color:var(--blue); font-size:12px; }
+  .workflow-step strong,.workflow-step span { display:block; }
+  .workflow-step strong { font-size:12px; }
+  .workflow-step span { margin-top:2px; color:var(--ink-3); font-size:10px; line-height:1.4; }
+  .active-project { margin-top:18px; padding:13px; border-radius:14px;
+    background:#E7F8F1; border:1px solid #BDE8D7; }
+  .active-project strong,.active-project span { display:block; }
+  .active-project strong { font-size:12px; }
+  .active-project span { color:#3F6F60; margin-top:4px; font-size:10px; }
+  .board-head-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+  .secondary,.quiet,.danger { padding:10px 13px; border-radius:11px; font-weight:800;
+    font-size:12px; }
+  .secondary { color:#fff; background:var(--blue); }
+  .quiet { color:var(--ink-2); background:var(--paper-2); border:1px solid var(--rule); }
+  .danger { color:var(--bad); background:#FFF1F1; border:1px solid #F0CACA; }
+  button:disabled { cursor:not-allowed; opacity:.48; transform:none !important; }
+  .project-meta { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
+  .project-stat { padding:8px 10px; border-radius:10px; background:var(--paper-2);
+    border:1px solid var(--rule); color:var(--ink-2); font-size:10px; }
+  .project-stat b { color:var(--ink); font-size:12px; }
+  .task-composer { margin:18px 0; padding:17px; border:1px solid var(--rule);
+    border-radius:16px; background:var(--paper-2); }
+  .task-composer h3 { margin:0 0 13px; font-size:16px; }
+  .task-list { display:grid; gap:12px; margin-top:18px; }
+  .task-item { border:1px solid var(--rule); border-radius:18px; background:var(--paper);
+    overflow:hidden; }
+  .task-item[data-status="needs_review"] { border-color:#A9C4FF;
+    box-shadow:0 0 0 3px var(--blue-soft); }
+  .task-item[data-status="accepted"] { border-color:#A7DFC9; }
+  .task-head { display:flex; align-items:flex-start; justify-content:space-between;
+    gap:12px; padding:17px 18px 12px; }
+  .task-number { color:var(--ink-3); font:10px var(--mono); }
+  .task-head h3 { margin:4px 0 0; font-size:17px; letter-spacing:-.02em; }
+  .status-pill { flex:0 0 auto; padding:5px 9px; border-radius:999px;
+    background:var(--paper-2); color:var(--ink-2); border:1px solid var(--rule);
+    font-size:9px; font-weight:850; text-transform:uppercase; letter-spacing:.06em; }
+  .status-pill.staffed { color:#315FB6; background:#EAF1FF; border-color:#BDD0F6; }
+  .status-pill.needs_review { color:#5A45A8; background:#F0EBFF; border-color:#D3C7F8; }
+  .status-pill.accepted { color:var(--good); background:#E7F8F1; border-color:#BDE8D7; }
+  .status-pill.rejected,.status-pill.run_failed { color:var(--bad);
+    background:#FFF1F1; border-color:#F0CACA; }
+  .status-pill.setup_required { color:#8B6512; background:#FFF6D9; border-color:#EBCF79; }
+  .task-content { padding:0 18px 17px; }
+  .task-brief { margin:0; color:var(--ink-2); font-size:12px; line-height:1.55;
+    white-space:pre-wrap; }
+  .assignment { margin-top:14px; display:grid; grid-template-columns:1.2fr .8fr;
+    gap:10px; }
+  .assignment-cell { min-width:0; padding:12px; border-radius:12px;
+    background:var(--paper-2); border:1px solid var(--rule); }
+  .assignment-cell span,.assignment-cell strong { display:block; }
+  .assignment-cell span { color:var(--ink-3); font-size:9px; font-weight:800;
+    text-transform:uppercase; letter-spacing:.08em; }
+  .assignment-cell strong { margin-top:6px; font-size:12px; overflow-wrap:anywhere; }
+  .worker-id { font-family:var(--mono); }
+  .staffing-proof { margin:10px 0 0; color:var(--ink-3); font-size:10px;
+    line-height:1.5; }
+  .evidence-list { margin:9px 0 0; padding-left:18px; color:var(--ink-2);
+    font-size:10px; line-height:1.55; }
+  .task-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    margin-top:14px; padding-top:13px; border-top:1px solid var(--rule); }
+  .task-actions .action-note { color:var(--ink-3); font-size:10px; line-height:1.4; }
+  .task-output { margin-top:14px; padding:14px; border-radius:13px;
+    background:#18213A; color:#EFF4FF; max-height:360px; overflow:auto;
+    white-space:pre-wrap; overflow-wrap:anywhere; font:11px/1.55 var(--mono); }
+  .task-output.empty-output { background:var(--paper-2); color:var(--ink-3);
+    border:1px dashed var(--rule); }
+  .check-list { display:grid; gap:6px; margin-top:11px; }
+  .check-item { padding:8px 10px; border-radius:9px; background:var(--paper-2);
+    color:var(--ink-2); font-size:10px; }
+  .check-item.pass { color:var(--good); background:#E7F8F1; }
+  .check-item.fail { color:var(--bad); background:#FFF1F1; }
+  .review-box,.edit-box { margin-top:13px; padding:14px; border-radius:13px;
+    background:var(--paper-2); border:1px solid var(--rule); }
+  .review-box .field,.edit-box .field { margin-top:10px; }
+  .review-box .field:first-child,.edit-box .field:first-child { margin-top:0; }
+  .empty-board { padding:28px 18px; text-align:center; border:1px dashed var(--rule);
+    border-radius:16px; color:var(--ink-3); font-size:12px; }
+
   .results-layout { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
   .metric { padding:22px; background:var(--paper); border:1px solid var(--rule);
     border-radius:20px; box-shadow:var(--shadow); }
@@ -272,6 +398,14 @@
   .result-list { display:grid; gap:8px; margin-top:17px; }
   .result-row { display:grid; grid-template-columns:1fr auto auto; gap:12px;
     padding:11px 12px; border-radius:12px; background:var(--paper-2); font-size:12px; }
+  .project-result { padding:15px; border:1px solid var(--rule); border-radius:14px;
+    background:var(--paper-2); }
+  .project-result-head { display:flex; justify-content:space-between; gap:12px;
+    align-items:flex-start; }
+  .project-result h3 { margin:0; font-size:14px; }
+  .project-result .result-facts { display:flex; flex-wrap:wrap; gap:7px;
+    margin-top:9px; color:var(--ink-2); font-size:10px; }
+  .project-result details { margin-top:10px; }
   .empty { color:var(--ink-3); padding:20px 0; }
   .mode { color:var(--good); font-weight:800; }
   footer { max-width:900px; margin:24px auto 0; color:var(--ink-3); font-size:11px;
@@ -282,7 +416,7 @@
     .topbar { flex-wrap:wrap; gap:10px; }
     .nav { order:3; width:100%; }
     .nav button { flex:1; }
-    .office-hero,.work-grid { grid-template-columns:1fr; }
+    .office-hero,.work-grid,.workflow-shell { grid-template-columns:1fr; }
     .welcome { min-height:auto; padding:28px; }
     .welcome h2 { max-width:12ch; }
     .side-card { position:static; }
@@ -312,6 +446,14 @@
     .results-layout { grid-template-columns:1fr; }
     .results-card { grid-column:1; }
     .result-row { grid-template-columns:1fr; gap:4px; }
+    .project-create,.project-board { padding:18px 14px; }
+    .project-create header,.board-head { display:block; }
+    .board-head-actions { margin-top:13px; justify-content:flex-start; }
+    .project-form,.assignment { grid-template-columns:1fr; }
+    .field.wide,.form-actions { grid-column:1; }
+    .task-head { padding:14px 13px 10px; }
+    .task-content { padding:0 13px 14px; }
+    .task-actions button { min-height:42px; }
   }
   @media (prefers-reduced-motion:reduce) {
     *,*::before,*::after { animation:none !important; transition:none !important; }
@@ -360,43 +502,88 @@
     </section>
 
     <section id="view-work" class="view" aria-labelledby="work-title">
-      <div class="work-grid">
+      <div class="workflow-shell">
         <aside class="side-card">
-          <span class="eyebrow">New assignment</span>
-          <h2 id="work-title">What should your office do?</h2>
-          <p>Write naturally. If the request contains different kinds of work, OWI splits it and staffs each part separately.</p>
+          <span class="eyebrow">Project workflow</span>
+          <h2 id="work-title">Run work like a real office.</h2>
+          <p>Start with a goal, inspect the tasks, staff each one, run only a configured worker, then review the real output.</p>
           <div class="work-guide"><img src="__ART_ORBIT__" alt=""><div>
-            <strong>Orbit · staffing guide</strong><span>Friendly presentation character. Every assignment still names the exact worker.</span>
+            <strong>Orbit · staffing guide</strong><span>The character guides the flow. The exact model, estimated cost and result remain visible.</span>
           </div></div>
-          <div class="steps"><div class="step"><b>1</b><span>Understand the task</span></div><div class="step"><b>2</b><span>Filter unqualified workers</span></div><div class="step"><b>3</b><span>Recommend the lowest accepted-result cost</span></div></div>
+          <div class="workflow-steps" aria-label="Workflow stages">
+            <div class="workflow-step"><b>1</b><div><strong>Create the project</strong><span>Give the office one clear goal.</span></div></div>
+            <div class="workflow-step"><b>2</b><div><strong>Inspect the tasks</strong><span>Add or edit work before spending.</span></div></div>
+            <div class="workflow-step"><b>3</b><div><strong>Staff every task</strong><span>Rust chooses from qualified workers.</span></div></div>
+            <div class="workflow-step"><b>4</b><div><strong>Run and review</strong><span>Accept, reject or retry the actual output.</span></div></div>
+          </div>
+          <div class="active-project" id="activeProjectSummary" hidden>
+            <strong id="activeProjectName"></strong><span id="activeProjectProgress"></span>
+          </div>
         </aside>
-        <div class="task-card">
-          <header><h2>Task brief</h2><p>The planner may describe positions; it never chooses models or spends money.</p></header>
-          <div class="setup-panel" id="setupPanel" hidden>
-            <strong id="setupTitle">Connect your real workforce</strong>
-            <span id="setupMessage"></span>
-            <span>Use an existing OWI workspace:</span>
-            <code id="setupExistingCommand"></code>
-            <span class="setup-note">For an explicitly labelled sample only:</span>
-            <code id="setupDemoCommand"></code>
-          </div>
-          <form id="form">
-            <input type="text" id="q" autocomplete="off" placeholder='e.g. "review this Rust pull request and write the release note"'>
-            <button type="submit">Staff this task</button>
-          </form>
-          <div class="quick-prompts" aria-label="Example tasks">
-            <button type="button" data-prompt="Debug the failing Rust tests and explain the root cause">Debug code</button>
-            <button type="button" data-prompt="Rewrite this email to the supplier">Write email</button>
-            <button type="button" data-prompt="Create a project plan and extract the milestones as JSON">Split a project</button>
-          </div>
-          <details><summary>Acceptance checks and privacy</summary>
-            <div class="checks">
-              <label for="checks">Checklist — one requirement per line. The live office can write one when empty.</label>
-              <textarea id="checks" rows="3" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="contains:thermal&#10;min-words:60&#10;states the main limitation"></textarea>
-              <label><input type="checkbox" id="confid"> Confidential — only locally cleared workers may receive this task.</label>
+
+        <div class="project-workspace">
+          <div class="project-create" id="projectCreateCard">
+            <header><div><span class="eyebrow">1 · Create</span>
+              <h2>What are we delivering?</h2>
+              <p>OWI can propose task boundaries. You can add and edit them before staffing.</p>
+            </div></header>
+            <div class="setup-panel" id="setupPanel" hidden>
+              <strong id="setupTitle">Connect your real workforce</strong>
+              <span id="setupMessage"></span>
+              <span>Launch with an existing OWI workspace:</span>
+              <code id="setupExistingCommand"></code>
+              <span class="setup-note">For an explicitly labelled sample only:</span>
+              <code id="setupDemoCommand"></code>
             </div>
-          </details>
-          <div class="answer" id="answer" aria-live="polite"></div>
+            <div class="static-notice" id="staticNotice" hidden>
+              This published page is a read-only product preview. It cannot access your models or credentials. Open the local OWI Office with <code>tools/owi-serve --home PATH</code> to create, staff and run real projects.
+            </div>
+            <form id="projectForm" class="project-form">
+              <label class="field"><span>Project name</span>
+                <input type="text" id="projectName" maxlength="100" placeholder="e.g. Battery repository release">
+              </label>
+              <label class="field"><span>Maximum task-forecast budget (USD)</span>
+                <input type="number" id="projectBudget" min="0" step="0.01" inputmode="decimal" placeholder="Optional">
+                <small>Gates the sum of allocator task forecasts. It is not a verified all-in cash cap.</small>
+              </label>
+              <label class="field wide"><span>Goal</span>
+                <textarea id="projectGoal" required maxlength="6000" placeholder="Describe the result you need, the repository or context, and what success means."></textarea>
+                <small>The server creates draft tasks. No maker task runs yet, and model planning stays off unless you select it below.</small>
+              </label>
+              <label class="field"><span>Privacy</span>
+                <select id="projectPrivacy"><option value="private_metadata">Private metadata</option><option value="confidential_content">Confidential content · local clearance required</option><option value="secret">Secret · exact local clearance required</option><option value="public">Public</option></select>
+              </label>
+              <label class="choice-field"><input type="checkbox" id="usePlanningModel"><span><b>Use a configured planning model</b><small id="planningPrivacyNote">Optional and unchecked by default. It may cost money, and that unmetered planning call is outside the task-forecast budget. Disabled for Confidential and Secret projects so the goal is not sent to a planning model.</small></span></label>
+              <div class="form-actions"><button type="submit" class="primary" id="createProject">Create project &amp; draft tasks</button><button type="button" class="quiet" id="backToProject" hidden>Back to active project</button><span class="inline-state" id="createState" role="status"></span></div>
+            </form>
+          </div>
+
+          <section class="project-board" id="projectBoard" hidden aria-labelledby="projectBoardTitle">
+            <div class="board-head"><div><span class="eyebrow">Your active project</span>
+              <h2 id="projectBoardTitle"></h2><p class="board-goal" id="projectBoardGoal"></p>
+            </div><div class="board-head-actions">
+              <button type="button" class="quiet" id="newProject">New project</button>
+              <button type="button" class="quiet" id="addTask">+ Add task</button>
+              <button type="button" class="secondary" id="staffProject">Staff unassigned tasks</button>
+            </div></div>
+            <div class="project-meta" id="projectMeta"></div>
+            <div class="board-warning" id="planningProblem" hidden></div>
+            <div class="board-warning blocking" id="budgetWarning" hidden></div>
+
+            <div class="task-composer" id="taskComposer" hidden>
+              <h3>Add a task</h3>
+              <form id="taskForm" class="project-form">
+                <label class="field"><span>Task title</span><input type="text" id="taskTitle" maxlength="120" placeholder="Short, concrete name"></label>
+                <label class="field"><span>Skill (optional)</span><select id="taskSkill"></select></label>
+                <label class="field wide"><span>Task brief</span><textarea id="taskBrief" required maxlength="8000" placeholder="Describe one deliverable. Keep different kinds of work in separate tasks."></textarea></label>
+                <label class="field wide"><span>Acceptance checks · one per line</span><textarea id="taskChecklist" maxlength="4000" placeholder="contains: migration plan&#10;min-words: 80&#10;states the main limitation"></textarea></label>
+                <div class="form-actions"><button type="submit" class="secondary">Add draft task</button><button type="button" class="quiet" id="cancelTask">Cancel</button><span class="inline-state" id="taskCreateState" role="status"></span></div>
+              </form>
+            </div>
+
+            <div class="task-list" id="taskList" aria-live="polite"></div>
+          </section>
+          <div class="workflow-notice" id="workflowNotice" role="status"></div>
         </div>
       </div>
     </section>
@@ -415,12 +602,18 @@
           <p id="resultsScope">This view shows feedback stored in this browser. The local live office records outcomes in the private OWI ledger.</p>
           <div class="result-list" id="resultsList"></div>
         </div>
+        <div class="results-card" id="currentProjectResults" hidden>
+          <span class="eyebrow">Current project</span>
+          <h2 id="currentProjectResultsTitle">Deliveries and outputs</h2>
+          <p>Each row keeps the real task status, exact assigned worker and allocator forecast together. Actual spend stays unknown without provider receipts.</p>
+          <div class="result-list" id="projectResultList"></div>
+        </div>
       </div>
     </section>
   </main>
 
   <footer>
-    <span class="mode">build __BUILT__</span> · <span id="footerTruth">Prices come from published, content-hashed sources. Ability begins as evidence-scoped estimates and changes only through recorded outcomes. Unknown values stay unknown.</span> <a href="#" id="reset">Reset this browser's learning</a>. The static page never holds provider credentials; <code>tools/owi-serve</code> enables approved local execution through your own runners.
+    <span class="mode">build __BUILT__</span> · <span id="footerTruth">Prices come from published, content-hashed sources. Ability begins as evidence-scoped estimates and changes only through recorded outcomes. Unknown values stay unknown.</span> <a href="#" id="reset">Reset this browser's learning</a>. The static page never holds provider credentials; <code>tools/owi-serve</code> enables approved local execution through exact worker-ID runner bindings.
   </footer>
 </div>
 
@@ -579,51 +772,13 @@
   }
   // <<< decision-math <<<
 
-  const requiredPrivacy = () =>
-    document.getElementById("confid").checked
-      ? "confidential_content" : "private_metadata";
-
-  const $ = (m) => "$" + (m / 1e6).toFixed(4);
   const short = (id) => id.replace("worker:", "");
   const modelOf = (id) => {
     const match = String(id).match(/^worker:([^/]+)\//);
     return match ? match[1] : "";
   };
-  // Where each roster model can be run in a browser with the task prefilled.
-  // Navigation only — the page never calls a provider itself. `reliable`
-  // marks hand-offs that dependably open a FRESH chat carrying the task
-  // (Claude's /new route). ChatGPT's app has been observed dropping the
-  // task and reopening old chats on phones, so it is never the primary run
-  // path — the same rule the terminal applies: a worker that cannot be
-  // dependably executed is unavailable, not a bargain. No deep link can
-  // force an app's model selection; exact models need the router.
-  const LAUNCH = {
-    "haiku-4-5":  { name: "Claude",  url: "https://claude.ai/new?q=", reliable: true },
-    "sonnet-4-5": { name: "Claude",  url: "https://claude.ai/new?q=", reliable: true },
-    "opus-4-5":   { name: "Claude",  url: "https://claude.ai/new?q=", reliable: true },
-    "sonnet-5":   { name: "Claude",  url: "https://claude.ai/new?q=", reliable: true },
-    "opus-5":     { name: "Claude",  url: "https://claude.ai/new?q=", reliable: true },
-    "gpt-5":      { name: "ChatGPT",
-                    url: "https://chatgpt.com/?model=gpt-5&q=", reliable: false },
-    "gpt-5-mini": { name: "ChatGPT",
-                    url: "https://chatgpt.com/?model=gpt-5-mini&q=", reliable: false },
-  };
-  // The bench the page actually stands behind. Without a server, a worker
-  // whose hand-off is unreliable cannot be delivered — so it cannot be the
-  // pick. It stays visible as "cheaper on paper", pointing at the router.
-  const launchBench = (rows) => {
-    if (LIVE) return rows;
-    const ok = rows.filter(r => (LAUNCH[modelOf(r.id)] || {}).reliable);
-    return ok.length ? ok : rows;
-  };
-
-  // On phones, provider apps intercept ?q= links and drop the task — no
-  // deep link survives, for any provider. So mobile gets no launch links at
-  // all: copy → paste → bring the answer back. Desktop web honors ?q=.
-  const MOBILE = matchMedia("(max-width: 520px), (pointer: coarse)").matches;
   const esc = (s) => String(s).replace(/[&<>"]/g,
     c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-  let last = null;
   // A server renders its own data into the first response. Treat it as live
   // immediately so an unconfigured office never flashes the static catalog.
   let LIVE = DATA.local ? DATA : null;
@@ -701,8 +856,12 @@
       button.setAttribute("aria-current", selected ? "page" : "false");
     });
     if (name === "results") renderResults();
-    if (name === "work") requestAnimationFrame(() =>
-      document.getElementById("q").focus());
+    if (name === "work") requestAnimationFrame(() => {
+      const target = document.getElementById("projectGoal");
+      if (target && !document.getElementById("projectBoard").hidden)
+        document.getElementById("addTask").focus();
+      else if (target) target.focus();
+    });
   }
 
   function renderResults() {
@@ -744,77 +903,13 @@
           ? "These feedback counts come from the selected private OWI ledger. Task text and output remain local."
           : "No private ledger is active, so this view contains no model outcomes.")
       : "This view shows feedback stored in this browser. No prompt or output is uploaded by this page.";
-  }
-
-  function applyRuntimeState() {
-    if (!LIVE) return;
-    const configured = data().configured !== false;
-    const demo = data().mode === "demo";
-    const runnable = data().runnable || [];
-    const connection = document.querySelector(".connection");
-    const label = document.getElementById("connectionLabel");
-    const panel = document.getElementById("setupPanel");
-    const form = document.getElementById("form");
-    const prompts = document.querySelectorAll("[data-prompt]");
-    connection.classList.toggle("attention", !configured || demo || !runnable.length);
-    if (!configured) {
-      const setup = data().setup || {};
-      label.textContent = "local office · setup required";
-      document.getElementById("officeStatus").textContent = "Build your real team";
-      document.getElementById("officeIntro").textContent =
-        "This office is empty on purpose. Connect a measured OWI workspace before any model, ability, price, or recommendation appears.";
-      document.getElementById("officeCta").textContent = "Set up the team";
-      document.getElementById("officeTruth").innerHTML =
-        "<b>●</b> Nothing has been inferred from installed apps, links, or account names.";
-      panel.hidden = false;
-      document.getElementById("setupTitle").textContent = "Connect your real workforce";
-      document.getElementById("setupMessage").textContent = setup.message || "";
-      document.getElementById("setupExistingCommand").textContent =
-        setup.existingCommand || "tools/owi-serve --home PATH";
-      document.getElementById("setupDemoCommand").textContent =
-        setup.demoCommand || "tools/owi-serve --demo";
-      form.classList.add("is-disabled");
-      form.querySelectorAll("input,button").forEach(control => control.disabled = true);
-      prompts.forEach(control => control.disabled = true);
-      document.getElementById("footerTruth").textContent =
-        "No model, price, ability, cost, saving, or environmental figure is loaded. Configure a workspace first.";
-      document.getElementById("spendEvidence").textContent =
-        "No private ledger is active";
-    } else {
-      panel.hidden = true;
-      form.classList.remove("is-disabled");
-      form.querySelectorAll("input,button").forEach(control => control.disabled = false);
-      prompts.forEach(control => control.disabled = false);
-      if (demo) {
-        label.textContent = "local office · sample roster";
-        document.getElementById("officeStatus").textContent = "Sample roster — not your team";
-        document.getElementById("officeIntro").textContent =
-          "This demo exercises the product flow. Its abilities are examples, not measurements of your models or projects.";
-        document.getElementById("footerTruth").textContent =
-          "Sample/demo data is active. Example abilities and recommendations are not personal measurements.";
-        document.getElementById("spendEvidence").textContent =
-          "No metered receipts in this demo";
-      } else {
-        label.textContent = runnable.length
-          ? `local office · ${runnable.length} runner${runnable.length === 1 ? "" : "s"} ready`
-          : "local office · roster loaded, no runners";
-        document.getElementById("officeStatus").textContent = runnable.length
-          ? "Your runnable team" : "Roster loaded · connect runners";
-        document.getElementById("spendEvidence").textContent =
-          "No metered receipts in this ledger";
-      }
-    }
+    if (typeof WORKFLOW_PROJECT !== "undefined") workflowRenderProjectResults();
   }
 
   document.querySelectorAll("[data-view]").forEach(button =>
     button.addEventListener("click", () => switchView(button.dataset.view)));
   document.querySelectorAll("[data-open-view]").forEach(button =>
     button.addEventListener("click", () => switchView(button.dataset.openView)));
-  document.querySelectorAll("[data-prompt]").forEach(button =>
-    button.addEventListener("click", () => {
-      document.getElementById("q").value = button.dataset.prompt;
-      switchView("work");
-    }));
   const skinSelect = document.getElementById("skin");
   const savedSkin = localStorage.getItem("owi-office-skin-v1") || "bright";
   skinSelect.value = ["bright", "human", "night"].includes(savedSkin)
@@ -827,562 +922,623 @@
     else document.documentElement.dataset.skin = skin;
     localStorage.setItem("owi-office-skin-v1", skin);
   });
-  applyRuntimeState();
-  renderCrew();
-  renderResults();
+  // ---------------------------------------------------------------------
+  // Server-authoritative project workflow
+  // ---------------------------------------------------------------------
+  // The browser never chooses a model for a live run. It sends a project or
+  // task ID; the local server resolves the saved Rust allocation and derives
+  // the worker, model, prompt and ledger identity itself.
+  let WORKFLOW_PROJECT = null;
+  let WORKFLOW_BUSY = false;
+  let WORKFLOW_CREATING = false;
 
-  fetch("/api/data").then(r => r.ok ? r.json() : null).then(d => {
-    if (d && d.local) {
-      LIVE = d;
-      applyRuntimeState();
-      renderCrew();
-      renderResults();
-    }
-  }).catch(() => {});
+  const workflowStatusLabel = (status) => ({
+    draft: "draft", unstaffed: "needs staffing", staffed: "staffed",
+    setup_required: "runner required", running: "running",
+    needs_review: "ready to review", accepted: "accepted",
+    rejected: "needs work", run_failed: "run failed",
+  }[status] || String(status || "unknown").replaceAll("_", " "));
 
-  // Highest quality bound wins; among equals, cheaper. The counterpart to
-  // the cost ranking — the other corner of the cost/quality/time triangle.
-  const qualityBest = (rows) => rows.length
-    ? [...rows].sort((x, y) => y.bound - x.bound || y.mean - x.mean
-        || x.total - y.total)[0]
-    : null;
+  const workflowMoney = (micros) => micros !== null && micros !== undefined
+    && micros !== "" && Number.isFinite(Number(micros))
+    ? "$" + (Number(micros) / 1e6).toFixed(4) : "not available";
 
-  function render(learnedNote, preferId) {
-    const text = document.getElementById("q").value.trim();
-    if (!text) return;
-    if (LIVE && !data().configured) {
-      const box = document.getElementById("answer");
-      box.classList.add("show");
-      box.innerHTML = `<button type="button" class="close" id="closeAnswer"
-        aria-label="close">✕</button>
-        <div class="none">No workforce is configured, so OWI cannot name a
-        model or calculate a cost.</div>
-        <div class="meta">Connect a measured workspace above. Sample data is
-        available only through the explicit <code>--demo</code> option.</div>`;
-      wireClose();
-      return;
-    }
-    // The checklist is given TO the task as acceptance criteria, then the
-    // same items are verified against the output (live page only).
-    const checks = document.getElementById("checks").value
-      .split("\n").map(s => s.trim()).filter(Boolean).slice(0, 10);
-    const askText = checks.length ? text
-      + "\n\nYour output must pass every item on this checklist:\n"
-      + checks.map(c => "- " + c).join("\n") : text;
-    const parts = splitTask(text);
-    if (parts.length > 1) { renderParts(parts, checks, learnedNote); return; }
-    const skill = guess(text);
-    const privacy = requiredPrivacy();
-    window.__privacy = privacy;
-    const tokensIn = 1500 + Math.floor(text.length / 4);
-    const { rows, turnedAway } = evaluate(skill, tokensIn, 800, privacy);
-    const box = document.getElementById("answer");
-    box.classList.add("show");
+  const workflowChecklist = (value) => Array.isArray(value)
+    ? value.map(item => typeof item === "string" ? item : (item.item || ""))
+        .map(item => item.trim()).filter(Boolean)
+    : String(value || "").split("\n").map(item => item.trim()).filter(Boolean);
 
-    const closeButton = `<button type="button" class="close" id="closeAnswer"
-      aria-label="close">✕</button>`;
-    if (!rows.length) {
-      last = null;
-      const why = privacy === "confidential_content"
-        ? `<div class="none">no worker on this roster is cleared for
-           confidential content in this skill.</div>
-           <div class="meta">confidential work belongs to workers on your own
-           machine — the roster's local-llama (via ollama) is cleared; see
-           docs/ROUTER.md. Cloud workers carry metadata clearance only.</div>`
-        : `<div class="none">nobody qualified — every capable worker has
-           fallen below the quality floor.</div>
-           <div class="meta">that is your own feedback speaking; reset below
-           to forgive, or measure for real with the terminal.</div>`;
-      box.innerHTML = closeButton + `<div class="line">skill:
-        ${skill.replace("skill:", "")}</div>` + why;
-      wireClose();
-      return;
-    }
-    const bench = launchBench(rows);
-    const cheapest = bench[0];
-    const top = preferId
-      ? (bench.find(r => r.id === preferId) || cheapest) : cheapest;
-    const best = qualityBest(bench);
-    const paper = rows[0].id !== bench[0].id ? rows[0] : null;
-    last = { skill, id: top.id };
-    box.innerHTML = closeButton + `
-      <div class="line">skill: ${skill.replace("skill:", "")}
-        &nbsp;·&nbsp; ~${tokensIn} in / 800 out tokens</div>
-      <div class="pick">→ ${short(top.id)}
-        <span class="price">${$(top.total)}</span>
-        <span class="meta">estimated / accepted result</span></div>
-      ${top.id !== cheapest.id ? `<div class="meta">picked for quality —
-        cheapest qualified is ${short(cheapest.id)}
-        at ${$(cheapest.total)}</div>` : ""}
-      ${paper ? `<div class="meta">cheaper on paper: ${short(paper.id)}
-        ${$(paper.total)} — its app drops phone hand-offs, so it runs as
-        itself only in the router (this repo in Claude Code, or
-        tools/owi-serve)</div>` : ""}
-      ${bench.filter(r => r.id !== top.id).slice(0, 2).map(r => `<div class="alt">next:
-        ${short(r.id)} &nbsp;+${$(r.total - top.total)}</div>`).join("")}
-      ${best && best.id !== top.id ? `<div class="alt">quality option:
-        ${short(best.id)} ${$(best.total)} · confidence
-        ${best.bound.toFixed(2)} vs ${top.bound.toFixed(2)}
-        <button type="button" class="mini" id="preferq">use it</button></div>` : ""}
-      <div class="meta">checked ${data().workers.length},
-        turned away ${turnedAway}</div>
-      ${learnedNote ? `<div class="learned ${learnedNote.cls}">
-        ${learnedNote.text}</div>` : ""}
-      ${!LIVE ? (() => {
-        const topLaunch = LAUNCH[modelOf(top.id)];
-        const links = (!MOBILE && topLaunch) ? `<a class="golink"
-            target="_blank" rel="noopener" data-worker="${top.id}"
-            href="${topLaunch.url}${encodeURIComponent(askText)}"
-            >run in ${topLaunch.name}</a>` : "";
-        const after = MOBILE
-          ? "paste it into your Claude, then bring the answer back"
-          : (checks.length ? "run it there, paste the result below"
-                           : "run it there, come back, answer below");
-        const pasteback = checks.length ? `
-          <textarea id="pasteback" rows="4" placeholder="paste the model's answer here — it is checked against your checklist right in this page"></textarea>
-          <div class="verdict">
-            <button type="button" id="checkbtn">check the result</button>
-            <span id="checkstate" class="meta"></span></div>
-          <div class="checkrep" id="checkrep"></div>` : "";
-        const handoff = MOBILE ? `<div class="meta">phone apps drop link
-          hand-offs, so the page hands you the task instead. One-tap real
-          runs live in the router: open this repo in Claude Code and say
-          the task.</div>`
-          : (links ? `<div class="meta">Tapping run also copies the task.
-          The app still uses its own selected model — exact-model runs:
-          open this repo in Claude Code, or tools/owi-serve.</div>` : "");
-        return `<div class="verdict">${links}
-          <button type="button" id="copybtn">copy task</button>
-          <span class="meta">${after}</span>
-        </div>${handoff}${pasteback}`;
-      })() : ""}
-      ${LIVE ? (() => {
-        const runnable = rows.find(r =>
-          (data().runnable || []).includes(modelOf(r.c ? r.c.id : r.id)));
-        const target = runnable ? (runnable.c ? runnable.c.id : runnable.id) : null;
-        if (!target) return `<div class="meta">no runner configured for any
-          eligible worker — fill in .owi-quick/runners.json</div>`;
-        window.__runTarget = target;
-        const label = target === top.id ? "run it"
-          : `run with ${short(target)}`;
-        const why = target === top.id ? "" : `<span class="meta">
-          ${modelOf(top.id)} has no runner here</span>`;
-        return `<div class="verdict">
-          <button type="button" id="go">${label}</button>${why}
-          <span id="runstate"></span></div>
-          <pre class="out" id="out" hidden></pre>
-          <div class="checkrep" id="checkrep"></div>`;
-      })() : ""}
-      <div class="verdict"><span>${LIVE ? "then:" : "after you run it:"}</span>
-        <button type="button" id="yes">worked</button>
-        <button type="button" class="no" id="no">didn't</button></div>
-      <div class="verdict" id="causes" hidden>
-        <span>why? — only "the model" counts against it:</span>
-        <button type="button" data-cause="worker">the model</button>
-        <button type="button" class="no" data-cause="task_spec">unclear task</button>
-        <button type="button" class="no" data-cause="environment">my setup</button>
-      </div>`;
-    wireClose();
-    const copyButton = document.getElementById("copybtn");
-    if (copyButton) copyButton.onclick = async () => {
-      try { await navigator.clipboard.writeText(askText);
-            copyButton.textContent = "copied"; }
-      catch { window.prompt("copy the task:", askText); }
-    };
-    // Copy the task in the same tap so nothing is ever lost, and point the
-    // verdict at whichever worker's link was actually tapped.
-    box.querySelectorAll("a.golink").forEach(a =>
-      a.addEventListener("click", () => {
-        if (a.dataset.worker) last = { skill, id: a.dataset.worker };
-        try { navigator.clipboard.writeText(askText); } catch (error) {}
-      }));
-    document.getElementById("yes").onclick = () => verdict(true);
-    document.getElementById("no").onclick = () => {
-      document.getElementById("causes").hidden = false;
-    };
-    document.getElementById("causes").addEventListener("click", (e) => {
-      if (e.target.dataset.cause) verdict(false, e.target.dataset.cause);
-    });
-    if (LIVE && document.getElementById("go"))
-      document.getElementById("go").onclick = () => {
-        last = { skill, id: window.__runTarget }; runIt(text, checks); };
-    const checkButton = document.getElementById("checkbtn");
-    if (checkButton) checkButton.onclick = () => checkPasted(checks);
-    const preferButton = document.getElementById("preferq");
-    if (preferButton) preferButton.onclick = () => render(undefined, best.id);
+  const workflowPath = (projectId, taskId, suffix) =>
+    `/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}${suffix || ""}`;
+
+  function workflowNotice(message, error) {
+    const notice = document.getElementById("workflowNotice");
+    notice.textContent = message || "";
+    notice.classList.toggle("error", Boolean(error));
   }
 
-  // The checklist is a system input even without a server: mechanical items
-  // are verified right here, in the page, against the pasted result — the
-  // same rules the terminal applies (quote-stripped contains, regex, json,
-  // min-words). Only judgement items need the live page's judge.
-  function checkItemJS(item, output) {
-    const text = item.trim(), low = text.toLowerCase();
-    const strip = (s) => {
-      s = s.trim();
-      if (s.length >= 2 && s[0] === s[s.length - 1] && "'\"".includes(s[0]))
-        s = s.slice(1, -1).trim();
-      return s;
-    };
-    if (low.startsWith("contains:")) {
-      const needle = strip(text.slice(9));
-      return ["contains", output.toLowerCase().includes(needle.toLowerCase()),
-              `output contains "${needle}"`];
-    }
-    if (low.startsWith("regex:")) {
-      try { return ["regex", new RegExp(text.slice(6).trim(), "s").test(output),
-                    "matches the pattern"]; }
-      catch (error) { return ["regex", null, "unusable regex"]; }
-    }
-    if (low === "json")
-      return ["json", findJsonJS(output) !== undefined, "contains valid JSON"];
-    if (low.startsWith("min-words:")) {
-      const floor = parseInt(text.slice(10).trim(), 10);
-      if (isNaN(floor)) return ["min-words", null, "unusable min-words"];
-      return ["min-words",
-              output.split(/\s+/).filter(Boolean).length >= floor,
-              `at least ${floor} words`];
-    }
-    if (low === "python")
-      return ["python", null, "needs the live page (code compiles there)"];
-    return ["judged", null, "needs a judge — the live page has one"];
-  }
-  function findJsonJS(t) {
-    const candidates = [];
-    const fence = /```(?:json)?\s*([\s\S]*?)```/g;
-    let m; while ((m = fence.exec(t))) candidates.push(m[1]);
-    candidates.push(t);
-    const embedded = t.match(/[\[{][\s\S]*[\]}]/);
-    if (embedded) candidates.push(embedded[0]);
-    for (const c of candidates) { try { return JSON.parse(c); } catch (e) {} }
-    return undefined;
+  function workflowErrorMessage(error) {
+    return error && error.message ? error.message : "The local OWI server did not complete the request.";
   }
 
-  function checkPasted(checks) {
-    const output = document.getElementById("pasteback").value;
-    const state = document.getElementById("checkstate");
-    if (!output.trim()) { state.textContent = "paste the result first"; return; }
-    const marks = { true: ["✓", "ok"], false: ["✗", "fail"], null: ["?", "open"] };
-    const results = checks.map(item => {
-      const [kind, pass, note] = checkItemJS(item, output);
-      return { item, kind, pass, note };
-    });
-    document.getElementById("checkrep").innerHTML = results.map(i => {
-      const [mark, cls] = marks[i.pass];
-      return `<div class="${cls}">[${mark}] ${esc(i.item)} — ${esc(i.note)}</div>`;
-    }).join("");
-    const failed = results.some(i => i.pass === false);
-    const open = results.filter(i => i.pass === null).length;
-    if (failed) {
-      state.textContent = "checklist failed → " + learn(false, "worker");
-      hideManualVerdict();
-    } else if (!open) {
-      state.textContent = "all items passed → " + learn(true);
-      hideManualVerdict();
-    } else {
-      state.textContent =
-        `${open} item(s) need judgement — your call below, or use the live page`;
+  async function workflowRequest(path, options) {
+    const request = { method: "GET", credentials: "same-origin", ...(options || {}) };
+    if (request.body !== undefined) {
+      request.headers = { "Content-Type": "application/json", ...(request.headers || {}) };
+      if (typeof request.body !== "string") request.body = JSON.stringify(request.body);
     }
+    const response = await fetch(path, request);
+    let payload = {};
+    try { payload = await response.json(); }
+    catch (error) { payload = {}; }
+    if (!response.ok) {
+      const message = payload.error || payload.message ||
+        `OWI returned ${response.status} ${response.statusText}`;
+      throw new Error(message);
+    }
+    return payload;
   }
 
-  // Several parts: each is classified and staffed on its own bench. A code
-  // part and a text part land on different workers — one model never gets
-  // everything by default.
-  function renderParts(parts, checks, learnedNote) {
-    const box = document.getElementById("answer");
-    box.classList.add("show");
-    window.__partsArgs = { parts, checks };
-    const privacy = requiredPrivacy();
-    window.__privacy = privacy;
-    const detail = parts.map((p, i) => {
-      const skill = guess(p);
-      const { rows } = evaluate(skill, 1500 + Math.floor(p.length / 4), 800,
-                                privacy);
-      const bench = launchBench(rows);
-      const cheapest = bench[0] || null;
-      const pref = (window.__qpref || {})[i];
-      const top = pref ? (bench.find(r => r.id === pref) || cheapest) : cheapest;
-      const paper = rows[0] && cheapest && rows[0].id !== cheapest.id
-        ? rows[0] : null;
-      return { text: p, skill, top, cheapest, best: qualityBest(bench), paper };
-    });
-    window.__parts = detail;
-    const staffed = detail.filter(d => d.top);
-    const distinct = new Set(staffed.map(d => d.top.id)).size;
-    const total = staffed.reduce((s, d) => s + d.top.total, 0);
-    box.innerHTML = `<button type="button" class="close" id="closeAnswer"
-        aria-label="close">✕</button>
-      <div class="line">${detail.length} parts — different work goes to
-        different workers</div>
-      ${detail.map((d, i) => {
-        const head = `<div class="line">part ${i + 1} ·
-          ${d.skill.replace("skill:", "")} —
-          “${esc(d.text.slice(0, 90))}”</div>`;
-        if (!d.top) return `<div class="part">${head}
-          <div class="none">nobody qualified</div></div>`;
-        const topLaunch = LAUNCH[modelOf(d.top.id)];
-        const link = (!LIVE && !MOBILE && topLaunch) ? `<a class="golink"
-            target="_blank" rel="noopener" data-launch="${i}"
-            data-worker="${d.top.id}"
-            href="${topLaunch.url}${encodeURIComponent(d.text)}"
-            >run in ${topLaunch.name}</a>` : "";
-        const paperNote = (!LIVE && d.paper) ? `<div class="meta">cheaper on
-          paper: ${short(d.paper.id)} ${$(d.paper.total)} — runs as itself
-          only in the router</div>` : "";
-        const runButton = LIVE ? `<button type="button" class="mini"
-            data-run="${i}">run</button>` : "";
-        const quality = d.best && d.best.id !== d.top.id ? `<div class="alt">
-          quality option: ${short(d.best.id)} ${$(d.best.total)} · confidence
-          ${d.best.bound.toFixed(2)} vs ${d.top.bound.toFixed(2)}
-          <button type="button" class="mini" data-qswap="${i}">use it</button>
-          </div>` : "";
-        const preferred = d.cheapest && d.top.id !== d.cheapest.id
-          ? `<div class="meta">picked for quality — cheapest is
-             ${short(d.cheapest.id)} at ${$(d.cheapest.total)}</div>` : "";
-        return `<div class="part">${head}
-          <div class="pick">→ ${short(d.top.id)}
-            <span class="price">${$(d.top.total)}</span></div>
-          ${preferred}${paperNote}${quality}
-          <div class="verdict">${runButton}${link}
-            <button type="button" class="mini" data-copy="${i}">copy</button>
-            <button type="button" class="mini" data-good="${i}">worked</button>
-            <button type="button" class="mini no" data-bad="${i}">didn't</button>
-            <span class="meta" id="pstate-${i}"></span></div>
-          <pre class="out" id="pout-${i}" hidden></pre>
-          <div class="checkrep" id="prep-${i}"></div></div>`;
-      }).join("")}
-      <div class="meta">estimated all parts: ${$(total)} ·
-        ${distinct} different worker(s)${checks.length
-          ? " · your checklist applies to single-part asks; the live page writes one per part"
-          : ""}${LIVE ? "" : (MOBILE ? " · copy each part, paste it into your Claude, mark worked/didn't here · one-tap real runs: open this repo in Claude Code and say the task" : " · tapping run also copies the part · exact-model runs: open this repo in Claude Code and say the task")}</div>
-      ${learnedNote ? `<div class="learned ${learnedNote.cls}">
-        ${learnedNote.text}</div>` : ""}`;
-    wireClose();
-    box.querySelectorAll("[data-copy]").forEach(b => b.onclick = async () => {
-      const d = window.__parts[+b.dataset.copy];
-      try { await navigator.clipboard.writeText(d.text); b.textContent = "copied"; }
-      catch { window.prompt("copy the part:", d.text); }
-    });
-    box.querySelectorAll("[data-launch]").forEach(a =>
-      a.addEventListener("click", () => {
-        const d = window.__parts[+a.dataset.launch];
-        if (a.dataset.worker) d.ran = a.dataset.worker;
-        try { navigator.clipboard.writeText(d.text); } catch (error) {}
-      }));
-    box.querySelectorAll("[data-good]").forEach(b => b.onclick = () =>
-      partVerdict(+b.dataset.good, true));
-    box.querySelectorAll("[data-bad]").forEach(b => b.onclick = () =>
-      partVerdict(+b.dataset.bad, false));
-    box.querySelectorAll("[data-run]").forEach(b => b.onclick = () =>
-      runPart(+b.dataset.run));
-    box.querySelectorAll("[data-qswap]").forEach(b => b.onclick = () => {
-      const i = +b.dataset.qswap;
-      window.__qpref = window.__qpref || {};
-      window.__qpref[i] = window.__parts[i].best.id;
-      renderParts(window.__partsArgs.parts, window.__partsArgs.checks);
-    });
+  function workflowSetBusy(button, label) {
+    if (WORKFLOW_BUSY) return false;
+    WORKFLOW_BUSY = true;
+    if (button) {
+      button.dataset.idleLabel = button.textContent;
+      button.textContent = label;
+      button.disabled = true;
+    }
+    document.querySelectorAll("[data-workflow-action]").forEach(control =>
+      control.disabled = true);
+    return true;
   }
 
-  async function partVerdict(i, worked) {
-    const d = window.__parts[i];
-    if (!d.top) return;
-    const who = { skill: d.skill, id: d.ran || d.top.id };
-    const state = document.getElementById("pstate-" + i);
-    if (LIVE) {
-      await postOutcome(worked, worked ? null : "worker", "", d.text, [], who, "");
-      state.textContent = worked ? "recorded accepted" : "recorded rejected";
-    } else {
-      state.textContent = learn(worked, worked ? null : "worker", who);
-    }
+  function workflowClearBusy(button) {
+    WORKFLOW_BUSY = false;
+    if (button && button.dataset.idleLabel)
+      button.textContent = button.dataset.idleLabel;
+    workflowRenderProject();
   }
 
-  async function runPart(i) {
-    const d = window.__parts[i];
-    if (!d.top) return;
-    const who = { skill: d.skill, id: d.top.id };
-    const state = document.getElementById("pstate-" + i);
-    const out = document.getElementById("pout-" + i);
-    let model = modelOf(who.id);
-    if (!(data().runnable || []).includes(model)) {
-      const { rows } = evaluate(d.skill, 1500 + Math.floor(d.text.length / 4),
-                                800, window.__privacy);
-      const alt = rows.find(r => (data().runnable || []).includes(modelOf(r.id)));
-      if (!alt) { state.textContent = "no runner configured"; return; }
-      who.id = alt.id; model = modelOf(alt.id);
-      state.textContent = `running with ${short(alt.id)} (cheapest runnable)…`;
-    } else {
-      state.textContent = "running via your CLI…";
-    }
+  async function workflowRefreshRuntime() {
     try {
-      const response = await fetch("/api/run", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model, task: d.text, skill: d.skill, check: [] }) });
-      const result = await response.json();
-      out.hidden = false;
-      if (!response.ok) { out.textContent = result.error; state.textContent = ""; return; }
-      out.textContent = result.output || result.stderr || "(no output)";
-      const inspection = result.inspection ? result.inspection.level : "";
-      const rep = document.getElementById("prep-" + i);
-      if (result.inspection)
-        rep.innerHTML = `<div class="open">inspection:
-          ${esc(result.inspection.level)} — ${esc(result.inspection.why)}</div>`;
-      if (!result.check) {
-        state.textContent = result.exit === 0
-          ? "done — worked or didn't?" : `exit ${result.exit}`;
-        return;
-      }
-      const marks = { true: ["✓", "ok"], false: ["✗", "fail"], null: ["?", "open"] };
-      rep.innerHTML += result.check.items.map(it => {
-        const [mark, cls] = marks[it.pass];
-        return `<div class="${cls}">[${mark}] ${esc(it.item)} — ${esc(it.note)}</div>`;
-      }).join("");
-      const judged = result.check.judge ? ` · judge: ${result.check.judge}` : "";
-      if (result.check.verdict === "accepted") {
-        await postOutcome(true, null, "", d.text, result.check.items, who, inspection);
-        state.textContent = `passed${judged} → recorded accepted`;
-      } else if (result.check.verdict === "rejected") {
-        const det = result.check.items.filter(x => x.pass === false)
-          .map(x => `failed: ${x.item} (${x.note})`).join("; ");
-        await postOutcome(false, "worker", det, d.text, result.check.items, who, inspection);
-        state.textContent = `failed${judged} → recorded rejected`;
-      } else {
-        state.textContent = `not fully checked${judged} — worked/didn't is your call`;
-      }
-    } catch (error) { state.textContent = "server went away"; }
-  }
-
-  async function runIt(text, checks) {
-    const state = document.getElementById("runstate");
-    const out = document.getElementById("out");
-    state.textContent = "running via your CLI…";
-    try {
-      const response = await fetch("/api/run", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: modelOf(last.id), task: text,
-                               skill: last.skill, check: checks || [] }) });
-      const result = await response.json();
-      out.hidden = false;
-      if (!response.ok) { out.textContent = result.error; state.textContent = ""; return; }
-      out.textContent = result.output || result.stderr || "(no output)";
-      window.__inspection = result.inspection ? result.inspection.level : "";
-      if (result.inspection)
-        document.getElementById("checkrep").innerHTML =
-          `<div class="open">inspection: ${esc(result.inspection.level)} — ${esc(result.inspection.why)}</div>`;
-      if (result.check) { await applyCheck(result.check, text); return; }
-      state.textContent = result.exit === 0 ? "done — worked or didn't?"
-                                            : `exit ${result.exit}`;
-    } catch (error) { state.textContent = "server went away"; }
-  }
-
-  // The checklist verdict is earned, not asked for: decisive results are
-  // recorded to the real ledger immediately, and the report stays on screen.
-  async function applyCheck(report, task) {
-    const marks = { true: ["✓", "ok"], false: ["✗", "fail"], null: ["?", "open"] };
-    document.getElementById("checkrep").innerHTML +=
-      report.items.map(i => {
-        const [mark, cls] = marks[i.pass];
-        return `<div class="${cls}">[${mark}] ${esc(i.item)} — ${esc(i.note)}</div>`;
-      }).join("");
-    const state = document.getElementById("runstate");
-    const judged = report.judge ? ` · judge: ${report.judge}` : "";
-    if (report.verdict === "accepted") {
-      await postOutcome(true, null, "", task, report.items);
-      state.textContent = `checklist passed${judged} → recorded accepted`;
-      hideManualVerdict();
-    } else if (report.verdict === "rejected") {
-      const detail = report.items.filter(i => i.pass === false)
-        .map(i => `failed: ${i.item} (${i.note})`).join("; ");
-      await postOutcome(false, "worker", detail, task, report.items);
-      state.textContent =
-        `checklist failed${judged} → recorded rejected (worker)`;
-      hideManualVerdict();
-    } else {
-      state.textContent = `could not verify every item${judged} — your call below`;
-    }
-  }
-
-  async function postOutcome(worked, cause, detail, task, checklist, who,
-                             inspection) {
-    who = who || last;
-    try {
-      const response = await fetch("/api/outcome", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ worker: who.id, skill: who.skill,
-          accepted: worked, cause, detail: detail || "", task: task || "",
-          checklist: checklist || [],
-          privacy: window.__privacy || "private_metadata",
-          inspection: inspection !== undefined ? inspection
-                      : (window.__inspection || "") }) });
-      const result = await response.json();
-      if (result.ok) LIVE = result.data;
-    } catch (error) { /* server went away; the report stays on screen */ }
-  }
-
-  function hideManualVerdict() {
-    const yes = document.getElementById("yes");
-    if (yes) yes.closest(".verdict").hidden = true;
-    document.getElementById("causes").hidden = true;
-  }
-
-  async function verdict(worked, cause) {
-    if (!last) return;
-    if (LIVE) {
-      try {
-        const response = await fetch("/api/outcome", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ worker: last.id, skill: last.skill,
-                                 accepted: worked, cause,
-                                 task: document.getElementById("q").value }) });
-        const result = await response.json();
-        if (result.ok) { LIVE = result.data;
-          render({ cls: worked ? "up" : "down",
-                   text: `${short(last.id)} ${worked ? "credited" : "marked down"}
-                     — recorded to your real ledger` });
-          return; }
-      } catch (error) { /* fall through to browser-only */ }
-    }
-    render({ cls: worked ? "up" : "down", text: learn(worked, cause) });
-  }
-
-  // The browser-only Beta update, shared by the buttons, the paste-back
-  // checker, and per-part verdicts. Only worker-caused failures count
-  // against the model, here too.
-  function learn(worked, cause, who) {
-    who = who || last;
-    const store = local();
-    store[who.skill] = store[who.skill] || {};
-    const mine = store[who.skill][who.id] || { s: 0, f: 0 };
-    if (worked) mine.s += 1;
-    else if (!cause || cause === "worker") mine.f += 1;
-    store[who.skill][who.id] = mine;
-    save(store);
+      const runtime = await workflowRequest("/api/data");
+      if (runtime && runtime.local) LIVE = runtime;
+    } catch (error) { /* The project response remains valid and visible. */ }
+    workflowApplyRuntime();
+    renderCrew();
     renderResults();
-    const p = posterior(who.skill, who.id);
-    return `${short(who.id)} ${worked ? "credited" : "marked down"} — its
-      estimate is now ${(p.a / (p.a + p.b)).toFixed(2)}
-      (${mine.s} worked / ${mine.f} didn't, this browser only)`;
   }
 
-  function wireClose() {
-    const btn = document.getElementById("closeAnswer");
-    if (btn) btn.onclick = () => {
-      document.getElementById("answer").classList.remove("show");
-      const q = document.getElementById("q");
-      q.select(); q.focus();
-    };
+  function workflowSyncPlanningPrivacy(configured) {
+    const privacy = document.getElementById("projectPrivacy").value;
+    const sensitive = privacy === "confidential_content" || privacy === "secret";
+    const planning = document.getElementById("usePlanningModel");
+    if (sensitive) planning.checked = false;
+    planning.disabled = !configured || sensitive;
+    document.getElementById("planningPrivacyNote").textContent = sensitive
+      ? "Model planning is disabled for Confidential and Secret projects so the project goal is not sent to a planning model. Add or edit the deterministic draft tasks yourself."
+      : "Optional and unchecked by default. It may cost money, and that unmetered planning call is outside the task-forecast budget.";
   }
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape")
-      document.getElementById("answer").classList.remove("show");
+
+  function workflowApplyRuntime() {
+    const configured = Boolean(LIVE && data().configured !== false);
+    const isStatic = !LIVE;
+    const demo = Boolean(LIVE && data().mode === "demo");
+    const runnable = LIVE ? (data().runnable || []) : [];
+    const setup = LIVE ? (data().setup || {}) : {};
+    const connection = document.querySelector(".connection");
+    const label = document.getElementById("connectionLabel");
+    const form = document.getElementById("projectForm");
+    const setupPanel = document.getElementById("setupPanel");
+    const staticNotice = document.getElementById("staticNotice");
+    connection.classList.toggle("attention", isStatic || !configured || demo || !runnable.length);
+    staticNotice.hidden = !isStatic;
+    setupPanel.hidden = isStatic || configured;
+    form.querySelectorAll("input,textarea,select,button").forEach(control => {
+      if (control.id !== "backToProject") control.disabled = isStatic || !configured;
+    });
+    workflowSyncPlanningPrivacy(configured);
+
+    if (isStatic) {
+      label.textContent = "read-only preview";
+      document.getElementById("officeStatus").textContent = "See the real workflow";
+      document.getElementById("officeIntro").textContent =
+        "The published page shows the product and catalog. Real projects, model runs and outputs stay inside your local OWI Office.";
+      document.getElementById("officeCta").textContent = "See project workflow";
+      document.getElementById("footerTruth").textContent =
+        "Read-only preview. It does not access provider credentials, create work or pretend a model ran.";
+      document.getElementById("spendEvidence").textContent =
+        "No execution occurs in the read-only preview";
+      return;
+    }
+    if (!configured) {
+      label.textContent = "local office · setup required";
+      document.getElementById("setupMessage").textContent = (setup.message ||
+        "No stored OWI roster snapshot and price evidence are connected.") +
+        " Runner commands in runners.json must bind the exact worker ID; model-only runner keys are not executable.";
+      document.getElementById("setupExistingCommand").textContent =
+        setup.existingCommand || "tools/owi-serve --home PATH";
+      document.getElementById("setupDemoCommand").textContent =
+        setup.demoCommand || "tools/owi-serve --demo";
+      document.getElementById("officeStatus").textContent = "Connect your workforce";
+      document.getElementById("officeIntro").textContent =
+        "The office needs a stored roster snapshot, price evidence and exact worker runners before it can staff or run work.";
+      document.getElementById("footerTruth").textContent =
+        "No model, price, assignment or result is shown until a real OWI workspace and exact worker-ID runner bindings are connected.";
+      document.getElementById("spendEvidence").textContent =
+        "No private ledger is active";
+      return;
+    }
+    label.textContent = demo ? "local office · explicit demo" :
+      `local office · ${runnable.length} runner${runnable.length === 1 ? "" : "s"} ready`;
+    document.getElementById("officeStatus").textContent = demo
+      ? "Explicit sample office" : "Your real AI office";
+    document.getElementById("officeIntro").textContent = demo
+      ? "This explicitly labelled demo exercises the workflow with sample capabilities."
+      : "Create a project, inspect its tasks, then let the Rust allocator staff each task from your stored roster snapshot and price evidence.";
+    document.getElementById("officeCta").textContent = WORKFLOW_PROJECT
+      ? "Open active project" : "Create a project";
+    document.getElementById("footerTruth").textContent = demo
+      ? "Explicit demo data is active. Its abilities are examples, not measurements of your models."
+      : "Live local office. Assignments and outcomes come from the selected private OWI workspace; execution requires an exact worker-ID runner binding.";
+    document.getElementById("spendEvidence").textContent = demo
+      ? "No metered provider receipts in this demo"
+      : "Runner/provider receipts are not exposed; actual spend remains unknown";
+  }
+
+  function workflowTaskById(id) {
+    return WORKFLOW_PROJECT && (WORKFLOW_PROJECT.tasks || [])
+      .find(task => String(task.id) === String(id));
+  }
+
+  function workflowCandidateIdentity(candidate) {
+    if (typeof candidate === "string") return candidate;
+    return candidate.worker || candidate.workerId || candidate.worker_id ||
+      candidate.id || candidate.model || "candidate identity unavailable";
+  }
+
+  function workflowCandidateCost(candidate) {
+    if (!candidate || typeof candidate === "string") return null;
+    const direct = candidate.estimatedCostMicros ?? candidate.expectedAcceptedCostMicros
+      ?? candidate.expected_accepted_cost_micros;
+    if (direct !== undefined && direct !== null) return direct;
+    const cost = candidate.cost || {};
+    return cost.expectedAcceptedCostMicros ?? cost.expected_accepted_cost_micros ?? null;
+  }
+
+  function workflowEvidence(task) {
+    const alternatives = (task.alternatives || []).slice(0, 3);
+    const rejections = (task.rejections || []).slice(0, 3);
+    let html = "";
+    if (alternatives.length) html += `<div class="staffing-proof"><b>Qualified alternatives</b></div><ul class="evidence-list">${alternatives.map(candidate => {
+      const cost = workflowCandidateCost(candidate);
+      return `<li><span class="worker-id">${esc(workflowCandidateIdentity(candidate))}</span>${cost === null ? "" : ` · ${workflowMoney(cost)} estimated`}</li>`;
+    }).join("")}</ul>`;
+    if (rejections.length) html += `<div class="staffing-proof"><b>Why others were filtered</b></div><ul class="evidence-list">${rejections.map(item => {
+      if (typeof item === "string") return `<li>${esc(item)}</li>`;
+      const who = workflowCandidateIdentity(item);
+      const why = item.reason || item.why || item.code || "not eligible";
+      return `<li><span class="worker-id">${esc(who)}</span> · ${esc(why)}</li>`;
+    }).join("")}</ul>`;
+    return html;
+  }
+
+  function workflowCheckReport(checks) {
+    if (!checks || !Array.isArray(checks.items) || !checks.items.length) return "";
+    const policy = checks.judgementPolicy
+      ? `<div class="staffing-proof">Judgement policy: ${esc(String(checks.judgementPolicy).replaceAll("_", " "))}</div>` : "";
+    return `${policy}<div class="check-list">${checks.items.map(item => {
+      const cls = item.pass === true ? "pass" : item.pass === false ? "fail" : "";
+      const mark = item.pass === true ? "✓" : item.pass === false ? "✗" : "?";
+      return `<div class="check-item ${cls}">[${mark}] ${esc(item.item || "check")} · ${esc(item.note || "no explanation returned")}</div>`;
+    }).join("")}</div>`;
+  }
+
+  function workflowSkillOptions(selected) {
+    const skills = Object.keys((data() && data().skillTools) || {}).sort();
+    return `<option value="">Let OWI classify it</option>` + skills.map(skill =>
+      `<option value="${esc(skill)}" ${skill === selected ? "selected" : ""}>${esc(skill.replace("skill:", "").replaceAll("-", " "))}</option>`).join("");
+  }
+
+  function workflowTaskCard(task, index) {
+    const status = task.status || "draft";
+    const worker = task.worker || "";
+    const model = task.model || (worker ? modelOf(worker) : "");
+    const checklist = workflowChecklist(task.checklist || []);
+    const outputKnown = ["needs_review", "accepted", "rejected", "run_failed"]
+      .includes(status) || task.exitCode !== undefined && task.exitCode !== null;
+    const output = outputKnown ? String(task.output) : "";
+    const editable = ["draft", "unstaffed", "setup_required", "staffed",
+      "rejected", "run_failed"].includes(status);
+    const removable = ["draft", "unstaffed", "setup_required", "rejected",
+      "run_failed"].includes(status);
+    const attempts = Number.isFinite(Number(task.attemptCount))
+      ? Number(task.attemptCount) : 0;
+    const maxAttempts = Number.isFinite(Number(task.maxAttempts))
+      ? Number(task.maxAttempts) : 2;
+    const hasAttempt = attempts < maxAttempts;
+    const exactRunner = task.runnerReady === true && task.runnerBinding === "worker";
+    const canRun = status === "staffed" && exactRunner && hasAttempt;
+    const canRetry = ["needs_review", "rejected", "run_failed"].includes(status)
+      && exactRunner && hasAttempt;
+    const needsReview = status === "needs_review";
+    const cost = task.estimatedCostMicros;
+    const binding = task.runnerBinding === "worker"
+      ? "exact worker command"
+      : task.runnerBinding === "model_fallback"
+        ? "model-wide fallback · not runnable"
+        : task.runnerReady ? "configured · binding not reported" : "setup required";
+    const bindingTruth = task.runnerBinding === "model_fallback"
+      ? "The exact worker was staffed, but only a model-wide command exists. Execution is blocked because the worker-specific harness or skill pack is not proven."
+      : task.runnerBinding === "worker"
+        ? "Execution is bound to this exact worker command." : "";
+    const assignment = worker ? `<div class="assignment">
+      <div class="assignment-cell"><span>Exact assigned worker</span><strong class="worker-id">${esc(worker)}</strong>${model ? `<small class="meta">model: ${esc(model)}</small>` : ""}</div>
+      <div class="assignment-cell"><span>Estimated accepted-result cost</span><strong>${workflowMoney(cost)}</strong></div>
+      <div class="assignment-cell"><span>Capability</span><strong>${esc(task.skill || "not returned")}</strong></div>
+      <div class="assignment-cell"><span>Runner binding</span><strong>${esc(binding)}</strong></div>
+      <div class="assignment-cell"><span>Attempts</span><strong>${attempts} / ${maxAttempts}</strong></div>
+    </div>${bindingTruth ? `<p class="staffing-proof">${esc(bindingTruth)}</p>` : ""}<p class="staffing-proof">Assigned by the server-side Rust allocator after capability, tool, privacy, quality and cost gates. This task forecast excludes unmetered planner/checker calls and is not a provider receipt.</p>${workflowEvidence(task)}` :
+      `<p class="staffing-proof">No worker has been assigned by the server yet.</p>${workflowEvidence(task)}`;
+    const checklistHtml = checklist.length ? `<div class="staffing-proof"><b>Acceptance checks</b></div><ul class="evidence-list">${checklist.map(item => `<li>${esc(item)}</li>`).join("")}</ul>` : "";
+    const outputHtml = (outputKnown || task.stderr) ? `<pre class="task-output ${!output && !task.stderr ? "empty-output" : ""}">${esc(output || task.stderr || "The runner returned no output.")}</pre>` : "";
+    const runnerNote = worker && !exactRunner
+      ? `<span class="action-note">Execution is blocked until an exact command is configured for <span class="worker-id">${esc(worker)}</span>. A model-wide fallback does not prove the staffed worker harness or skill pack.</span>` : "";
+    const review = needsReview ? `<div class="review-box" data-reject-box="${esc(task.id)}" hidden>
+      <label class="field"><span>Why does it need work?</span><select name="cause"><option value="worker">The model output</option><option value="task_spec">The task was unclear</option><option value="environment">The environment or runner</option></select></label>
+      <label class="field"><span>Review note</span><textarea name="detail" maxlength="3000" placeholder="What failed, and what should change on retry?"></textarea></label>
+      <div class="task-actions"><button type="button" class="danger" data-workflow-action="confirm-reject" data-task-id="${esc(task.id)}">Record needs work</button><button type="button" class="quiet" data-workflow-action="cancel-reject" data-task-id="${esc(task.id)}">Cancel</button></div>
+    </div>` : "";
+    const edit = editable ? `<form class="edit-box" data-edit-form="${esc(task.id)}" hidden>
+      <label class="field"><span>Task title</span><input name="title" maxlength="120" value="${esc(task.title || "")}"></label>
+      <label class="field"><span>Task brief</span><textarea name="brief" maxlength="8000" required>${esc(task.brief || task.summary || "")}</textarea></label>
+      <label class="field"><span>Skill</span><select name="skill">${workflowSkillOptions(task.skill || "")}</select></label>
+      <label class="field"><span>Acceptance checks · one per line</span><textarea name="checklist" maxlength="4000">${esc(checklist.join("\n"))}</textarea></label>
+      <div class="task-actions"><button type="submit" class="secondary">Save as draft</button><button type="button" class="quiet" data-workflow-action="cancel-edit" data-task-id="${esc(task.id)}">Cancel</button></div>
+    </form>` : "";
+    return `<article class="task-item" data-status="${esc(status)}" data-task-card="${esc(task.id)}">
+      <div class="task-head"><div><span class="task-number">TASK ${index + 1} · ${esc(task.id)}</span><h3>${esc(task.title || `Task ${index + 1}`)}</h3></div><span class="status-pill ${esc(status)}">${esc(workflowStatusLabel(status))}</span></div>
+      <div class="task-content"><p class="task-brief">${esc(task.brief || task.summary || "No brief returned.")}</p>
+        ${assignment}${checklistHtml}${outputHtml}${workflowCheckReport(task.checks)}
+        <div class="task-actions">
+          ${editable ? `<button type="button" class="quiet" data-workflow-action="edit" data-task-id="${esc(task.id)}">Edit task</button>` : ""}
+          ${removable ? `<button type="button" class="danger" data-workflow-action="remove" data-task-id="${esc(task.id)}">Remove task</button>` : ""}
+          ${["draft", "unstaffed", "setup_required"].includes(status) ? `<button type="button" class="secondary" data-workflow-action="staff" data-task-id="${esc(task.id)}">Staff all unassigned</button>` : ""}
+          ${status === "staffed" ? `<button type="button" class="secondary" data-workflow-action="run" data-task-id="${esc(task.id)}" ${canRun ? "" : "disabled"}>Run assigned worker</button>` : ""}
+          ${needsReview ? `<button type="button" class="secondary" data-workflow-action="accept" data-task-id="${esc(task.id)}">Accept result</button><button type="button" class="danger" data-workflow-action="reject" data-task-id="${esc(task.id)}">Needs work</button>` : ""}
+          ${["needs_review", "rejected", "run_failed"].includes(status) ? `<button type="button" class="quiet" data-workflow-action="retry" data-task-id="${esc(task.id)}" ${canRetry ? "" : "disabled"}>Retry same assignment</button>` : ""}
+          ${["rejected", "run_failed"].includes(status) ? `<button type="button" class="secondary" data-workflow-action="restaff" data-task-id="${esc(task.id)}">Restaff using new evidence</button>` : ""}
+          ${runnerNote}
+          ${!hasAttempt ? `<span class="action-note">Attempt limit reached. Edit/restaff the task or create a new task before another run.</span>` : ""}
+          ${status === "running" ? `<span class="action-note">The server reports that this task is running.</span>` : ""}
+          ${status === "accepted" ? `<span class="action-note">Accepted and recorded in the private OWI ledger.</span>` : ""}
+        </div>${review}${edit}
+      </div></article>`;
+  }
+
+  function workflowRenderProject() {
+    const createCard = document.getElementById("projectCreateCard");
+    const board = document.getElementById("projectBoard");
+    const summary = document.getElementById("activeProjectSummary");
+    const back = document.getElementById("backToProject");
+    if (!WORKFLOW_PROJECT || WORKFLOW_CREATING) {
+      createCard.hidden = false;
+      board.hidden = true;
+      summary.hidden = !WORKFLOW_PROJECT;
+      back.hidden = !WORKFLOW_PROJECT;
+      if (WORKFLOW_PROJECT) {
+        document.getElementById("activeProjectName").textContent = WORKFLOW_PROJECT.name;
+        document.getElementById("activeProjectProgress").textContent = "Your active project remains saved until the new one is created.";
+      }
+      workflowRenderProjectResults();
+      return;
+    }
+    createCard.hidden = true;
+    board.hidden = false;
+    summary.hidden = false;
+    back.hidden = true;
+    const project = WORKFLOW_PROJECT;
+    const tasks = project.tasks || [];
+    const totals = project.totals || {};
+    const accepted = totals.accepted ?? tasks.filter(task => task.status === "accepted").length;
+    const rejected = totals.rejected ?? tasks.filter(task => task.status === "rejected").length;
+    const blocked = totals.blocked ?? tasks.filter(task => task.status === "setup_required").length;
+    const pending = totals.pending ?? Math.max(0, tasks.length - accepted - rejected);
+    document.getElementById("projectBoardTitle").textContent = project.name || "Untitled project";
+    document.getElementById("projectBoardGoal").textContent = project.goal || "";
+    document.getElementById("activeProjectName").textContent = project.name || "Untitled project";
+    document.getElementById("activeProjectProgress").textContent =
+      `${accepted} accepted · ${pending} pending${blocked ? ` · ${blocked} blocked` : ""}`;
+    const coverage = totals.estimateCoverage || {
+      estimated: tasks.filter(task => task.estimatedCostMicros !== null
+        && task.estimatedCostMicros !== undefined).length,
+      tasks: tasks.length,
+    };
+    const estimated = totals.estimatedCostMicros;
+    const subtotal = totals.selectedSubtotalMicros ?? tasks.reduce((sum, task) =>
+      sum + (task.estimatedCostMicros === null
+        || task.estimatedCostMicros === undefined ? 0 : Number(task.estimatedCostMicros)), 0);
+    const forecastLabel = estimated !== null && estimated !== undefined
+      ? workflowMoney(estimated)
+      : coverage.estimated
+        ? `${workflowMoney(subtotal)} partial · ${coverage.estimated}/${coverage.tasks} costed`
+        : `not available · 0/${coverage.tasks} costed`;
+    const source = project.planningSource
+      ? String(project.planningSource).replaceAll("_", " ") : "not reported";
+    const budgetBasis = project.budgetBasis === "forecast_ceiling_expected_accepted_cost"
+      ? "accepted-result task forecast ceiling"
+      : project.budgetBasis ? String(project.budgetBasis).replaceAll("_", " ")
+        : "not reported";
+    const budgetScope = project.budgetScope === "staffed_task_execution_only"
+      ? "staffed task execution only"
+      : project.budgetScope ? String(project.budgetScope).replaceAll("_", " ")
+        : "not reported";
+    document.getElementById("projectMeta").innerHTML = `
+      <span class="project-stat"><b>${tasks.length}</b> tasks</span>
+      <span class="project-stat"><b>${accepted}</b> accepted</span>
+      <span class="project-stat"><b>${rejected}</b> needs work</span>
+      <span class="project-stat"><b>${blocked}</b> runner blocked</span>
+      <span class="project-stat"><b>${esc(forecastLabel)}</b> task forecast coverage</span>
+      <span class="project-stat">plan source: <b>${esc(source)}</b></span>
+      <span class="project-stat">budget basis: <b>${esc(budgetBasis)}</b></span>
+      <span class="project-stat">budget scope: <b>${esc(budgetScope)}</b></span>
+      <span class="project-stat">actual spend enforcement: <b>${project.actualSpendEnforced === true ? "enabled" : "unavailable"}</b></span>`;
+    const planningProblem = document.getElementById("planningProblem");
+    planningProblem.hidden = !project.planningProblem;
+    planningProblem.textContent = project.planningProblem || "";
+    const budgetWarning = document.getElementById("budgetWarning");
+    const overBudget = totals.overBudget === true;
+    budgetWarning.hidden = !overBudget;
+    budgetWarning.textContent = overBudget
+      ? `Execution is blocked: the ${workflowMoney(estimated)} summed accepted-result task forecast exceeds this project's ${workflowMoney(project.budgetMicros)} task-forecast budget. This gate excludes unmetered planner/checker calls and is not a verified all-in spend cap.`
+      : "";
+    document.getElementById("taskList").innerHTML = tasks.length
+      ? tasks.map(workflowTaskCard).join("")
+      : `<div class="empty-board">No tasks were returned. Add a concrete task, then staff it.</div>`;
+    const needsStaffing = tasks.some(task =>
+      ["draft", "unstaffed", "setup_required"].includes(task.status));
+    document.getElementById("staffProject").disabled = WORKFLOW_BUSY || !needsStaffing;
+    workflowRenderProjectResults();
+  }
+
+  function workflowRenderProjectResults() {
+    const card = document.getElementById("currentProjectResults");
+    const list = document.getElementById("projectResultList");
+    if (!WORKFLOW_PROJECT) {
+      card.hidden = true;
+      list.innerHTML = "";
+      return;
+    }
+    const tasks = WORKFLOW_PROJECT.tasks || [];
+    card.hidden = false;
+    document.getElementById("currentProjectResultsTitle").textContent =
+      `${WORKFLOW_PROJECT.name || "Untitled project"} · deliveries and outputs`;
+    list.innerHTML = tasks.length ? tasks.map((task, index) => {
+      const hasOutput = typeof task.output === "string" && task.output.trim();
+      return `<article class="project-result">
+        <div class="project-result-head"><h3>${index + 1}. ${esc(task.title || "Untitled task")}</h3><span class="status-pill ${esc(task.status || "draft")}">${esc(workflowStatusLabel(task.status))}</span></div>
+        <div class="result-facts"><span>worker: <b class="worker-id">${esc(task.worker || "not staffed")}</b></span><span>capability: <b>${esc(task.skill || "not returned")}</b></span><span>runner: <b>${esc(task.runnerBinding === "worker" ? "exact worker command" : task.runnerBinding === "model_fallback" ? "model-wide fallback · not runnable" : task.runnerReady ? "binding not reported · not runnable" : "not ready")}</b></span><span>accepted-result forecast: <b>${workflowMoney(task.estimatedCostMicros)}</b></span></div>
+        ${hasOutput ? `<details><summary>View returned output</summary><pre class="task-output">${esc(task.output)}</pre></details>` : `<div class="staffing-proof">No runner output exists for this task yet.</div>`}
+      </article>`;
+    }).join("") : `<div class="empty">No tasks exist in this project.</div>`;
+  }
+
+  function workflowUsePayload(payload) {
+    if (payload && payload.project) WORKFLOW_PROJECT = payload.project;
+    WORKFLOW_CREATING = false;
+    workflowRenderProject();
+  }
+
+  async function workflowCreateProject(event) {
+    event.preventDefault();
+    const button = document.getElementById("createProject");
+    if (!workflowSetBusy(button, "Creating real project…")) return;
+    const state = document.getElementById("createState");
+    state.classList.remove("error"); state.textContent = "The local server is drafting tasks.";
+    const goal = document.getElementById("projectGoal").value.trim();
+    const budgetText = document.getElementById("projectBudget").value.trim();
+    const body = { goal, privacy: document.getElementById("projectPrivacy").value,
+      usePlanningModel: document.getElementById("usePlanningModel").checked };
+    const name = document.getElementById("projectName").value.trim();
+    if (name) body.name = name;
+    if (budgetText) body.budgetMicros = Math.round(Number(budgetText) * 1e6);
+    try {
+      const payload = await workflowRequest("/api/projects", { method: "POST", body });
+      workflowUsePayload(payload);
+      state.textContent = "";
+      workflowNotice("Project created. Inspect or edit the tasks before staffing them.");
+    } catch (error) {
+      state.textContent = workflowErrorMessage(error); state.classList.add("error");
+    } finally { workflowClearBusy(button); }
+  }
+
+  async function workflowAddTask(event) {
+    event.preventDefault();
+    if (!WORKFLOW_PROJECT) return;
+    const button = event.submitter;
+    if (!workflowSetBusy(button, "Adding task…")) return;
+    const state = document.getElementById("taskCreateState");
+    const brief = document.getElementById("taskBrief").value.trim();
+    const body = { title: document.getElementById("taskTitle").value.trim() || undefined,
+      summary: brief, brief,
+      checklist: workflowChecklist(document.getElementById("taskChecklist").value) };
+    const skill = document.getElementById("taskSkill").value;
+    if (skill) body.skill = skill;
+    try {
+      const payload = await workflowRequest(
+        `/api/projects/${encodeURIComponent(WORKFLOW_PROJECT.id)}/tasks`,
+        { method: "POST", body });
+      workflowUsePayload(payload);
+      document.getElementById("taskForm").reset();
+      document.getElementById("taskComposer").hidden = true;
+      state.textContent = "";
+      workflowNotice("Draft task added. Review it, then staff the project.");
+    } catch (error) {
+      state.textContent = workflowErrorMessage(error); state.classList.add("error");
+    } finally { workflowClearBusy(button); }
+  }
+
+  async function workflowStaff(button) {
+    if (!WORKFLOW_PROJECT || !workflowSetBusy(button, "Staffing through Rust…")) return;
+    workflowNotice("Rust is evaluating capability, tools, privacy, quality and cost.");
+    try {
+      const payload = await workflowRequest(
+        `/api/projects/${encodeURIComponent(WORKFLOW_PROJECT.id)}/staff`,
+        { method: "POST", body: {} });
+      workflowUsePayload(payload);
+      const blocked = (WORKFLOW_PROJECT.tasks || [])
+        .filter(task => task.status === "setup_required").length;
+      workflowNotice(blocked
+        ? `Staffing finished. ${blocked} assigned task${blocked === 1 ? " needs" : "s need"} a configured runner before execution.`
+        : "Staffing finished. Exact workers and estimated accepted-result costs are shown on each task.");
+    } catch (error) { workflowNotice(workflowErrorMessage(error), true); }
+    finally { workflowClearBusy(button); }
+  }
+
+  async function workflowRun(taskId, button) {
+    if (!WORKFLOW_PROJECT || !workflowSetBusy(button, "Running assigned worker…")) return;
+    workflowNotice("The local server is running the saved assignment. This may take a while.");
+    try {
+      // Deliberately empty: identity, task text and runner are server-owned.
+      const payload = await workflowRequest(
+        workflowPath(WORKFLOW_PROJECT.id, taskId, "/run"),
+        { method: "POST", body: {} });
+      workflowUsePayload(payload);
+      const task = payload.task || workflowTaskById(taskId);
+      if (task && ["accepted", "rejected"].includes(task.status))
+        await workflowRefreshRuntime();
+      workflowNotice(task && task.status === "needs_review"
+        ? "Run finished. Check the returned output and acceptance evidence, then accept or send it back."
+        : `Run returned with status: ${workflowStatusLabel(task && task.status)}.`);
+    } catch (error) { workflowNotice(workflowErrorMessage(error), true); }
+    finally { workflowClearBusy(button); }
+  }
+
+  async function workflowReview(taskId, accepted, cause, detail, button) {
+    if (!WORKFLOW_PROJECT || !workflowSetBusy(button, accepted ? "Accepting…" : "Recording review…")) return;
+    const body = { accepted: Boolean(accepted) };
+    if (!accepted) { body.cause = cause || "worker"; body.detail = detail || ""; }
+    try {
+      const payload = await workflowRequest(
+        workflowPath(WORKFLOW_PROJECT.id, taskId, "/review"),
+        { method: "POST", body });
+      workflowUsePayload(payload);
+      await workflowRefreshRuntime();
+      workflowNotice(accepted
+        ? "Result accepted and recorded in the private model-outcome ledger."
+        : "Review recorded. Edit the brief if needed, then retry the saved assignment.");
+    } catch (error) { workflowNotice(workflowErrorMessage(error), true); }
+    finally { workflowClearBusy(button); }
+  }
+
+  async function workflowEditTask(form) {
+    if (!WORKFLOW_PROJECT) return;
+    const taskId = form.dataset.editForm;
+    const button = form.querySelector('button[type="submit"]');
+    if (!workflowSetBusy(button, "Saving…")) return;
+    const brief = form.elements.brief.value.trim();
+    const body = { title: form.elements.title.value.trim() || undefined,
+      summary: brief, brief, checklist: workflowChecklist(form.elements.checklist.value) };
+    if (form.elements.skill.value) body.skill = form.elements.skill.value;
+    try {
+      const payload = await workflowRequest(
+        workflowPath(WORKFLOW_PROJECT.id, taskId),
+        { method: "PATCH", body });
+      workflowUsePayload(payload);
+      workflowNotice("Task saved. Any stale assignment was cleared; staff it again before running.");
+    } catch (error) { workflowNotice(workflowErrorMessage(error), true); }
+    finally { workflowClearBusy(button); }
+  }
+
+  async function workflowDeleteTask(taskId, button) {
+    if (!WORKFLOW_PROJECT) return;
+    const task = workflowTaskById(taskId);
+    const label = task ? task.title : taskId;
+    if (!window.confirm(`Remove “${label}” from this project? This cannot be undone.`))
+      return;
+    if (!workflowSetBusy(button, "Removing…")) return;
+    try {
+      const payload = await workflowRequest(
+        workflowPath(WORKFLOW_PROJECT.id, taskId), { method: "DELETE" });
+      workflowUsePayload(payload);
+      workflowNotice("Task removed. Remaining task positions and forecast coverage were updated by the server.");
+    } catch (error) { workflowNotice(workflowErrorMessage(error), true); }
+    finally { workflowClearBusy(button); }
+  }
+
+  document.getElementById("projectForm").addEventListener("submit", workflowCreateProject);
+  document.getElementById("projectPrivacy").addEventListener("change", () =>
+    workflowSyncPlanningPrivacy(Boolean(LIVE && data().configured !== false)));
+  document.getElementById("taskForm").addEventListener("submit", workflowAddTask);
+  document.getElementById("addTask").addEventListener("click", () => {
+    document.getElementById("taskComposer").hidden = false;
+    document.getElementById("taskTitle").focus();
   });
-  document.getElementById("form").addEventListener("submit", (e) => {
-    e.preventDefault(); window.__qpref = {}; switchView("work"); render();
+  document.getElementById("cancelTask").addEventListener("click", () => {
+    document.getElementById("taskComposer").hidden = true;
   });
-  document.getElementById("reset").addEventListener("click", (e) => {
-    e.preventDefault(); localStorage.removeItem(STORE);
-    document.getElementById("answer").classList.remove("show");
-    document.getElementById("q").value = ""; renderResults(); switchView("work");
+  document.getElementById("staffProject").addEventListener("click", event =>
+    workflowStaff(event.currentTarget));
+  document.getElementById("newProject").addEventListener("click", () => {
+    WORKFLOW_CREATING = true;
+    document.getElementById("projectForm").reset();
+    workflowSyncPlanningPrivacy(Boolean(LIVE && data().configured !== false));
+    document.getElementById("createState").textContent = "";
+    workflowRenderProject();
+    document.getElementById("projectGoal").focus();
   });
+  document.getElementById("backToProject").addEventListener("click", () => {
+    WORKFLOW_CREATING = false; workflowRenderProject();
+  });
+  document.getElementById("taskList").addEventListener("click", event => {
+    const button = event.target.closest("[data-workflow-action]");
+    if (!button || button.disabled) return;
+    const id = button.dataset.taskId;
+    const card = button.closest("[data-task-card]");
+    switch (button.dataset.workflowAction) {
+      case "staff": workflowStaff(button); break;
+      case "restaff": workflowStaff(button); break;
+      case "run": case "retry": workflowRun(id, button); break;
+      case "remove": workflowDeleteTask(id, button); break;
+      case "accept": workflowReview(id, true, null, "", button); break;
+      case "reject": card.querySelector("[data-reject-box]").hidden = false; break;
+      case "cancel-reject": card.querySelector("[data-reject-box]").hidden = true; break;
+      case "confirm-reject": {
+        const box = card.querySelector("[data-reject-box]");
+        workflowReview(id, false, box.querySelector('[name="cause"]').value,
+          box.querySelector('[name="detail"]').value.trim(), button); break;
+      }
+      case "edit": card.querySelector("[data-edit-form]").hidden = false; break;
+      case "cancel-edit": card.querySelector("[data-edit-form]").hidden = true; break;
+    }
+  });
+  document.getElementById("taskList").addEventListener("submit", event => {
+    const form = event.target.closest("[data-edit-form]");
+    if (!form) return; event.preventDefault(); workflowEditTask(form);
+  });
+  document.getElementById("reset").addEventListener("click", event => {
+    event.preventDefault(); localStorage.removeItem(STORE); renderResults();
+    workflowNotice("Browser-only learning was cleared. Server projects and private ledger evidence were not deleted.");
+  });
+
+  async function workflowBoot() {
+    document.getElementById("taskSkill").innerHTML = workflowSkillOptions("");
+    try {
+      const runtime = await workflowRequest("/api/data");
+      if (runtime && runtime.local) LIVE = runtime;
+    } catch (error) { /* Static page: intentionally read-only. */ }
+    workflowApplyRuntime();
+    renderCrew();
+    renderResults();
+    if (LIVE && data().configured !== false) {
+      try {
+        const payload = await workflowRequest("/api/projects/current");
+        WORKFLOW_PROJECT = payload.project || null;
+      } catch (error) { workflowNotice(workflowErrorMessage(error), true); }
+    }
+    workflowRenderProject();
+  }
+  workflowBoot();
 </script>
 </body>
 </html>

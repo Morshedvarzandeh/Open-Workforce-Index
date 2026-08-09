@@ -60,6 +60,9 @@ jobs:
       - name: Local office launcher and execution gate
         run: python3 tools/check_serve_launcher.py
 
+      - name: Persisted project staffing workflow
+        run: python3 tools/check_workflow_runtime.py
+
       - name: Closed-loop vertical slice
         run: |
           INDEX="${RUNNER_TEMP}/loop-index.sqlite"

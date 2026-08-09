@@ -44,10 +44,14 @@ entire idea, in one command.
 
 Prefer a page over a terminal? One more command serves the same experience at
 a real local application and opens it in your browser. The default is a bright
-graphical office with three simple
-views: **Office** shows the exact roster, **Work** recommends and runs the
-right-sized worker, and **Results** shows recorded feedback without inventing
-cash, savings, CO₂, or water values. Learning is recorded to the real ledger:
+graphical office with three simple views: **Office** shows the exact roster,
+**Work** runs a persisted project workflow, and **Results** shows recorded
+feedback without inventing cash, savings, CO₂, or water values. In Work you
+create a goal, inspect or change the proposed task plan, explicitly staff the
+drafts through the Rust allocator, run only the saved assignments, inspect the
+real outputs and checks, then accept, reject, retry, or restaff them. Project
+state survives a browser reload in the private `workflow.sqlite`; verified
+outcomes still feed the OWI evidence ledger:
 
 ```bash
 tools/owi-serve
@@ -65,8 +69,29 @@ tools/owi-serve --demo
 
 Every bind, including localhost, uses a per-process access token. The launcher
 opens the tokenized URL and exchanges it for an HTTP-only cookie; non-JSON and
-cross-origin write requests are rejected. Use `--no-open` only when running
+cross-origin write requests are rejected. The browser never supplies a model,
+worker, command, or task text to the run endpoint: it names a persisted task,
+and the server resolves the recorded assignment. The old direct `/api/run`
+and `/api/outcome` endpoints are disabled. Use `--no-open` only when running
 headless—the terminal prints the one-time URL.
+
+Staffing needs the compiled `owi` CLI. The launcher looks for `OWI_BIN`, an
+installed `owi`, and repository release/debug binaries before using Cargo as a
+developer fallback. A configured provider runner is still required to execute
+an assigned model. Missing binaries, runners, model receipts, or environmental
+evidence are reported as unavailable—never as a zero cost or a completed run.
+
+A planning model is used only when the owner explicitly enables it. It is
+blocked for zero-budget, confidential, and secret projects. Its provider
+charge is currently not metered by the office, so the UI labels planning cost
+as unavailable. The project budget gate applies to the allocator's summed
+accepted-result forecasts for staffed tasks; it is not presented as a
+reconciled all-in invoice cap.
+
+Project execution requires a `runners.json` command keyed by the exact worker
+ID, for example `worker:claude-sonnet/reviewer`. A model-only key is displayed
+as a non-runnable fallback because it cannot prove the quoted provider,
+harness, skill pack, tools, or privacy identity.
 
 The reusable game-art pack lives in
 [`ui/assets/office/v1`](ui/assets/office/v1/README.md). Backgrounds and

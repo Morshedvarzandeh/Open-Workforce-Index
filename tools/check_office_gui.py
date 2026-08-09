@@ -52,18 +52,93 @@ def main() -> int:
         "crewGrid",
         "officeStatus",
         "skin",
-        "form",
-        "q",
-        "checks",
-        "answer",
+        "projectForm",
+        "projectGoal",
+        "projectPrivacy",
+        "usePlanningModel",
+        "projectBoard",
+        "taskForm",
+        "taskBrief",
+        "taskChecklist",
+        "taskList",
         "resultTotal",
         "resultAccepted",
         "resultRejected",
         "resultsList",
     }
     require(required_ids.issubset(parser.ids), "a core Office surface is missing")
-    require('id="answer" aria-live="polite"' in page,
-            "task results need an aria-live region")
+    require('id="taskList" aria-live="polite"' in page,
+            "project task results need an aria-live region")
+    require("Create project &amp; draft tasks" in page
+            and "Staff unassigned tasks" in page
+            and "Accept result" in page,
+            "create, staff, run and review must be one visible workflow")
+    for endpoint in (
+        '"/api/projects/current"',
+        '"/api/projects"',
+        '"/staff"',
+        '"/run"',
+        '"/review"',
+    ):
+        require(endpoint in page or endpoint.strip('"') in page,
+                f"the live project workflow lost endpoint {endpoint}")
+    require('{ method: "POST", body: {} }' in page
+            and "identity, task text and runner are server-owned" in page,
+            "the browser must not select a model or rewrite a saved task at run time")
+    require("estimatedCostMicros" in page and "Exact assigned worker" in page,
+            "staffed task cards must show exact identity and estimated cost")
+    require("runnerReady" in page and "Execution is blocked" in page,
+            "execution must be blocked when the assigned runner is unavailable")
+    require("runnerBinding" in page and "exact worker command" in page
+            and "model-wide fallback · not runnable" in page,
+            "runner binding must distinguish exact worker and model-wide execution")
+    require('task.runnerReady === true && task.runnerBinding === "worker"' in page,
+            "a model-wide fallback may not make a staffed task runnable")
+    require("attemptCount" in page and "maxAttempts" in page
+            and "Attempt limit reached" in page,
+            "task retries must expose and enforce the returned attempt budget")
+    require("task.output" in page and "task.checks" in page,
+            "review cards must expose real output and acceptance evidence")
+    require("Restaff using new evidence" in page
+            and "Retry same assignment" in page,
+            "failed work needs both retry and evidence-aware restaff paths")
+    require('method: "DELETE"' in page and "window.confirm" in page
+            and "Remove task" in page,
+            "editable draft tasks need a guarded removal path")
+    require('micros !== null && micros !== undefined' in page
+            and "estimateCoverage" in page
+            and "selectedSubtotalMicros" in page,
+            "partial forecasts must never be presented as measured zero")
+    require("planningProblem" in page and "budgetWarning" in page
+            and "not a verified all-in" in page,
+            "planner fallback and task-forecast budget boundaries must be visible")
+    require('type="checkbox" id="usePlanningModel"' in page
+            and "Optional and unchecked by default" in page
+            and "usePlanningModel:" in page,
+            "planning-model use must be explicit, optional and sent to the server")
+    require('value="secret">Secret' in page,
+            "the project privacy selector must expose the backend secret level")
+    require("workflowSyncPlanningPrivacy" in page
+            and "Model planning is disabled for Confidential and Secret" in page
+            and 'privacy === "confidential_content" || privacy === "secret"' in page,
+            "sensitive project goals must not be sent to the planning model")
+    require("runners.json must bind the exact worker ID" in page
+            and "model-only runner keys are not executable" in page,
+            "setup must explain the exact worker-ID runner contract")
+    require('["accepted", "rejected"].includes(task.status)' in page
+            and "await workflowRefreshRuntime()" in page,
+            "automatic terminal outcomes must refresh the live Results ledger")
+    require("measured roster" not in page.lower()
+            and "measured prices" not in page.lower()
+            and "stored roster snapshot" in page
+            and "price evidence" in page,
+            "the UI must describe stored evidence without claiming measurement")
+    require("budgetBasis" in page and "budgetScope" in page
+            and "actualSpendEnforced" in page,
+            "the task-forecast budget may not masquerade as an all-in spend cap")
+    require("read-only product preview" in page
+            and "pretend a model ran" in page,
+            "the static build must not masquerade as a live office")
     require('value="bright">Bright office</option>' in page,
             "the bright office must remain the default skin")
     require('class="character robot"' not in page,
