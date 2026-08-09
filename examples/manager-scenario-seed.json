@@ -487,6 +487,26 @@
       "privacy_clearance": "private_metadata",
       "configuration_sha256": "e43ce1fda92e42e02c946901fc1d8a1a39168358100ee5d0b04aace81e7c07c4",
       "recorded_at": "2026-08-07T23:00:00Z"
+    },
+    {
+      "id": "worker:openhands-sonnet-5/code",
+      "offering_id": "offering:anthropic/claude-sonnet-5",
+      "harness_id": "openhands",
+      "harness_version": "1.0.0",
+      "reasoning_configuration": "standard",
+      "system_prompt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skill_pack_version": "code-v1",
+      "toolset_version": "shell-v1",
+      "execution_policy_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supported_skill_ids": [
+        "skill:python-numerical-implementation"
+      ],
+      "tools": [
+        "shell"
+      ],
+      "privacy_clearance": "private_metadata",
+      "configuration_sha256": "6a2a00e13f2f4751bbaa4b83b67787e8babd9e9038bf30a18d097983c672a0e2",
+      "recorded_at": "2026-08-09T12:00:00Z"
     }
   ],
   "evidence": [

@@ -6,7 +6,7 @@
     "",
     "This file is EVOLUTIONARY by design: when a lived failure teaches a lesson,",
     "freeze it here as a fixture and bump the version (v1 -> v2 -> ...). Never",
-    "edit an old lesson away — supersede it. Each fixture may carry a",
+    "edit an old lesson away \u2014 supersede it. Each fixture may carry a",
     "'provenance' naming the run that taught it.",
     "",
     "Mechanical checklist fixtures assert the verdict of tools/owi-do's own",
@@ -17,21 +17,37 @@
   "price_expectations": {
     "minimum_offerings": 12,
     "exact_micros": {
-      "offering:anthropic/claude-sonnet-5": [2000000, 10000000],
-      "offering:anthropic/claude-opus-5": [5000000, 25000000],
-      "offering:anthropic/claude-opus-4-5": [5000000, 25000000],
-      "offering:openai/gpt-5-mini": [250000, 2000000],
-      "offering:deepseek/deepseek-chat": [280000, 420000]
+      "offering:anthropic/claude-sonnet-5": [
+        2000000,
+        10000000
+      ],
+      "offering:anthropic/claude-opus-5": [
+        5000000,
+        25000000
+      ],
+      "offering:anthropic/claude-opus-4-5": [
+        5000000,
+        25000000
+      ],
+      "offering:openai/gpt-5-mini": [
+        250000,
+        2000000
+      ],
+      "offering:deepseek/deepseek-chat": [
+        280000,
+        420000
+      ]
     }
   },
   "roster_expectations": {
-    "minimum_workers": 24,
+    "minimum_workers": 25,
     "minimum_evidence": 24,
     "required_workers": [
       "worker:haiku-4-5/text",
       "worker:sonnet-5/code",
       "worker:opus-5/cad",
-      "worker:gpt-5-mini/extract"
+      "worker:gpt-5-mini/extract",
+      "worker:openhands-sonnet-5/code"
     ]
   },
   "check_engine_fixtures": [
@@ -96,7 +112,7 @@
       "output": "anything at all",
       "expect": null,
       "kind": "judged",
-      "provenance": "first live split run, 2026-08-07: haiku asked clarifying questions instead of drafting; only a judged item caught it — free-form items MUST go to an independent judge, never silently pass"
+      "provenance": "first live split run, 2026-08-07: haiku asked clarifying questions instead of drafting; only a judged item caught it \u2014 free-form items MUST go to an independent judge, never silently pass"
     }
   ],
   "serve_gate_expectations": {
@@ -110,13 +126,19 @@
   },
   "sampling_fixtures": [
     {
-      "items": ["contains:ok", "reads professionally"],
+      "items": [
+        "contains:ok",
+        "reads professionally"
+      ],
       "output": "everything is ok here",
       "expect_verdict": "accepted",
-      "provenance": "under reduced inspection a sampled-out judgement item must not block acceptance — that is the lean discount"
+      "provenance": "under reduced inspection a sampled-out judgement item must not block acceptance \u2014 that is the lean discount"
     },
     {
-      "items": ["contains:ok", "reads professionally"],
+      "items": [
+        "contains:ok",
+        "reads professionally"
+      ],
       "output": "nothing to see",
       "expect_verdict": "rejected",
       "provenance": "mechanical items never come off the line: they still reject under reduced inspection"
@@ -124,13 +146,28 @@
   ],
   "role_order_expectations": {
     "_why": "the management structure itself: specs (checklists, splits) are written from the TOP of the roster, judging is done from the BOTTOM by a non-maker. A refactor must never swap the two ladders' directions.",
-    "writer_head": ["opus-5", "opus-4-5"],
-    "judge_head": ["gpt-5-mini", "haiku-4-5"]
+    "writer_head": [
+      "opus-5",
+      "opus-4-5"
+    ],
+    "judge_head": [
+      "gpt-5-mini",
+      "haiku-4-5"
+    ]
   },
   "auto_checklist_fixtures": [
     {
-      "raw": ["contains:import", "  min-words:30 ", "", 42],
-      "expect": ["contains:import", "min-words:30", "42"],
+      "raw": [
+        "contains:import",
+        "  min-words:30 ",
+        "",
+        42
+      ],
+      "expect": [
+        "contains:import",
+        "min-words:30",
+        "42"
+      ],
       "provenance": "auto-written checklists are cleaned like planner parts: trimmed, empties dropped, capped at 4"
     },
     {
@@ -138,30 +175,59 @@
       "expect": []
     },
     {
-      "raw": ["a", "b", "c", "d", "e", "f"],
-      "expect": ["a", "b", "c", "d"]
+      "raw": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f"
+      ],
+      "expect": [
+        "a",
+        "b",
+        "c",
+        "d"
+      ]
     }
   ],
   "planner_fixtures": [
     {
       "raw": [
-        {"summary": "Draft the changelog entry", "skill": "skill:text-editing",
-         "checklist": ["contains:import", "min-words:30"]},
-        {"summary": "Extract the profile fields as JSON",
-         "skill": "skill:structured-extraction", "checklist": ["json"]}
+        {
+          "summary": "Draft the changelog entry",
+          "skill": "skill:text-editing",
+          "checklist": [
+            "contains:import",
+            "min-words:30"
+          ]
+        },
+        {
+          "summary": "Extract the profile fields as JSON",
+          "skill": "skill:structured-extraction",
+          "checklist": [
+            "json"
+          ]
+        }
       ],
       "expect_parts": 2
     },
     {
       "raw": [
-        {"summary": "Do something", "skill": "skill:made-up-nonsense"}
+        {
+          "summary": "Do something",
+          "skill": "skill:made-up-nonsense"
+        }
       ],
       "expect_parts": null,
       "provenance": "a planner naming an unknown skill must reject the whole split"
     },
     {
       "raw": [
-        {"summary": "", "skill": "skill:text-editing"}
+        {
+          "summary": "",
+          "skill": "skill:text-editing"
+        }
       ],
       "expect_parts": null
     },
@@ -171,54 +237,106 @@
     }
   ],
   "runner_cwd_expectations": {
-    "_why": "the stdin payload is the WHOLE task. Agentic CLIs inherit the invoking directory and can be hijacked by whatever repo they land in — a worker once answered 'I can't reach the docs from here' after wandering the invoking repo. Workers execute from the neutral home directory.",
+    "_why": "the stdin payload is the WHOLE task. Agentic CLIs inherit the invoking directory and can be hijacked by whatever repo they land in \u2014 a worker once answered 'I can't reach the docs from here' after wandering the invoking repo. Workers execute from the neutral home directory.",
     "cwd": "home"
   },
   "blame_expectations": {
-    "_why": "a model never replies with literally nothing — empty runner output is plumbing (CLI collision, auth, crash-with-zero) and must be recorded as environment, never checked against the worker. Learned 2026-08-08: two rejections were misattributed to workers during concurrent CLI runs.",
+    "_why": "a model never replies with literally nothing \u2014 empty runner output is plumbing (CLI collision, auth, crash-with-zero) and must be recorded as environment, never checked against the worker. Learned 2026-08-08: two rejections were misattributed to workers during concurrent CLI runs.",
     "empty_output_cause": "environment"
   },
   "escalation_fixtures": [
     {
-      "eligible": ["worker:cheap/text", "worker:mid/text", "worker:strong/text"],
-      "runnable": ["worker:cheap/text", "worker:mid/text", "worker:strong/text"],
+      "eligible": [
+        "worker:cheap/text",
+        "worker:mid/text",
+        "worker:strong/text"
+      ],
+      "runnable": [
+        "worker:cheap/text",
+        "worker:mid/text",
+        "worker:strong/text"
+      ],
       "tried": [],
       "prefer": null,
       "expect": "worker:cheap/text",
       "provenance": "first attempt goes to the cheapest runnable worker"
     },
     {
-      "eligible": ["worker:cheap/text", "worker:mid/text", "worker:strong/text"],
-      "runnable": ["worker:cheap/text", "worker:mid/text", "worker:strong/text"],
-      "tried": ["worker:cheap/text"],
+      "eligible": [
+        "worker:cheap/text",
+        "worker:mid/text",
+        "worker:strong/text"
+      ],
+      "runnable": [
+        "worker:cheap/text",
+        "worker:mid/text",
+        "worker:strong/text"
+      ],
+      "tried": [
+        "worker:cheap/text"
+      ],
       "prefer": "worker:strong/text",
       "expect": "worker:strong/text",
-      "provenance": "a rejection escalates to the quality option, not the next-cheapest — the failure is evidence the job was harder than its price"
+      "provenance": "a rejection escalates to the quality option, not the next-cheapest \u2014 the failure is evidence the job was harder than its price"
     },
     {
-      "eligible": ["worker:cheap/text", "worker:mid/text", "worker:strong/text"],
-      "runnable": ["worker:cheap/text", "worker:mid/text"],
-      "tried": ["worker:cheap/text"],
+      "eligible": [
+        "worker:cheap/text",
+        "worker:mid/text",
+        "worker:strong/text"
+      ],
+      "runnable": [
+        "worker:cheap/text",
+        "worker:mid/text"
+      ],
+      "tried": [
+        "worker:cheap/text"
+      ],
       "prefer": "worker:strong/text",
       "expect": "worker:mid/text",
       "provenance": "an unrunnable quality option falls back to the next untried runnable worker"
     },
     {
-      "eligible": ["worker:cheap/text", "worker:mid/text"],
-      "runnable": ["worker:cheap/text", "worker:mid/text"],
-      "tried": ["worker:cheap/text", "worker:mid/text"],
+      "eligible": [
+        "worker:cheap/text",
+        "worker:mid/text"
+      ],
+      "runnable": [
+        "worker:cheap/text",
+        "worker:mid/text"
+      ],
+      "tried": [
+        "worker:cheap/text",
+        "worker:mid/text"
+      ],
       "prefer": null,
       "expect": null,
-      "provenance": "when everyone has been tried, iteration ends — bounded, never a loop"
+      "provenance": "when everyone has been tried, iteration ends \u2014 bounded, never a loop"
     }
   ],
   "prevention_fixtures": [
     {
       "entries": [
-        {"skill": "skill:text-editing", "cause": "worker", "detail": "asked questions instead of drafting"},
-        {"skill": "skill:text-editing", "cause": "environment", "detail": "network flake"},
-        {"skill": "skill:structured-extraction", "cause": "worker", "detail": "wrong schema draft"},
-        {"skill": "skill:text-editing", "cause": "task_spec", "detail": "task never named the audience"}
+        {
+          "skill": "skill:text-editing",
+          "cause": "worker",
+          "detail": "asked questions instead of drafting"
+        },
+        {
+          "skill": "skill:text-editing",
+          "cause": "environment",
+          "detail": "network flake"
+        },
+        {
+          "skill": "skill:structured-extraction",
+          "cause": "worker",
+          "detail": "wrong schema draft"
+        },
+        {
+          "skill": "skill:text-editing",
+          "cause": "task_spec",
+          "detail": "task never named the audience"
+        }
       ],
       "skill": "skill:text-editing",
       "expect_notes": [
