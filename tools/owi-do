@@ -446,9 +446,14 @@ def inspection_for(home: Path, worker: str, skill: str) -> dict:
 
 def run_command(home: Path, model: str, payload: str,
                 timeout: int = 600) -> tuple[str, str, int]:
+    """Execute a worker's command with the task on stdin, from the neutral
+    home directory. The stdin payload is the WHOLE task: agentic CLIs run
+    from wherever they are invoked, and a repo in the working directory can
+    hijack the answer ("I can't reach the docs from here"). Learned from a
+    worker that went researching the invoking repo instead of answering."""
     completed = subprocess.run(
         resolve_runner(home, model), shell=True, input=payload, text=True,
-        capture_output=True, timeout=timeout)
+        capture_output=True, timeout=timeout, cwd=str(home))
     return completed.stdout or "", completed.stderr or "", completed.returncode
 
 
@@ -745,6 +750,15 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
         print(f"runner exited {code} — the plumbing failed, not the model")
         record_outcome(home, worker, skill, False, "environment", task=task,
                        detail=f"runner exit {code}: {stderr[:300]}")
+        return "rejected", ""
+    if not stdout.strip():
+        # A model never replies with literally nothing. Empty stdout is
+        # plumbing — CLI collision, auth, a crash that exited zero — and a
+        # checklist run against "" would wrongly convict the worker.
+        # Learned from two misattributed rejections during concurrent runs.
+        print("runner produced no output — the plumbing failed, not the model")
+        record_outcome(home, worker, skill, False, "environment", task=task,
+                       detail="runner produced no output")
         return "rejected", ""
 
     if accepted_flag is not None:
