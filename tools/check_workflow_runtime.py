@@ -690,6 +690,7 @@ def check_release_binary_path_without_cargo() -> None:
     """Real WorkflowService -> real owi_do -> fake release binary, no Cargo."""
     old_bin = os.environ.get("OWI_BIN")
     old_path = os.environ.get("PATH")
+    old_repo = owi_serve.owi_do.REPO
     try:
         with tempfile.TemporaryDirectory() as scratch:
             root = Path(scratch)
@@ -733,6 +734,10 @@ def check_release_binary_path_without_cargo() -> None:
 
         os.environ.pop("OWI_BIN", None)
         os.environ["PATH"] = ""
+        # CI has just built target/debug/owi in the real repository. Point the
+        # resolver at an empty location so this branch tests a genuinely
+        # missing engine on developer machines and CI alike.
+        owi_serve.owi_do.REPO = root / "missing-repository"
         try:
             owi_serve.owi_do.resolve_owi_command()
         except owi_serve.owi_do.OwiSetupError as error:
@@ -751,6 +756,7 @@ def check_release_binary_path_without_cargo() -> None:
             os.environ.pop("PATH", None)
         else:
             os.environ["PATH"] = old_path
+        owi_serve.owi_do.REPO = old_repo
 
 
 def check_outcome_measurement_provenance() -> None:
