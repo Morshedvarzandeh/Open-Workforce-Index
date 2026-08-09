@@ -170,6 +170,14 @@
       "expect_parts": null
     }
   ],
+  "runner_cwd_expectations": {
+    "_why": "the stdin payload is the WHOLE task. Agentic CLIs inherit the invoking directory and can be hijacked by whatever repo they land in — a worker once answered 'I can't reach the docs from here' after wandering the invoking repo. Workers execute from the neutral home directory.",
+    "cwd": "home"
+  },
+  "blame_expectations": {
+    "_why": "a model never replies with literally nothing — empty runner output is plumbing (CLI collision, auth, crash-with-zero) and must be recorded as environment, never checked against the worker. Learned 2026-08-08: two rejections were misattributed to workers during concurrent CLI runs.",
+    "empty_output_cause": "environment"
+  },
   "escalation_fixtures": [
     {
       "eligible": ["worker:cheap/text", "worker:mid/text", "worker:strong/text"],

@@ -170,6 +170,17 @@ def run(no_cargo: bool) -> int:
                     got_id == fixture["expect"],
                     f"got {got_id!r}, want {fixture['expect']!r}")
 
+    cwd_rule = frozen.get("runner_cwd_expectations")
+    if cwd_rule:
+        print("\nrunner working directory (neutral home, never the caller's)")
+        with tempfile.TemporaryDirectory() as scratch:
+            home = Path(scratch).resolve()
+            (home / "runners.json").write_text('{"gpt-5-mini": "pwd"}')
+            stdout, _, code = owi_do.run_command(home, "gpt-5-mini", "")
+            suite.check("workers execute from the home directory",
+                        code == 0 and Path(stdout.strip()) == home,
+                        f"got {stdout.strip()!r}")
+
     print("\nprevention filter")
     for fixture in frozen["prevention_fixtures"]:
         with tempfile.TemporaryDirectory() as scratch:
@@ -225,6 +236,31 @@ def run(no_cargo: bool) -> int:
         suite.check("every rostered offering has a price",
                     offered <= set(offerings),
                     f"unpriced: {sorted(offered - set(offerings))[:3]}")
+
+        blame = frozen.get("blame_expectations")
+        if blame:
+            print("\nblame rule (empty output is plumbing, not the worker)")
+            with tempfile.TemporaryDirectory() as scratch:
+                home = Path(scratch)
+                owi_do.bootstrap(home)
+                (home / "runners.json").write_text('{"gpt-5-mini": "true"}')
+                verdict, _ = owi_do.attempt_run(
+                    home, "worker:gpt-5-mini/text", "gpt-5-mini",
+                    "skill:text-editing", "frozen-suite empty-output probe",
+                    "", ["contains:anything"], None, None,
+                    {"level": "full", "judge": False}, [])
+                import sqlite3
+                connection = sqlite3.connect(home / "local.sqlite")
+                metadata = json.loads(connection.execute(
+                    "SELECT metadata_json FROM outcome_events "
+                    "ORDER BY rowid DESC LIMIT 1").fetchone()[0])
+                connection.close()
+                suite.check(
+                    "empty output is recorded as environment, unchecked",
+                    verdict == "rejected"
+                    and metadata.get("root_cause") == blame["empty_output_cause"]
+                    and "checklist" not in metadata,
+                    f"got {verdict}, {metadata.get('root_cause')!r}")
 
         print("\nallocation (one real pick, pristine ledger)")
         with tempfile.TemporaryDirectory() as scratch:

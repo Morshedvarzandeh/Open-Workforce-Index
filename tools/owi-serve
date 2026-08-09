@@ -212,9 +212,11 @@ class Handler(BaseHTTPRequestHandler):
                      if skill in owi_do.SKILLS else [])
             payload = owi_do.build_payload(task, "", checklist, notes)
             try:
+                # Neutral working directory: the stdin payload is the whole
+                # task, and agentic CLIs must not inherit a repo to wander.
                 completed = subprocess.run(
                     command, shell=True, input=payload, text=True,
-                    capture_output=True, timeout=300)
+                    capture_output=True, timeout=300, cwd=str(self.home))
             except subprocess.TimeoutExpired:
                 self._json(200, {"output": "", "stderr": "timed out after 300s",
                                  "exit": -1, "notes": len(notes)})
@@ -224,10 +226,12 @@ class Handler(BaseHTTPRequestHandler):
                         "exit": completed.returncode, "notes": len(notes),
                         "inspection": {"level": inspection["level"],
                                        "why": inspection["why"]}}
-            if checklist and completed.returncode == 0:
+            if checklist and completed.returncode == 0 \
+                    and completed.stdout.strip():
                 # Maker is never checker: judgement items go to a different
                 # model, resolved server-side like everything else — and only
-                # when this run's inspection level says to look.
+                # when this run's inspection level says to look. Empty output
+                # is plumbing, never checked against the worker.
                 response["check"] = owi_do.run_checklist(
                     self.home, task, completed.stdout, checklist,
                     maker_model=model, judge_enabled=inspection["judge"])
