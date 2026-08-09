@@ -70,6 +70,21 @@ SKILLS = {
                   "summary", "notes", "docs", "tutorial", "explain"],
         "tools": [],
     },
+    "skill:planning-decomposition": {
+        "words": ["plan", "roadmap", "architecture", "architect", "milestones",
+                  "decompose", "spec", "design doc", "strategy"],
+        "tools": [],
+    },
+    "skill:code-review-debugging": {
+        "words": ["debug", "diagnose", "stack trace", "root cause", "failing",
+                  "regression", "review this", "why does"],
+        "tools": ["shell"],
+    },
+    "skill:ui-design": {
+        "words": ["ui", "ux", "layout", "wireframe", "mockup", "landing page",
+                  "css", "styling"],
+        "tools": [],
+    },
 }
 DEFAULT_SKILL = "skill:text-editing"
 

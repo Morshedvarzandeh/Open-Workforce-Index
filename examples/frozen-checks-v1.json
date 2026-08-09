@@ -48,8 +48,8 @@
     }
   },
   "roster_expectations": {
-    "minimum_workers": 30,
-    "minimum_evidence": 29,
+    "minimum_workers": 43,
+    "minimum_evidence": 42,
     "required_workers": [
       "worker:haiku-4-5/text",
       "worker:sonnet-5/code",
@@ -366,5 +366,9 @@
     "confidential_task_privacy": "confidential_content",
     "cloud_clearance": "private_metadata",
     "cleared_worker": "worker:local-llama/text"
+  },
+  "skill_coverage_expectations": {
+    "_why": "comprehensiveness: every skill in the taxonomy must have at least one seeded worker \u2014 a skill nobody can be staffed for is a promise the index cannot keep. Grown from the role rosters people hand-build in agent workspaces (planner, architect, debugger, designer).",
+    "every_skill_staffed": true
   }
 }

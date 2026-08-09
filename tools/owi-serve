@@ -42,7 +42,10 @@ SKILL_TOOLS = {skill: spec["tools"] for skill, spec in owi_do.SKILLS.items()}
 SKILL_ROLE = {"skill:text-editing": "text",
               "skill:structured-extraction": "extract",
               "skill:python-numerical-implementation": "code",
-              "skill:parametric-cad": "cad"}
+              "skill:parametric-cad": "cad",
+              "skill:planning-decomposition": "plan",
+              "skill:code-review-debugging": "debug",
+              "skill:ui-design": "design"}
 
 
 def harvest(home: Path) -> dict:

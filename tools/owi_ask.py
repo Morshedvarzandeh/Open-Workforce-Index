@@ -28,6 +28,9 @@ SKILLS = {
     "skill:structured-extraction": ["json-schema-validator"],
     "skill:python-numerical-implementation": ["shell"],
     "skill:parametric-cad": ["cad-kernel", "geometry-validator", "step-exporter"],
+    "skill:planning-decomposition": [],
+    "skill:code-review-debugging": ["shell"],
+    "skill:ui-design": [],
 }
 
 

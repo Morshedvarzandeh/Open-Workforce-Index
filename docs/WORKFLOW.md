@@ -212,6 +212,32 @@ part by part, so a text part can go to the cheap writer while the extraction
 part goes to whoever the evidence favours. The summary table at the end
 names who actually ran each part, its price, and the checked verdict.
 
+## Teams: hand-picked rosters, benchmarked
+
+People already staff multi-agent workshops by hand — a planner on one
+premium model, a debugger on another, a designer on a third, chosen by feel
+and pinned by loyalty. Those rosters are this index's benchmark scenarios:
+the skill taxonomy covers the roles people actually hire
+(`planning-decomposition`, `code-review-debugging`, `ui-design`, alongside
+text, extraction, code, and CAD), each staffed across the price tiers, so a
+hand-built team can be answered seat by seat.
+
+```bash
+python3 tools/owi_team.py examples/team-buzz-style.json
+```
+
+runs a real allocation per role — same gates, same Beta lower-bound floor,
+same cost model — and prints the evidence pick next to the hand pick. A
+hand pick lands in one of three states: **priced** (it's in the index and
+qualified, so the premium is a number), **gated** (in the index but turned
+away, with the reason), or **external** (not in the index — no price, no
+evidence, which is the point). Every row still surfaces the quality option,
+so upgrading a seat stays a visible trade, not a default. `--rate` charges
+your own review time per hour and shows how a roster shifts upmarket when
+reliability starts paying for itself.
+
+A roster you can't price is a roster you can't manage.
+
 ## Confidentiality: a gate, not a preference
 
 Every task carries a privacy level (`--privacy public|metadata|confidential|
