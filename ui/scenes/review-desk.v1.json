@@ -1,0 +1,88 @@
+{
+  "$schema": "./scene.schema.json",
+  "schema_version": 1,
+  "scene_id": "review-desk",
+  "version": "1.0.0",
+  "title": "Owner review desk",
+  "description": "A restrained review scene behind real output, checks, task cost forecasts, and owner decisions.",
+  "asset_pack": {
+    "pack_id": "org.open-workforce-index.office",
+    "minimum_version": "2.0.0-dev.1"
+  },
+  "design_space": { "width_px": 1280, "height_px": 720 },
+  "layout_profiles": [
+    { "id": "phone-portrait", "min_width_px": 0, "max_width_px": 599, "max_height_px": null, "scene_fit": "contain", "scene_aspect_ratio": [16, 9] },
+    { "id": "phone-landscape", "min_width_px": 480, "max_width_px": 959, "max_height_px": 500, "scene_fit": "cover", "scene_aspect_ratio": [16, 9] },
+    { "id": "tablet", "min_width_px": 600, "max_width_px": 1023, "max_height_px": null, "scene_fit": "cover", "scene_aspect_ratio": [16, 9] },
+    { "id": "desktop", "min_width_px": 1024, "max_width_px": null, "max_height_px": null, "scene_fit": "cover", "scene_aspect_ratio": [16, 9] }
+  ],
+  "layers": [
+    { "id": "background", "z_min": 0, "z_max": 99 },
+    { "id": "environment", "z_min": 100, "z_max": 199 },
+    { "id": "rear-props", "z_min": 200, "z_max": 299 },
+    { "id": "characters", "z_min": 300, "z_max": 399 },
+    { "id": "front-props", "z_min": 400, "z_max": 499 },
+    { "id": "effects", "z_min": 500, "z_max": 599 },
+    { "id": "hud", "z_min": 800, "z_max": 899 },
+    { "id": "shade", "z_min": 900, "z_max": 909 },
+    { "id": "spotlight", "z_min": 910, "z_max": 919 },
+    { "id": "coach", "z_min": 920, "z_max": 949 },
+    { "id": "toast", "z_min": 990, "z_max": 999 }
+  ],
+  "instances": [
+    {
+      "instance_id": "review-room",
+      "asset_id": "background-bright-office-main",
+      "layer_id": "background",
+      "z_index": 0,
+      "decorative": true,
+      "state_binding": null,
+      "reduced_motion": "static",
+      "layout_by_profile": {
+        "phone-portrait": { "visible": true, "anchor": "center", "bounds": [0, 0, 1, 1], "fit": "contain", "focal_point": [0.76, 0.45] },
+        "phone-landscape": { "visible": true, "anchor": "center", "bounds": [0, 0, 1, 1], "fit": "cover", "focal_point": [0.76, 0.45] },
+        "tablet": { "visible": true, "anchor": "center", "bounds": [0, 0, 1, 1], "fit": "cover", "focal_point": [0.76, 0.45] },
+        "desktop": { "visible": true, "anchor": "center", "bounds": [0, 0, 1, 1], "fit": "cover", "focal_point": [0.76, 0.45] }
+      }
+    },
+    {
+      "instance_id": "review-coach",
+      "asset_id": "character-orbit-dispatcher-idle",
+      "layer_id": "characters",
+      "z_index": 320,
+      "decorative": false,
+      "state_binding": "review.coach.visual-state",
+      "reduced_motion": "use-idle",
+      "layout_by_profile": {
+        "phone-portrait": { "visible": true, "anchor": "bottom-right", "bounds": [0.62, 0.44, 0.34, 0.52], "fit": "contain", "focal_point": [0.5, 0.82] },
+        "phone-landscape": { "visible": true, "anchor": "bottom-right", "bounds": [0.73, 0.38, 0.23, 0.57], "fit": "contain", "focal_point": [0.5, 0.82] },
+        "tablet": { "visible": true, "anchor": "bottom-right", "bounds": [0.72, 0.36, 0.24, 0.59], "fit": "contain", "focal_point": [0.5, 0.82] },
+        "desktop": { "visible": true, "anchor": "bottom-right", "bounds": [0.72, 0.34, 0.24, 0.61], "fit": "contain", "focal_point": [0.5, 0.82] }
+      }
+    }
+  ],
+  "hotspots": [
+    {
+      "hotspot_id": "output-review",
+      "target_anchor": "run-review",
+      "accessible_label": "Returned output and acceptance checks",
+      "bounds_by_profile": {
+        "phone-portrait": [0.02, 0.04, 0.96, 0.65],
+        "phone-landscape": [0.03, 0.05, 0.66, 0.88],
+        "tablet": [0.03, 0.05, 0.66, 0.88],
+        "desktop": [0.03, 0.05, 0.66, 0.88]
+      }
+    },
+    {
+      "hotspot_id": "results-summary",
+      "target_anchor": "results-evidence",
+      "accessible_label": "Recorded evidence and results",
+      "bounds_by_profile": {
+        "phone-portrait": [0.02, 0.68, 0.96, 0.30],
+        "phone-landscape": [0.68, 0.05, 0.30, 0.88],
+        "tablet": [0.68, 0.05, 0.30, 0.88],
+        "desktop": [0.68, 0.05, 0.30, 0.88]
+      }
+    }
+  ]
+}

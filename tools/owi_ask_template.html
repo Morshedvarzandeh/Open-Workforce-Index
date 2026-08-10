@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
 <meta name="referrer" content="no-referrer">
 <title>OWI Office — your AI workforce</title>
@@ -458,6 +458,7 @@
   @media (prefers-reduced-motion:reduce) {
     *,*::before,*::after { animation:none !important; transition:none !important; }
   }
+  __OFFICE_GAME_CSS__
 </style>
 </head>
 <body>
@@ -475,6 +476,9 @@
     </nav>
     <div class="top-actions">
       <div class="connection"><i></i><span id="connectionLabel">advisor ready</span></div>
+      <button type="button" class="tour-launch" id="tourLaunch">
+        <span class="tour-launch-label">Training tour</span>
+      </button>
       <select id="skin" class="skin" aria-label="Office skin">
         <option value="bright">Bright office</option>
         <option value="human">Human studio</option>
@@ -486,14 +490,14 @@
   <main>
     <section id="view-office" class="view active" aria-labelledby="office-title">
       <div class="office-hero">
-        <div class="welcome">
+        <div class="welcome" data-tour-id="company-hq">
           <span class="eyebrow" id="officeStatus">Meet your AI office</span>
           <h2 id="office-title">Put the right mind on every task.</h2>
           <p id="officeIntro">OWI checks ability, tools, privacy, quality and price before assigning work. You approve the task; the office explains every choice.</p>
           <button type="button" class="primary" id="officeCta" data-open-view="work">Give the team a task</button>
           <span class="truth" id="officeTruth"><b>●</b> Exact model identities are shown below. Unknown costs or abilities are never presented as facts.</span>
         </div>
-        <div class="office-room" aria-label="Bright cartoon AI office">
+        <div class="office-room" data-tour-id="office-roster" aria-label="Bright cartoon AI office">
           <div class="sun" aria-hidden="true"></div><div class="window" aria-hidden="true"></div>
           <div class="board"><strong>Today in the office</strong><span>Describe the work. OWI staffs each part independently.</span><i class="scribble"></i></div>
           <div class="crew-grid" id="crewGrid"></div><div class="plant" aria-hidden="true"></div>
@@ -521,8 +525,8 @@
           </div>
         </aside>
 
-        <div class="project-workspace">
-          <div class="project-create" id="projectCreateCard">
+        <div class="project-workspace" data-tour-id="task-board">
+          <div class="project-create" id="projectCreateCard" data-tour-id="project-create">
             <header><div><span class="eyebrow">1 · Create</span>
               <h2>What are we delivering?</h2>
               <p>OWI can propose task boundaries. You can add and edit them before staffing.</p>
@@ -564,7 +568,7 @@
             </div><div class="board-head-actions">
               <button type="button" class="quiet" id="newProject">New project</button>
               <button type="button" class="quiet" id="addTask">+ Add task</button>
-              <button type="button" class="secondary" id="staffProject">Staff unassigned tasks</button>
+              <button type="button" class="secondary" id="staffProject" data-tour-id="staffing">Staff unassigned tasks</button>
             </div></div>
             <div class="project-meta" id="projectMeta"></div>
             <div class="board-warning" id="planningProblem" hidden></div>
@@ -581,7 +585,7 @@
               </form>
             </div>
 
-            <div class="task-list" id="taskList" aria-live="polite"></div>
+            <div class="task-list" id="taskList" data-tour-id="run-review" aria-live="polite"></div>
           </section>
           <div class="workflow-notice" id="workflowNotice" role="status"></div>
         </div>
@@ -589,7 +593,7 @@
     </section>
 
     <section id="view-results" class="view" aria-labelledby="results-title">
-      <div class="results-layout">
+      <div class="results-layout" data-tour-id="results-evidence">
         <div class="metric"><span>Recorded feedback</span><strong id="resultTotal">0</strong></div>
         <div class="metric"><span>Worked</span><strong id="resultAccepted">0</strong></div>
         <div class="metric"><span>Model-caused failures</span><strong id="resultRejected">0</strong></div>
@@ -617,6 +621,32 @@
   </footer>
 </div>
 
+<div class="tour-root" id="trainingTour" hidden>
+  <div class="tour-shade" aria-hidden="true"></div>
+  <div class="tour-spotlight" id="tourSpotlight" aria-hidden="true"></div>
+  <section class="tour-coach" id="tourCoach" role="dialog" aria-modal="true"
+           aria-labelledby="tourTitle" aria-describedby="tourBody">
+    <div class="tour-coach-head">
+      <img class="tour-orbit" src="__ART_ORBIT__" alt="">
+      <div><span class="tour-kicker" id="tourProgress" role="status" aria-live="polite">Training</span>
+        <h2 id="tourTitle">Welcome to your AI office</h2></div>
+      <button type="button" class="tour-close" id="tourClose" aria-label="Pause training">×</button>
+    </div>
+    <p class="tour-copy" id="tourBody"></p>
+    <p class="tour-honesty" id="tourModeTruth">The tour explains real controls but never creates, staffs, runs, approves, or spends for you.</p>
+    <div class="tour-progress-row">
+      <div class="tour-dots" id="tourDots" aria-hidden="true"></div>
+      <span class="tour-progress-label">Owner training</span>
+    </div>
+    <div class="tour-actions">
+      <button type="button" class="tour-back" id="tourBack">Back</button>
+      <button type="button" class="tour-skip" id="tourSkip">Skip tour</button>
+      <button type="button" class="tour-next" id="tourNext">Next</button>
+    </div>
+  </section>
+</div>
+
+<script id="office-tour-data" type="application/json">__OFFICE_TOUR_DATA__</script>
 <script id="ask-data" type="application/json">__DATA__</script>
 <script>
   const DATA = JSON.parse(document.getElementById("ask-data").textContent);
@@ -649,8 +679,20 @@
        "styling"],
   };
   const STORE = "owi-ask-v1";
-  const local = () => JSON.parse(localStorage.getItem(STORE) || "{}");
-  const save = (d) => localStorage.setItem(STORE, JSON.stringify(d));
+  const preferenceStorage = {
+    get(key, fallback = null) {
+      try { const value = localStorage.getItem(key); return value === null ? fallback : value; }
+      catch (_) { return fallback; }
+    },
+    set(key, value) { try { localStorage.setItem(key, value); return true; }
+      catch (_) { return false; } },
+    remove(key) { try { localStorage.removeItem(key); } catch (_) { /* preference only */ } },
+  };
+  const local = () => {
+    try { return JSON.parse(preferenceStorage.get(STORE, "{}")); }
+    catch (_) { return {}; }
+  };
+  const save = (d) => preferenceStorage.set(STORE, JSON.stringify(d));
 
   // >>> decision-math >>>
   // Everything between these markers is a second implementation of the
@@ -832,7 +874,7 @@
     grid.innerHTML = workers.map((worker, index) => {
       const persona = CREW_PERSONAS[index % CREW_PERSONAS.length];
       const ready = Boolean(LIVE
-        && (data().runnable || []).includes(modelOf(worker.id)));
+        && (data().runnable || []).includes(worker.id));
       const status = ready ? "ready to run" : (LIVE ? "setup required" : "catalog");
       return `<article class="crew">
         <div class="desk">
@@ -847,7 +889,7 @@
     }).join("");
   }
 
-  function switchView(name) {
+  function switchView(name, options = {}) {
     document.querySelectorAll(".view").forEach(view =>
       view.classList.toggle("active", view.id === `view-${name}`));
     document.querySelectorAll("[data-view]").forEach(button => {
@@ -856,7 +898,7 @@
       button.setAttribute("aria-current", selected ? "page" : "false");
     });
     if (name === "results") renderResults();
-    if (name === "work") requestAnimationFrame(() => {
+    if (name === "work" && options.focusContent !== false) requestAnimationFrame(() => {
       const target = document.getElementById("projectGoal");
       if (target && !document.getElementById("projectBoard").hidden)
         document.getElementById("addTask").focus();
@@ -911,7 +953,7 @@
   document.querySelectorAll("[data-open-view]").forEach(button =>
     button.addEventListener("click", () => switchView(button.dataset.openView)));
   const skinSelect = document.getElementById("skin");
-  const savedSkin = localStorage.getItem("owi-office-skin-v1") || "bright";
+  const savedSkin = preferenceStorage.get("owi-office-skin-v1", "bright");
   skinSelect.value = ["bright", "human", "night"].includes(savedSkin)
     ? savedSkin : "bright";
   if (skinSelect.value === "bright") document.documentElement.removeAttribute("data-skin");
@@ -920,7 +962,7 @@
     const skin = skinSelect.value;
     if (skin === "bright") document.documentElement.removeAttribute("data-skin");
     else document.documentElement.dataset.skin = skin;
-    localStorage.setItem("owi-office-skin-v1", skin);
+    preferenceStorage.set("owi-office-skin-v1", skin);
   });
   // ---------------------------------------------------------------------
   // Server-authoritative project workflow
@@ -1517,7 +1559,7 @@
     if (!form) return; event.preventDefault(); workflowEditTask(form);
   });
   document.getElementById("reset").addEventListener("click", event => {
-    event.preventDefault(); localStorage.removeItem(STORE); renderResults();
+    event.preventDefault(); preferenceStorage.remove(STORE); renderResults();
     workflowNotice("Browser-only learning was cleared. Server projects and private ledger evidence were not deleted.");
   });
 
@@ -1537,7 +1579,9 @@
       } catch (error) { workflowNotice(workflowErrorMessage(error), true); }
     }
     workflowRenderProject();
+    if (window.OWITrainingTour) window.OWITrainingTour.ready();
   }
+  __OFFICE_TOUR_JS__
   workflowBoot();
 </script>
 </body>

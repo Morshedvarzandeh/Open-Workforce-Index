@@ -9,7 +9,7 @@ import sys
 from html.parser import HTMLParser
 from pathlib import Path
 
-from owi_assets import OFFICE_ASSETS
+from owi_assets import OFFICE_ASSETS, inline_office_assets
 
 
 REPO = Path(__file__).resolve().parent.parent
@@ -39,7 +39,9 @@ def require(condition: bool, message: str) -> None:
 
 def main() -> int:
     page = TEMPLATE.read_text(encoding="utf-8")
-    rendered = page.replace("__DATA__", "{}").replace("__BUILT__", "test")
+    rendered = inline_office_assets(page).replace("__DATA__", "{}").replace(
+        "__BUILT__", "test"
+    )
     parser = PageParser()
     parser.feed(rendered)
 
@@ -67,7 +69,7 @@ def main() -> int:
         "resultsList",
     }
     require(required_ids.issubset(parser.ids), "a core Office surface is missing")
-    require('id="taskList" aria-live="polite"' in page,
+    require(re.search(r'id="taskList"[^>]*aria-live="polite"', page) is not None,
             "project task results need an aria-live region")
     require("Create project &amp; draft tasks" in page
             and "Staff unassigned tasks" in page
@@ -165,10 +167,11 @@ def main() -> int:
             and page.count("// <<< decision-math <<<") == 1,
             "the verified decision-math boundary changed")
     for placeholder, path in OFFICE_ASSETS.items():
-        require(placeholder in page, f"the template lost {placeholder}")
         require(path.is_file(), f"the art pack is missing {path.name}")
+        require(placeholder not in rendered,
+                f"the rendered page retained {placeholder}")
     asset_validation = subprocess.run(
-        [sys.executable, str(REPO / "ui/assets/office/v1/validate.py")],
+        [sys.executable, str(REPO / "ui/assets/office/v2/validate.py")],
         text=True, capture_output=True, check=False
     )
     require(asset_validation.returncode == 0,
@@ -176,9 +179,10 @@ def main() -> int:
             + asset_validation.stderr[-1200:])
 
     scripts = re.findall(r"<script(?: [^>]*)?>(.*?)</script>", rendered, re.S)
-    require(len(scripts) == 2, "expected one data script and one application script")
+    require(len(scripts) == 3,
+            "expected tour data, runtime data and one application script")
     checked = subprocess.run(
-        ["node", "--check"], input=scripts[1], text=True,
+        ["node", "--check"], input=scripts[-1], text=True,
         capture_output=True, check=False
     )
     require(checked.returncode == 0,

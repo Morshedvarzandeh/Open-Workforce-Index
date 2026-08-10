@@ -57,6 +57,9 @@ jobs:
       - name: Bright office GUI contract
         run: python3 tools/check_office_gui.py
 
+      - name: Complete training tour contract
+        run: python3 tools/check_training_tour.py
+
       - name: Local office launcher and execution gate
         run: python3 tools/check_serve_launcher.py
 

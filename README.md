@@ -57,6 +57,16 @@ outcomes still feed the OWI evidence ledger:
 tools/owi-serve
 ```
 
+Orbit's seven-chapter **Training tour** opens on the first visit and can be
+paused, skipped, resumed, or replayed from the header. It guides the owner
+through the real Office → project → tasks → staffing → run/review → Results
+path without clicking an action or spending on their behalf. On phones it uses
+a safe-area-aware game-style bottom sheet and bottom navigation; keyboard and
+reduced-motion modes are first-class. Static, unconfigured, sample, and live
+offices are identified honestly inside the tour.
+The [seven-pass visual review](docs/design/training-tour-iterations.md) records
+the desktop, tablet, phone, landscape, accessibility, and adversarial checks.
+
 Unlike `owi-do`, the application does **not** silently create the demo roster.
 With no configured index it opens an honest setup screen containing no models,
 abilities, recommendations, or costs. Point it at an existing OWI workspace,
@@ -93,13 +103,15 @@ ID, for example `worker:claude-sonnet/reviewer`. A model-only key is displayed
 as a non-runnable fallback because it cannot prove the quoted provider,
 harness, skill pack, tools, or privacy identity.
 
-The reusable game-art pack lives in
-[`ui/assets/office/v1`](ui/assets/office/v1/README.md). Backgrounds and
-characters are separate, versioned assets with runtime WebP renditions, PNG
-masters, source prompts, checksums, placement metadata, and a strict release
-gate. The initial generated artwork remains marked `pending` until a
-maintainer completes its rights review; development validation never silently
-turns that into an Apache-2.0 approval.
+The reusable, manifest-driven game-art pack lives in
+[`ui/assets/office/v2`](ui/assets/office/v2/README.md), with responsive scenes
+in [`ui/scenes`](ui/scenes/README.md) and declarative training content in
+[`ui/tours`](ui/tours/README.md). Backgrounds and characters are separate,
+versioned assets with optimized runtime WebP renditions, source prompts,
+checksums, placement/state metadata, and a strict release gate. The generated
+artwork remains marked `pending` until a maintainer completes its rights
+review; development validation never silently turns that into an Apache-2.0
+approval.
 
 The complete workflow, every level from this link to real measurement, is
 written in [docs/WORKFLOW.md](docs/WORKFLOW.md).

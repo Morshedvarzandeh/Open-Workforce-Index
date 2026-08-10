@@ -62,18 +62,6 @@ class WorkspaceProblem(RuntimeError):
     """A setup issue safe to show in the local onboarding screen."""
 
 
-def model_for_worker(worker_id: str) -> str:
-    """Runner key used by the current worker-id contract.
-
-    Worker ids in the v0.1 index are ``worker:<model>/<role>``. Keep the
-    extraction in one place so malformed/custom ids are never mistaken for a
-    runnable model.
-    """
-    if not worker_id.startswith("worker:") or "/" not in worker_id:
-        return ""
-    return worker_id.removeprefix("worker:").split("/", 1)[0].strip()
-
-
 def setup_payload(home: Path, problem: str | None = None) -> dict:
     """Truthful local-app state for a workspace that is not ready yet."""
     message = problem or (
@@ -291,8 +279,12 @@ def harvest(home: Path) -> dict:
                                "b": cal["skills"][0]["posterior"]["beta"]}
             for cal in result["calibration"] if cal["skills"]}
 
-    models = {model_for_worker(worker["id"]) for worker in workers}
-    models.discard("")
+    runnable_workers = sorted(
+        worker["id"] for worker in workers
+        if owi_do.resolve_worker_runner(
+            home, worker["id"], allow_model_fallback=False
+        )[0]
+    )
     demo = (catalog["snapshot"] == DEMO_SNAPSHOT_ID
             and catalog["sourceRevision"] == DEMO_SOURCE_REVISION)
     return {"workers": workers, "posteriors": posteriors,
@@ -301,8 +293,9 @@ def harvest(home: Path) -> dict:
             "mode": "demo" if demo else "configured",
             "snapshot": catalog["snapshot"],
             "ledgerFeedback": ledger_feedback(home),
-            "runnable": sorted(m for m in models
-                               if owi_do.resolve_runner(home, m))}
+            # Exact worker identities only. A model-wide command cannot prove
+            # the quoted provider, harness, tools, or privacy clearance.
+            "runnable": runnable_workers}
 
 
 def load_workspace(home: Path) -> dict:

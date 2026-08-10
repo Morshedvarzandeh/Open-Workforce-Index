@@ -1,0 +1,95 @@
+{
+  "$schema": "./scene.schema.json",
+  "schema_version": 1,
+  "scene_id": "manager-hq",
+  "version": "1.0.0",
+  "title": "Company training map",
+  "description": "A bright four-station overview of the real first-project workflow. HTML owns labels, controls, worker identity, cost, and evidence.",
+  "asset_pack": {
+    "pack_id": "org.open-workforce-index.office",
+    "minimum_version": "2.0.0-dev.1"
+  },
+  "design_space": { "width_px": 1280, "height_px": 720 },
+  "layout_profiles": [
+    { "id": "phone-portrait", "min_width_px": 0, "max_width_px": 599, "max_height_px": null, "scene_fit": "contain", "scene_aspect_ratio": [16, 9] },
+    { "id": "phone-landscape", "min_width_px": 480, "max_width_px": 959, "max_height_px": 500, "scene_fit": "contain", "scene_aspect_ratio": [16, 9] },
+    { "id": "tablet", "min_width_px": 600, "max_width_px": 1023, "max_height_px": null, "scene_fit": "contain", "scene_aspect_ratio": [16, 9] },
+    { "id": "desktop", "min_width_px": 1024, "max_width_px": null, "max_height_px": null, "scene_fit": "cover", "scene_aspect_ratio": [16, 9] }
+  ],
+  "layers": [
+    { "id": "background", "z_min": 0, "z_max": 99 },
+    { "id": "environment", "z_min": 100, "z_max": 199 },
+    { "id": "rear-props", "z_min": 200, "z_max": 299 },
+    { "id": "characters", "z_min": 300, "z_max": 399 },
+    { "id": "front-props", "z_min": 400, "z_max": 499 },
+    { "id": "effects", "z_min": 500, "z_max": 599 },
+    { "id": "hud", "z_min": 800, "z_max": 899 },
+    { "id": "shade", "z_min": 900, "z_max": 909 },
+    { "id": "spotlight", "z_min": 910, "z_max": 919 },
+    { "id": "coach", "z_min": 920, "z_max": 949 },
+    { "id": "toast", "z_min": 990, "z_max": 999 }
+  ],
+  "instances": [
+    {
+      "instance_id": "training-map",
+      "asset_id": "background-training-map-first-project",
+      "layer_id": "background",
+      "z_index": 0,
+      "decorative": true,
+      "state_binding": null,
+      "reduced_motion": "static",
+      "layout_by_profile": {
+        "phone-portrait": { "visible": true, "anchor": "center", "bounds": [0, 0, 1, 1], "fit": "contain", "focal_point": [0.5, 0.55] },
+        "phone-landscape": { "visible": true, "anchor": "center", "bounds": [0, 0, 1, 1], "fit": "contain", "focal_point": [0.5, 0.55] },
+        "tablet": { "visible": true, "anchor": "center", "bounds": [0, 0, 1, 1], "fit": "contain", "focal_point": [0.5, 0.55] },
+        "desktop": { "visible": true, "anchor": "center", "bounds": [0, 0, 1, 1], "fit": "cover", "focal_point": [0.5, 0.55] }
+      }
+    }
+  ],
+  "hotspots": [
+    {
+      "hotspot_id": "owner-station",
+      "target_anchor": "company-hq",
+      "accessible_label": "Company headquarters and owner desk",
+      "bounds_by_profile": {
+        "phone-portrait": [0.02, 0.08, 0.30, 0.42],
+        "phone-landscape": [0.02, 0.08, 0.30, 0.42],
+        "tablet": [0.02, 0.08, 0.30, 0.42],
+        "desktop": [0.02, 0.08, 0.30, 0.42]
+      }
+    },
+    {
+      "hotspot_id": "planning-station",
+      "target_anchor": "project-create",
+      "accessible_label": "Project planning table",
+      "bounds_by_profile": {
+        "phone-portrait": [0.23, 0.34, 0.29, 0.40],
+        "phone-landscape": [0.23, 0.34, 0.29, 0.40],
+        "tablet": [0.23, 0.34, 0.29, 0.40],
+        "desktop": [0.23, 0.34, 0.29, 0.40]
+      }
+    },
+    {
+      "hotspot_id": "staffing-station",
+      "target_anchor": "staffing",
+      "accessible_label": "Worker staffing desks",
+      "bounds_by_profile": {
+        "phone-portrait": [0.51, 0.38, 0.25, 0.37],
+        "phone-landscape": [0.51, 0.38, 0.25, 0.37],
+        "tablet": [0.51, 0.38, 0.25, 0.37],
+        "desktop": [0.51, 0.38, 0.25, 0.37]
+      }
+    },
+    {
+      "hotspot_id": "review-station",
+      "target_anchor": "results-evidence",
+      "accessible_label": "Review and results corner",
+      "bounds_by_profile": {
+        "phone-portrait": [0.76, 0.34, 0.23, 0.42],
+        "phone-landscape": [0.76, 0.34, 0.23, 0.42],
+        "tablet": [0.76, 0.34, 0.23, 0.42],
+        "desktop": [0.76, 0.34, 0.23, 0.42]
+      }
+    }
+  ]
+}
