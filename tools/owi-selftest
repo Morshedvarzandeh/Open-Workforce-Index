@@ -184,11 +184,11 @@ def run(no_cargo: bool) -> int:
             home = root / ".owi-quick"
             home.mkdir()
             (home / "runners.json").write_text('{"gpt-5-mini": "pwd"}')
-            stdout, _, code = owi_do.run_command(home, "gpt-5-mini", "")
-            where = Path(stdout.strip()) if stdout.strip() else None
+            ran = owi_do.run_worker(home, "gpt-5-mini", "")
+            where = Path(ran.output.strip()) if ran.output.strip() else None
             suite.check("the runner reports where it ran",
-                        code == 0 and where is not None,
-                        f"got {stdout.strip()!r}")
+                        ran.usable and where is not None,
+                        f"got {ran.output.strip()!r} ({ran.detail})")
             if where is not None:
                 suite.check("workers do not execute from the owi home",
                             where.resolve() != home,
@@ -356,6 +356,33 @@ def run(no_cargo: bool) -> int:
                 suite.check("a run that measured nothing exits non-zero",
                             completed.returncode != 0,
                             "it exited 0, so CI would call it a pass")
+
+        contract = frozen.get("runner_contract_expectations")
+        if contract:
+            print("\nrunner contract (one implementation, four failure modes)")
+            import owi_runner
+            for case in contract["failure_modes"]:
+                result = owi_runner.run_worker(case["command"], "task text",
+                                               timeout=case.get("timeout", 5))
+                suite.check(f"{case['name']} is the environment's failure",
+                            result.blame == owi_runner.ENVIRONMENT
+                            and not result.usable and result.output == "",
+                            f"blame={result.blame!r} output={result.output!r}")
+            good = owi_runner.run_worker(contract["worker_command"], "task")
+            suite.check("real output is the worker's own",
+                        good.blame == owi_runner.WORKER and good.usable
+                        and good.output.strip() != "",
+                        f"blame={good.blame!r} output={good.output!r}")
+            # The contract must have exactly one implementation. Any second
+            # place that spawns a worker is how the last two bugs survived a
+            # hand-fix in the first place.
+            spawn_sites = []
+            for name in contract["files_that_must_not_spawn"]:
+                source = (REPO / name).read_text()
+                if "subprocess.run(" in source or "subprocess.Popen(" in source:
+                    spawn_sites.append(name)
+            suite.check("only owi_runner spawns a worker", not spawn_sites,
+                        f"also spawns: {spawn_sites}")
 
         blame = frozen.get("blame_expectations")
         if blame:

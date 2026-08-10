@@ -45,6 +45,9 @@ import tempfile
 import time
 from pathlib import Path
 
+import owi_runner
+from owi_runner import ENVIRONMENT, WORKER
+
 REPO = Path(__file__).resolve().parent.parent
 MICROS = 1_000_000
 # The instant decisions are dated at. Offerings carry effective-from dates, so
@@ -135,23 +138,31 @@ WRITER_ORDER = ["opus-5", "opus-4-5", "gpt-5", "sonnet-5", "sonnet-4-5",
 QC = {"clearance": 5, "sample_every": 3}
 
 
+def builtin_commands() -> dict[str, str]:
+    """Model -> the command a locally installed CLI would use for it. Whether
+    that CLI exists here is a separate question, asked below."""
+    commands = {model: f"claude --model {target} -p"
+                for model, target in CLAUDE_MODELS.items()}
+    commands.update({model: f"llm -m {target}"
+                     for model, target in OPENAI_MODELS.items()})
+    commands.update({model: f"ollama run {target}"
+                     for model, target in OLLAMA_MODELS.items()})
+    return commands
+
+
 def builtin_runner(model: str) -> str | None:
-    if model in CLAUDE_MODELS and shutil.which("claude"):
-        return f"claude --model {CLAUDE_MODELS[model]} -p"
-    if model in OPENAI_MODELS and shutil.which("llm"):
-        return f"llm -m {OPENAI_MODELS[model]}"
-    if model in OLLAMA_MODELS and shutil.which("ollama"):
-        return f"ollama run {OLLAMA_MODELS[model]}"
-    return None
+    """The built-in command for a model, when its CLI is actually on PATH.
+    Used to prefill runners.json visibly on first run; it deliberately does
+    not consult runners.json, which is what it is prefilling."""
+    command = builtin_commands().get(model)
+    if not command:
+        return None
+    return command if shutil.which(command.split()[0]) else None
 
 
 def resolve_runner(home: Path, model: str) -> str | None:
     """The configured command for a model, or the built-in when unset."""
-    runners_path = home / "runners.json"
-    configured = ""
-    if runners_path.exists():
-        configured = (json.loads(runners_path.read_text()).get(model) or "").strip()
-    return configured or builtin_runner(model)
+    return owi_runner.resolve(home, model, builtin_commands())
 
 
 def owi(*args: str) -> dict:
@@ -486,39 +497,23 @@ def inspection_for(home: Path, worker: str, skill: str) -> dict:
                        else "this run rides on the streak"))}
 
 
-# Files an agentic CLI reads as standing instructions, discovered by walking
-# up from wherever it was invoked.
-AGENT_INSTRUCTION_FILES = ("CLAUDE.md", "AGENTS.md")
+# The runner contract — what a worker is, whose fault a failure is, and the
+# scratch directory it runs in — lives in owi_runner so that every caller
+# obeys one implementation. These names stay here because callers (and the
+# frozen suite) reach for them through owi-do.
+AGENT_INSTRUCTION_FILES = owi_runner.AGENT_INSTRUCTION_FILES
+instruction_files_above = owi_runner.instruction_files_above
 
 
-def instruction_files_above(path: Path) -> list[str]:
-    """Standing instructions a worker started in `path` would inherit."""
-    directory = Path(path).resolve()
-    return [str(parent / name)
-            for parent in [directory, *directory.parents]
-            for name in AGENT_INSTRUCTION_FILES
-            if (parent / name).exists()]
-
-
-def run_command(home: Path, model: str, payload: str,
-                timeout: int = 600) -> tuple[str, str, int]:
-    """Execute a worker's command with the task on stdin, from a scratch
-    directory that inherits nothing. The stdin payload is the WHOLE task.
-
-    Two lessons are frozen into that one word, scratch. Agentic CLIs run from
-    wherever they are invoked, so a repo in the working directory can hijack
-    the answer ("I can't reach the docs from here"). Worse, they read standing
-    instructions from every directory above them — and this repo's CLAUDE.md
-    tells any session it is the router. Run a worker anywhere inside the repo
-    and it obeys that file instead of doing the job: asked its role from
-    .owi-quick/ a model answers "Router", from a scratch directory "Worker".
-    The rejection lands on the model, and the ledger learns something false.
-    A worker must be handed the task and nothing else."""
-    with tempfile.TemporaryDirectory(prefix="owi-run-") as scratch:
-        completed = subprocess.run(
-            resolve_runner(home, model), shell=True, input=payload, text=True,
-            capture_output=True, timeout=timeout, cwd=scratch)
-    return completed.stdout or "", completed.stderr or "", completed.returncode
+def run_worker(home: Path, model: str, payload: str,
+               timeout: int = 600) -> owi_runner.RunResult:
+    """Run one worker under the contract. The result says whose failure it
+    was; only a WORKER result carries output a checklist may judge."""
+    command = resolve_runner(home, model)
+    if not command:
+        return owi_runner.RunResult(
+            "", "", -1, ENVIRONMENT, f"no runner configured for '{model}'")
+    return owi_runner.run_worker(command, payload, timeout)
 
 
 def run_checklist(home: Path, task: str, output: str, items: list[str],
@@ -550,11 +545,8 @@ def run_checklist(home: Path, task: str, output: str, items: list[str],
                   + "\n\nCHECKLIST:\n" + numbered
                   + '\n\nReply with JSON only, one entry per checklist item: '
                   '{"results": [{"item": 1, "pass": true, "why": "short reason"}]}')
-        try:
-            stdout, _, code = run_command(home, judge, prompt, timeout=300)
-        except subprocess.TimeoutExpired:
-            stdout, code = "", -1
-        data = find_json(stdout) if code == 0 else None
+        graded = run_worker(home, judge, prompt, timeout=300)
+        data = find_json(graded.output) if graded.usable else None
         rows = (data.get("results") if isinstance(data, dict)
                 else data if isinstance(data, list) else []) or []
         verdicts = {row.get("item"): row for row in rows if isinstance(row, dict)}
@@ -604,12 +596,9 @@ def auto_checklist(home: Path, task: str,
               else judge_model_for(home, exclude=None))
     if writer is None:
         return None, []
-    try:
-        stdout, _, code = run_command(
-            home, writer, CHECKLIST_PROMPT.format(task=task[:6000]), timeout=300)
-    except subprocess.TimeoutExpired:
-        return writer, []
-    data = find_json(stdout) if code == 0 else None
+    written = run_worker(home, writer, CHECKLIST_PROMPT.format(task=task[:6000]),
+                         timeout=300)
+    data = find_json(written.output) if written.usable else None
     return writer, clean_checklist(
         data.get("checklist") if isinstance(data, dict) else None)
 
@@ -653,12 +642,9 @@ def plan_parts(home: Path, task: str) -> tuple[str | None, list[dict] | None]:
     planner = writer_model_for(home)
     if planner is None:
         return None, None
-    try:
-        stdout, _, code = run_command(
-            home, planner, PLAN_PROMPT.format(task=task[:8000]), timeout=300)
-    except subprocess.TimeoutExpired:
-        return planner, None
-    data = find_json(stdout) if code == 0 else None
+    planned = run_worker(home, planner, PLAN_PROMPT.format(task=task[:8000]),
+                         timeout=300)
+    data = find_json(planned.output) if planned.usable else None
     raw_parts = data.get("parts") if isinstance(data, dict) else None
     return planner, clean_parts(raw_parts)
 
@@ -801,31 +787,21 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
               "rejections of this skill")
     payload = build_payload(task, stdin_text, checklist, notes, corrections)
     print(f"\nrunning via: {resolve_runner(home, model)}\n" + "-" * 60)
-    try:
-        stdout, stderr, code = run_command(home, model, payload)
-    except subprocess.TimeoutExpired:
-        print("-" * 60)
-        print("timed out after 600s")
-        record_outcome(home, worker, skill, False, "environment", task=task,
-                       detail="runner timed out after 600s", privacy=privacy)
-        return "rejected", ""
-    print(stdout.strip() or "(no output)")
+    result = run_worker(home, model, payload)
+    print(result.output.strip() or "(no output)")
     print("-" * 60)
-    if code != 0:
-        sys.stderr.write(stderr[-1500:])
-        print(f"runner exited {code} — the plumbing failed, not the model")
-        record_outcome(home, worker, skill, False, "environment", task=task,
-                       detail=f"runner exit {code}: {stderr[:300]}", privacy=privacy)
+    if not result.usable:
+        # Timeout, non-zero exit, silence, a command that would not start:
+        # every one of them is the environment failing, and none of them is
+        # checked against the worker. The contract decided that, not this
+        # function — which is the point of having a contract.
+        if result.stderr:
+            sys.stderr.write(result.stderr[-1500:])
+        print(f"{result.detail} — the plumbing failed, not the model")
+        record_outcome(home, worker, skill, False, ENVIRONMENT, task=task,
+                       detail=result.detail, privacy=privacy)
         return "rejected", ""
-    if not stdout.strip():
-        # A model never replies with literally nothing. Empty stdout is
-        # plumbing — CLI collision, auth, a crash that exited zero — and a
-        # checklist run against "" would wrongly convict the worker.
-        # Learned from two misattributed rejections during concurrent runs.
-        print("runner produced no output — the plumbing failed, not the model")
-        record_outcome(home, worker, skill, False, "environment", task=task,
-                       detail="runner produced no output", privacy=privacy)
-        return "rejected", ""
+    stdout = result.output
 
     if accepted_flag is not None:
         accepted = accepted_flag == "y"

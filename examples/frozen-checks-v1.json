@@ -454,5 +454,48 @@
     ],
     "harness_failures_are_unrecorded": true,
     "empty_run_exits_non_zero": true
+  },
+  "runner_contract_expectations": {
+    "_why": [
+      "A runner is the user's own command line for a model, and the rules",
+      "for running one were learned from misattributed failures: the task",
+      "travels on stdin, the worker runs in a scratch directory that",
+      "inherits nothing, and empty stdout, a non-zero exit, a timeout or a",
+      "command that will not start are all the ENVIRONMENT's failure and",
+      "never the model's.",
+      "",
+      "Those rules used to live as prose plus four near-copies of the same",
+      "code. That is how two identical bugs came to be fixed by hand in two",
+      "places while a third copy kept the bug. tools/owi_runner.py is now",
+      "the single implementation and returns a result whose blame is",
+      "explicit, so misattributing a plumbing failure takes a deliberate",
+      "misuse rather than a moment's inattention.",
+      "",
+      "The last check is the one that keeps it true: no other tool may",
+      "spawn a worker itself."
+    ],
+    "worker_command": "echo hello from the worker",
+    "failure_modes": [
+      {
+        "name": "silence",
+        "command": "true"
+      },
+      {
+        "name": "a non-zero exit",
+        "command": "echo out; exit 3"
+      },
+      {
+        "name": "a command that will not start",
+        "command": "/nonexistent-runner-binary"
+      },
+      {
+        "name": "a timeout",
+        "command": "sleep 30",
+        "timeout": 1
+      }
+    ],
+    "files_that_must_not_spawn": [
+      "tools/owi-serve"
+    ]
   }
 }

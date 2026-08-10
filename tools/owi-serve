@@ -21,9 +21,7 @@ import importlib.machinery
 import importlib.util
 import json
 import secrets
-import subprocess
 import sys
-import tempfile
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -34,6 +32,9 @@ TOOLS = Path(__file__).resolve().parent
 REPO = TOOLS.parent
 
 # The front-door script has no .py extension, so name the loader explicitly.
+sys.path.insert(0, str(TOOLS))
+import owi_runner  # noqa: E402 (after TOOLS joins the path)
+
 _loader = importlib.machinery.SourceFileLoader("owi_do", str(TOOLS / "owi-do"))
 _spec = importlib.util.spec_from_loader("owi_do", _loader)
 owi_do = importlib.util.module_from_spec(_spec)
@@ -216,32 +217,28 @@ class Handler(BaseHTTPRequestHandler):
             notes = (owi_do.prevention_notes(self.home, skill)
                      if skill in owi_do.SKILLS else [])
             payload = owi_do.build_payload(task, "", checklist, notes)
-            try:
-                # A scratch directory that inherits nothing: the stdin payload
-                # is the whole task, and an agentic CLI must not pick up a repo
-                # to wander — nor the standing instructions above it, which in
-                # this repo tell a session it is the router, not the worker.
-                with tempfile.TemporaryDirectory(prefix="owi-run-") as scratch:
-                    completed = subprocess.run(
-                        command, shell=True, input=payload, text=True,
-                        capture_output=True, timeout=300, cwd=scratch)
-            except subprocess.TimeoutExpired:
-                self._json(200, {"output": "", "stderr": "timed out after 300s",
-                                 "exit": -1, "notes": len(notes)})
+            # One contract, one implementation: scratch directory, task on
+            # stdin, and blame decided by owi_runner rather than re-derived
+            # here. This handler once carried its own copy of those rules and
+            # had to be fixed by hand alongside owi-do when they were wrong.
+            result = owi_runner.run_worker(command, payload, timeout=300)
+            if result.rejected_by_environment:
+                self._json(200, {"output": "", "stderr": result.detail,
+                                 "exit": result.exit_code, "blame": result.blame,
+                                 "notes": len(notes)})
                 return
-            response = {"output": completed.stdout[-100_000:],
-                        "stderr": completed.stderr[-4_000:],
-                        "exit": completed.returncode, "notes": len(notes),
+            response = {"output": result.output[-100_000:],
+                        "stderr": result.stderr[-4_000:],
+                        "exit": result.exit_code, "notes": len(notes),
                         "inspection": {"level": inspection["level"],
                                        "why": inspection["why"]}}
-            if checklist and completed.returncode == 0 \
-                    and completed.stdout.strip():
+            if checklist:
                 # Maker is never checker: judgement items go to a different
                 # model, resolved server-side like everything else — and only
-                # when this run's inspection level says to look. Empty output
-                # is plumbing, never checked against the worker.
+                # when this run's inspection level says to look. Reaching here
+                # already means the output is the worker's own.
                 response["check"] = owi_do.run_checklist(
-                    self.home, task, completed.stdout, checklist,
+                    self.home, task, result.output, checklist,
                     maker_model=model, judge_enabled=inspection["judge"])
             self._json(200, response)
         elif self._route() == "/api/outcome":
