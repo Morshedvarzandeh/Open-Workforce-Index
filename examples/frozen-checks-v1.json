@@ -256,8 +256,34 @@
     }
   ],
   "runner_cwd_expectations": {
-    "_why": "the stdin payload is the WHOLE task. Agentic CLIs inherit the invoking directory and can be hijacked by whatever repo they land in \u2014 a worker once answered 'I can't reach the docs from here' after wandering the invoking repo. Workers execute from the neutral home directory.",
-    "cwd": "home"
+    "_why": [
+      "The stdin payload is the WHOLE task. Agentic CLIs inherit the",
+      "invoking directory and can be hijacked by whatever repo they land",
+      "in \u2014 a worker once answered 'I can't reach the docs from here'",
+      "after wandering the invoking repo.",
+      "",
+      "The second lesson cost real evidence. Workers ran from the owi home",
+      ".owi-quick/, which sits INSIDE this repo, and agentic CLIs read",
+      "standing instructions from every directory above them. This repo's",
+      "CLAUDE.md tells any session it is the router, so a worker obeyed it",
+      "and replied asking whether to route the task instead of doing it.",
+      "The checklist failed, the blame landed on the model, and the ledger",
+      "learned something false about worker:sonnet-4-5/code.",
+      "",
+      "Proof, same model and prompt, only the directory differing: asked",
+      "its role from .owi-quick/ it answered 'Router.', from a scratch",
+      "directory 'Worker.' Workers now execute from a fresh scratch",
+      "directory with no instruction file at or above it.",
+      "",
+      "The old fixture passed throughout because it used a temporary home",
+      "with nothing above it \u2014 it never reproduced the hazard. This one",
+      "plants the instruction file above the home on purpose."
+    ],
+    "cwd": "scratch",
+    "forbidden_instruction_files": [
+      "CLAUDE.md",
+      "AGENTS.md"
+    ]
   },
   "blame_expectations": {
     "_why": "a model never replies with literally nothing \u2014 empty runner output is plumbing (CLI collision, auth, crash-with-zero) and must be recorded as environment, never checked against the worker. Learned 2026-08-08: two rejections were misattributed to workers during concurrent CLI runs.",
@@ -409,5 +435,24 @@
       "cleared",
       "guess"
     ]
+  },
+  "bench_blame_expectations": {
+    "_why": [
+      "The bench wrote an outcome record for every task whether or not the",
+      "model ever produced anything. A mistyped adapter flag made all 11",
+      "tasks fail in ~10ms \u2014 no model was ever called \u2014 and the harness",
+      "emitted 11 rejections against worker:sonnet-4-5/code. Ingesting",
+      "those would have retired a worker on evidence it never had a chance",
+      "to earn, and the run still exited 0, so nothing would have noticed.",
+      "",
+      "This is the front door's empty-stdout rule, which was already frozen,",
+      "arriving in the bench harness where it had never been applied: if the",
+      "verify command never ran, there is no evidence, only plumbing.",
+      "Attempts now carry blame; only blame=worker is scored and recorded,",
+      "harness failures are reported loudly, and a run that measured nothing",
+      "exits non-zero so CI cannot read it as a pass."
+    ],
+    "harness_failures_are_unrecorded": true,
+    "empty_run_exits_non_zero": true
   }
 }

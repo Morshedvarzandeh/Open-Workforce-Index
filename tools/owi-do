@@ -41,6 +41,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -485,16 +486,38 @@ def inspection_for(home: Path, worker: str, skill: str) -> dict:
                        else "this run rides on the streak"))}
 
 
+# Files an agentic CLI reads as standing instructions, discovered by walking
+# up from wherever it was invoked.
+AGENT_INSTRUCTION_FILES = ("CLAUDE.md", "AGENTS.md")
+
+
+def instruction_files_above(path: Path) -> list[str]:
+    """Standing instructions a worker started in `path` would inherit."""
+    directory = Path(path).resolve()
+    return [str(parent / name)
+            for parent in [directory, *directory.parents]
+            for name in AGENT_INSTRUCTION_FILES
+            if (parent / name).exists()]
+
+
 def run_command(home: Path, model: str, payload: str,
                 timeout: int = 600) -> tuple[str, str, int]:
-    """Execute a worker's command with the task on stdin, from the neutral
-    home directory. The stdin payload is the WHOLE task: agentic CLIs run
-    from wherever they are invoked, and a repo in the working directory can
-    hijack the answer ("I can't reach the docs from here"). Learned from a
-    worker that went researching the invoking repo instead of answering."""
-    completed = subprocess.run(
-        resolve_runner(home, model), shell=True, input=payload, text=True,
-        capture_output=True, timeout=timeout, cwd=str(home))
+    """Execute a worker's command with the task on stdin, from a scratch
+    directory that inherits nothing. The stdin payload is the WHOLE task.
+
+    Two lessons are frozen into that one word, scratch. Agentic CLIs run from
+    wherever they are invoked, so a repo in the working directory can hijack
+    the answer ("I can't reach the docs from here"). Worse, they read standing
+    instructions from every directory above them — and this repo's CLAUDE.md
+    tells any session it is the router. Run a worker anywhere inside the repo
+    and it obeys that file instead of doing the job: asked its role from
+    .owi-quick/ a model answers "Router", from a scratch directory "Worker".
+    The rejection lands on the model, and the ledger learns something false.
+    A worker must be handed the task and nothing else."""
+    with tempfile.TemporaryDirectory(prefix="owi-run-") as scratch:
+        completed = subprocess.run(
+            resolve_runner(home, model), shell=True, input=payload, text=True,
+            capture_output=True, timeout=timeout, cwd=scratch)
     return completed.stdout or "", completed.stderr or "", completed.returncode
 
 
