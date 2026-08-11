@@ -1,159 +1,941 @@
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OWI — ask</title>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="referrer" content="no-referrer">
+<title>OWI Office — your AI workforce</title>
 <style>
   :root {
-    --ground:#EEF1F5; --panel:#FFFFFF; --panel-sunk:#F5F7FA;
-    --rule:#D3DAE3; --rule-firm:#B4BECB;
-    --ink:#14171C; --ink-2:#454E5B; --ink-3:#6B7686;
-    --accent:#2B5CE6; --accent-soft:#E4EAFB;
-    --good:#0F6B47; --bad:#9E3B2C;
+    --sky:#DDF4FF; --cream:#FFF9EA; --paper:#FFFFFF; --paper-2:#F7FBFF;
+    --ink:#17233B; --ink-2:#536078; --ink-3:#7E8AA0; --rule:#DCE6F0;
+    --blue:#3977F6; --blue-soft:#E8F0FF; --green:#35B88C;
+    --pink:#F06DA5; --yellow:#FFC857; --purple:#8259E8;
+    --good:#13815B; --bad:#C44848; --shadow:0 18px 50px rgba(66,92,130,.12);
     --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
-    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --sans:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --ground:#101318; --panel:#171B21; --panel-sunk:#1D222A;
-      --rule:#2B323C; --rule-firm:#3D4653;
-      --ink:#E8ECF2; --ink-2:#AEB8C6; --ink-3:#7C8797;
-      --accent:#7CA0FF; --accent-soft:#1C2740;
-      --good:#4FC08D; --bad:#E0796A;
-    }
-  }
-  :root[data-theme="dark"] {
-    --ground:#101318; --panel:#171B21; --panel-sunk:#1D222A;
-    --rule:#2B323C; --rule-firm:#3D4653;
-    --ink:#E8ECF2; --ink-2:#AEB8C6; --ink-3:#7C8797;
-    --accent:#7CA0FF; --accent-soft:#1C2740;
-    --good:#4FC08D; --bad:#E0796A;
-  }
+  :root[data-skin="human"] { --sky:#EAF8EF; --cream:#FFF8F2;
+    --blue:#2C7A68; --blue-soft:#E0F2EC; --pink:#D8756F; --purple:#74599D; }
+  :root[data-skin="night"] { --sky:#141A31; --cream:#111728;
+    --paper:#1D2640; --paper-2:#232D49; --ink:#F2F5FF; --ink-2:#BBC6DD;
+    --ink-3:#8592AC; --rule:#35405D; --blue:#7CA0FF;
+    --blue-soft:#29375D; --shadow:0 18px 50px rgba(0,0,0,.28); }
   * { box-sizing:border-box; }
   [hidden] { display:none !important; }
-  body { margin:0; background:var(--ground); color:var(--ink);
-    font-family:var(--mono); font-size:15px; line-height:1.55;
-    -webkit-font-smoothing:antialiased; }
-  .shell { max-width:640px; margin:0 auto; padding:12vh 22px 60px;
-    display:flex; flex-direction:column; gap:22px; }
-  h1 { margin:0; font-size:20px; letter-spacing:-0.02em; }
-  h1 small { color:var(--ink-3); font-weight:400; font-size:12px;
-    margin-left:10px; letter-spacing:0.06em; }
-  form { display:flex; gap:8px; }
-  input[type=text] { flex:1; font:inherit; padding:12px 14px;
-    background:var(--panel); color:var(--ink);
-    border:1.5px solid var(--rule-firm); }
-  input[type=text]:focus-visible { outline:2px solid var(--accent);
-    outline-offset:1px; }
-  button { font:inherit; padding:12px 18px; background:var(--accent);
-    color:#fff; border:none; cursor:pointer; font-weight:700; }
-  :root[data-theme="dark"] button { color:#0F1420; }
-  button:focus-visible { outline:2px solid var(--ink); outline-offset:1px; }
+  body { margin:0; min-height:100vh; color:var(--ink); font-family:var(--sans);
+    background:linear-gradient(180deg,var(--sky) 0 31%,var(--cream) 31% 100%);
+    -webkit-font-smoothing:antialiased; transition:background .25s,color .25s; }
+  button,input,textarea,select { font:inherit; }
+  button { border:0; cursor:pointer; }
+  button:focus-visible,input:focus-visible,textarea:focus-visible,
+  select:focus-visible,a:focus-visible { outline:3px solid var(--yellow);
+    outline-offset:2px; }
+  .app { width:min(1240px,calc(100% - 32px)); margin:0 auto; padding:18px 0 52px; }
+  .topbar { min-height:70px; display:flex; align-items:center; gap:24px;
+    background:color-mix(in srgb,var(--paper) 93%,transparent); border:1px solid
+    color-mix(in srgb,var(--rule) 80%,transparent); border-radius:22px;
+    padding:10px 14px 10px 12px; box-shadow:0 8px 28px rgba(76,104,139,.09);
+    position:sticky; top:10px; z-index:30; backdrop-filter:blur(14px); }
+  .brand { display:flex; align-items:center; gap:11px; min-width:max-content; }
+  .brand-mark { width:48px; height:48px; border-radius:17px; background:#E8F1FF;
+    position:relative; overflow:hidden; box-shadow:inset 0 0 0 1px #CFE0FC; }
+  .brand-mark .bowl { position:absolute; width:30px; height:17px; left:9px;
+    bottom:8px; border-radius:5px 5px 14px 14px; background:var(--blue); }
+  .brand-mark .face { position:absolute; width:24px; height:20px; left:12px;
+    top:8px; border-radius:10px; background:#FBFDFF; border:2px solid var(--blue); }
+  .brand-mark .face::before { content:""; position:absolute; width:4px; height:4px;
+    border-radius:50%; background:var(--blue); left:4px; top:6px;
+    box-shadow:10px 0 var(--blue); }
+  .brand-mark .antenna { position:absolute; width:2px; height:8px; background:var(--blue);
+    left:23px; top:2px; }
+  .brand-mark .antenna::before { content:""; position:absolute; width:5px; height:5px;
+    border-radius:50%; background:var(--pink); left:-1.5px; top:-2px; }
+  h1 { margin:0; font-size:17px; letter-spacing:-.02em; line-height:1.15; }
+  h1 small { display:block; margin-top:4px; color:var(--ink-3); font-size:11px;
+    font-weight:650; letter-spacing:.02em; }
+  .nav { display:flex; align-items:center; gap:5px; margin:auto; padding:4px;
+    background:var(--paper-2); border-radius:14px; border:1px solid var(--rule); }
+  .nav button { padding:9px 16px; border-radius:10px; color:var(--ink-2);
+    background:transparent; font-weight:750; font-size:13px; }
+  .nav button.on { color:#fff; background:var(--blue); box-shadow:0 5px 15px
+    color-mix(in srgb,var(--blue) 30%,transparent); }
+  .top-actions { display:flex; align-items:center; gap:9px; }
+  .connection { display:flex; align-items:center; gap:7px; font-size:12px;
+    color:var(--ink-2); font-weight:700; white-space:nowrap; }
+  .connection i { width:9px; height:9px; border-radius:50%; background:var(--green);
+    box-shadow:0 0 0 4px color-mix(in srgb,var(--green) 18%,transparent); }
+  .connection.attention i { background:var(--yellow);
+    box-shadow:0 0 0 4px color-mix(in srgb,var(--yellow) 22%,transparent); }
+  .skin { border:1px solid var(--rule); background:var(--paper); color:var(--ink-2);
+    border-radius:11px; padding:8px 9px; font-size:12px; }
+  main { padding-top:22px; }
+  .view { display:none; }
+  .view.active { display:block; animation:arrive .28s ease-out; }
+  @keyframes arrive { from { opacity:0; transform:translateY(6px); }
+    to { opacity:1; transform:none; } }
 
-  .checks { margin-top:-8px; }
-  .checks label { display:block; font-size:12.5px; color:var(--ink-3); }
-  textarea { width:100%; font:inherit; font-size:13px; padding:10px 12px;
-    background:var(--panel); color:var(--ink);
-    border:1.5px solid var(--rule); resize:vertical; margin-top:8px; }
-  textarea:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+  .office-hero { display:grid; grid-template-columns:minmax(260px,.78fr) 1.7fr;
+    gap:18px; align-items:stretch; }
+  .welcome { background:var(--paper); border:1px solid var(--rule); border-radius:26px;
+    padding:32px; box-shadow:var(--shadow); display:flex; flex-direction:column;
+    justify-content:center; min-height:500px; position:relative; overflow:hidden; }
+  .welcome::after { content:""; position:absolute; width:220px; height:220px;
+    border-radius:50%; background:var(--blue-soft); right:-100px; bottom:-110px; }
+  .welcome > * { position:relative; z-index:1; }
+  .eyebrow { color:var(--blue); font-size:12px; font-weight:850;
+    letter-spacing:.13em; text-transform:uppercase; }
+  .welcome h2 { margin:14px 0 12px; font-size:clamp(34px,4vw,58px);
+    line-height:.98; letter-spacing:-.055em; max-width:8ch; }
+  .welcome p { color:var(--ink-2); font-size:15px; line-height:1.65;
+    max-width:38ch; margin:0 0 25px; }
+  .primary { align-self:flex-start; color:#fff; background:var(--blue);
+    padding:13px 18px; border-radius:13px; font-weight:820;
+    box-shadow:0 10px 24px color-mix(in srgb,var(--blue) 28%,transparent); }
+  .primary:hover { transform:translateY(-1px); }
+  .truth { display:flex; gap:8px; align-items:flex-start; color:var(--ink-3);
+    font-size:11px; margin-top:18px; line-height:1.45; }
+  .truth b { color:var(--green); }
 
-  /* Small screens: stack the form, big touch targets, no zoom-on-focus. */
-  @media (max-width: 520px) {
-    .shell { padding:20px 14px 40px; gap:16px; }
-    form { flex-direction:column; }
-    button, a.golink { min-height:46px; }
-    .verdict { flex-wrap:wrap; }
-    input[type=text], textarea { font-size:16px; }
-  }
-  .checkrep { font-size:13px; line-height:1.7; }
-  .checkrep .ok { color:var(--good); }
-  .checkrep .fail { color:var(--bad); }
-  .checkrep .open { color:var(--ink-3); }
+  .office-room { min-height:500px; border:1px solid #CFE1EC; border-radius:26px;
+    overflow:hidden; position:relative; box-shadow:var(--shadow);
+    background-color:#F7E7C7; background-image:url("__ART_BRIGHT_OFFICE__");
+    background-position:center; background-size:cover; background-repeat:no-repeat; }
+  :root[data-skin="night"] .office-room { background-color:#18213B;
+    background-blend-mode:multiply; }
+  .window { position:absolute; left:5%; top:6%; width:38%; height:29%;
+    border:8px solid #fff; border-radius:16px; background:linear-gradient(#8DD8FF 0 65%,#B8E79C 65%);
+    box-shadow:0 8px 0 rgba(102,133,155,.08); overflow:hidden; }
+  .window::before,.window::after { content:""; position:absolute; background:#fff; }
+  .window::before { width:6px; height:100%; left:50%; }
+  .window::after { height:6px; width:100%; top:50%; }
+  .sun { position:absolute; width:32px; height:32px; border-radius:50%;
+    background:var(--yellow); left:12%; top:12%; box-shadow:0 0 0 8px rgba(255,200,87,.16); }
+  .board { position:absolute; left:39%; top:15%; width:27%; height:24%;
+    background:transparent; border:0; border-radius:14px; padding:13px 18px;
+    color:#5A6678; transform:none; text-align:center; }
+  .board strong { display:block; color:var(--ink); font-size:14px; margin-bottom:8px; }
+  .board span { display:block; font-size:11px; line-height:1.6; }
+  .board .scribble { height:6px; border-radius:9px; background:#B7D4FF;
+    width:75%; margin:7px 0; box-shadow:35px 13px #F5B6D0,5px 26px #A9E8D0; }
+  .sun,.window,.plant { display:none; }
+  .plant { position:absolute; width:58px; height:75px; right:2%; bottom:5%; }
+  .plant::before { content:""; position:absolute; width:18px; height:48px;
+    background:var(--green); border-radius:100% 0 100% 0; left:15px; top:0;
+    transform:rotate(-25deg); box-shadow:18px 8px #58C99F,-12px 18px #77D8B5; }
+  .plant::after { content:""; position:absolute; width:45px; height:32px;
+    border-radius:8px 8px 18px 18px; bottom:0; left:5px; background:#E98766; }
+  .crew-grid { position:absolute; left:4%; right:4%; bottom:2%; display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; align-items:end; }
+  .crew { min-width:0; text-align:center; }
+  .desk { height:79px; border-radius:12px 12px 7px 7px; background:#FFF8E9;
+    border:2px solid #D7B986; position:relative; padding-top:45px;
+    box-shadow:0 9px 0 #C79861; }
+  .desk::before { content:""; position:absolute; width:54px; height:35px;
+    background:#E9F0F8; border:4px solid #5D6D83; border-radius:7px;
+    left:50%; top:5px; transform:translateX(-50%); }
+  .desk::after { content:""; position:absolute; width:18px; height:5px;
+    background:#5D6D83; left:50%; top:41px; transform:translateX(-50%); }
+  .office-room .desk { height:265px; border:0; border-radius:0; background:transparent;
+    box-shadow:none; padding:0; }
+  .office-room .desk::before,.office-room .desk::after { display:none; }
+  .character-art { position:absolute; left:50%; bottom:26px;
+    width:var(--art-width,160px); max-height:310px; object-fit:contain;
+    transform:translateX(-50%); filter:drop-shadow(0 12px 9px rgba(51,61,77,.22)); }
+  .character { position:absolute; width:74px; height:100px; left:50%; top:-92px;
+    transform:translateX(-50%); }
+  .character .body { position:absolute; width:54px; height:58px; left:10px; bottom:0;
+    border-radius:18px 18px 10px 10px; background:var(--shirt,#3977F6); }
+  .character .head { position:absolute; width:48px; height:50px; left:13px; top:0;
+    border-radius:48% 48% 44% 44%; background:#EAAE88; border:3px solid #26344D; z-index:2; }
+  .character .head::before { content:""; position:absolute; width:5px; height:5px;
+    border-radius:50%; background:#24334D; left:10px; top:21px; box-shadow:19px 0 #24334D; }
+  .character .head::after { content:""; position:absolute; width:14px; height:6px;
+    border-bottom:2px solid #A45353; border-radius:50%; left:14px; top:31px; }
+  .character.nerd .head { background:#D99A72; }
+  .character.nerd .head::before { width:13px; height:10px; border-radius:4px;
+    background:transparent; border:2px solid #24334D; left:4px; top:17px;
+    box-shadow:19px 0 0 -2px transparent,19px 0 0 0 #24334D; }
+  .character.creative .head { background:#F0BA98; }
+  .character.creative .head { box-shadow:-11px -5px 0 2px #7B405D,10px -4px 0 2px #7B405D; }
+  .character.robot .head { background:#F9FCFF; border-color:var(--blue); border-radius:15px; }
+  .character.robot .body { border-radius:12px 12px 24px 24px; background:var(--blue); }
+  .character.robot .head::after { border-color:var(--blue); }
+  .character.robot .antenna { position:absolute; width:3px; height:14px;
+    background:var(--blue); top:-12px; left:36px; }
+  .character.robot .antenna::before { content:""; position:absolute; width:8px; height:8px;
+    background:var(--pink); border-radius:50%; left:-2.5px; top:-5px; }
+  .crew-name { display:block; margin-top:14px; font-weight:850; font-size:13px; }
+  .crew-role { display:block; color:var(--ink-2); font-size:11px; margin-top:2px; }
+  .crew-status { display:inline-block; margin-top:6px; padding:3px 7px;
+    border-radius:999px; background:rgba(255,255,255,.75); color:var(--ink-3);
+    font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+  .crew-status.ready { color:var(--good); background:#E3F8EF; }
+  .crew-model { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    margin:7px auto 0; max-width:95%; padding:5px 7px; border-radius:8px;
+    background:rgba(255,255,255,.83); border:1px solid rgba(129,154,178,.22);
+    color:#445168; font:10px var(--mono); }
+  .crew-grid.unconfigured { bottom:5%; display:block; }
+  .office-setup { width:min(420px,90%); margin:0 auto; padding:18px 20px;
+    border:1px solid rgba(129,154,178,.28); border-radius:18px;
+    background:rgba(255,255,255,.91); box-shadow:0 12px 30px rgba(51,61,77,.15);
+    text-align:center; }
+  .office-setup strong,.office-setup span { display:block; }
+  .office-setup strong { font-size:15px; }
+  .office-setup span { margin-top:7px; color:#59677C; font-size:11px;
+    line-height:1.5; }
 
-  .part { border-top:1px solid var(--rule); padding-top:10px;
-    display:flex; flex-direction:column; gap:6px; }
-  .part .verdict { border-top:none; padding-top:0; flex-wrap:wrap; }
-  .verdict .mini { padding:7px 12px; font-size:12.5px; }
-
-  .answer { background:var(--panel); border:1px solid var(--rule);
-    padding:16px 18px; display:none; flex-direction:column; gap:10px;
-    position:relative; }
-  .close { position:absolute; top:2px; right:2px; background:none; border:none;
-    color:var(--ink-3); font:inherit; font-size:18px; line-height:1;
-    padding:12px 14px; cursor:pointer; min-width:44px; min-height:44px; }
-  .close:hover, .close:active { color:var(--ink); }
+  .work-grid { display:grid; grid-template-columns:minmax(220px,.55fr) 1.45fr;
+    gap:18px; align-items:start; }
+  .side-card,.task-card,.results-card { background:var(--paper); border:1px solid var(--rule);
+    border-radius:24px; box-shadow:var(--shadow); }
+  .side-card { padding:24px; position:sticky; top:102px; }
+  .side-card h2,.task-card h2,.results-card h2 { margin:0; font-size:23px; letter-spacing:-.03em; }
+  .side-card p { color:var(--ink-2); line-height:1.6; font-size:13px; }
+  .steps { display:grid; gap:11px; margin-top:20px; }
+  .step { display:flex; gap:10px; color:var(--ink-2); font-size:12px; align-items:center; }
+  .step b { display:grid; place-items:center; flex:0 0 27px; height:27px; border-radius:9px;
+    background:var(--blue-soft); color:var(--blue); }
+  .work-guide { display:grid; grid-template-columns:72px 1fr; gap:10px;
+    align-items:center; margin:18px 0 2px; padding:10px; border-radius:16px;
+    background:var(--blue-soft); }
+  .work-guide img { width:72px; height:72px; object-fit:contain; }
+  .work-guide strong,.work-guide span { display:block; }
+  .work-guide strong { font-size:12px; }
+  .work-guide span { margin-top:3px; color:var(--ink-2); font-size:9px; line-height:1.35; }
+  .task-card { padding:clamp(20px,4vw,38px); }
+  .task-card header p { color:var(--ink-2); margin:8px 0 22px; font-size:14px; }
+  form { display:flex; gap:9px; }
+  input[type=text] { min-width:0; flex:1; padding:15px 17px; color:var(--ink);
+    background:var(--paper-2); border:1.5px solid var(--rule); border-radius:14px;
+    font-size:15px; }
+  form button,.verdict button,.mini,a.golink { color:#fff; background:var(--blue);
+    padding:12px 17px; border-radius:12px; font-weight:800; text-decoration:none; }
+  .quick-prompts { display:flex; gap:7px; flex-wrap:wrap; margin:12px 0 20px; }
+  .quick-prompts button { padding:7px 10px; background:var(--blue-soft);
+    color:var(--blue); border-radius:9px; font-size:11px; font-weight:750; }
+  .setup-panel { margin:0 0 20px; padding:18px; border:1px solid #F0D58B;
+    border-radius:16px; background:#FFF9E6; color:#4D4A3F; }
+  .setup-panel strong,.setup-panel span,.setup-panel code { display:block; }
+  .setup-panel strong { font-size:14px; }
+  .setup-panel span { margin-top:7px; font-size:12px; line-height:1.55; }
+  .setup-panel code { margin-top:9px; padding:9px 11px; overflow:auto;
+    border-radius:9px; background:#fff; color:#343B49; font:11px/1.5 var(--mono); }
+  .setup-panel .setup-note { color:#7A6842; }
+  form.is-disabled { opacity:.52; }
+  form button:disabled,.quick-prompts button:disabled { cursor:not-allowed; }
+  details { border-top:1px solid var(--rule); padding-top:15px; }
+  summary { cursor:pointer; color:var(--ink-2); font-size:12px; font-weight:800; }
+  .checks { margin-top:12px; }
+  .checks label { display:block; font-size:12px; color:var(--ink-2); margin-top:10px; }
+  textarea { width:100%; padding:12px 13px; margin-top:8px; resize:vertical;
+    background:var(--paper-2); color:var(--ink); border:1.5px solid var(--rule);
+    border-radius:12px; font:13px/1.5 var(--mono); }
+  .answer { margin-top:18px; padding:20px; display:none; flex-direction:column;
+    gap:10px; position:relative; border:1px solid var(--rule); border-radius:17px;
+    background:var(--paper-2); }
   .answer.show { display:flex; }
-  .line { color:var(--ink-2); font-size:13px; }
-  .pick { font-size:18px; font-weight:700; }
-  .pick .price { color:var(--accent); }
-  .alt { font-size:13px; color:var(--ink-2);
-    font-variant-numeric:tabular-nums; }
-  .meta { font-size:12px; color:var(--ink-3); }
-  .verdict { display:flex; gap:8px; align-items:center;
+  .close { position:absolute; top:5px; right:5px; min-width:42px; min-height:42px;
+    background:transparent; color:var(--ink-3); font-size:18px; border-radius:12px; }
+  .line,.alt,.meta { color:var(--ink-2); font-size:12px; }
+  .pick { font-size:20px; font-weight:880; padding-right:34px; }
+  .pick .price { color:var(--blue); }
+  .verdict { display:flex; gap:8px; align-items:center; flex-wrap:wrap;
     border-top:1px solid var(--rule); padding-top:12px; }
-  .verdict span { font-size:13px; color:var(--ink-2); }
-  .verdict button { padding:7px 14px; font-size:13px; }
-  .verdict .no { background:var(--panel-sunk); color:var(--ink-2);
-    border:1px solid var(--rule-firm); }
-  .learned { font-size:12.5px; }
-  .learned.up { color:var(--good); } .learned.down { color:var(--bad); }
-  .none { color:var(--bad); font-weight:700; }
-  .out { background:var(--panel-sunk); border:1px solid var(--rule);
-    padding:10px 12px; max-height:320px; overflow:auto; white-space:pre-wrap;
-    font-size:13px; margin:0; }
-  .mode { font-size:11px; letter-spacing:0.08em; text-transform:uppercase;
-    color:var(--good); }
-  a.golink { display:inline-block; padding:7px 14px; background:var(--accent);
-    color:#fff; text-decoration:none; font-weight:700; font-size:13px; }
-  :root[data-theme="dark"] a.golink { color:#0F1420; }
-  a.golink.alt-link, :root[data-theme="dark"] a.golink.alt-link {
-    background:var(--panel-sunk); color:var(--ink-2);
-    border:1px solid var(--rule-firm); font-weight:400; }
+  .verdict span { color:var(--ink-2); font-size:12px; }
+  .verdict button,.verdict .mini,a.golink { padding:8px 12px; font-size:12px; }
+  .verdict .no,a.golink.alt-link { color:var(--ink-2); background:var(--paper);
+    border:1px solid var(--rule); }
+  .learned,.checkrep { font-size:12px; line-height:1.7; }
+  .learned.up,.checkrep .ok { color:var(--good); }
+  .learned.down,.checkrep .fail,.none { color:var(--bad); }
+  .checkrep .open { color:var(--ink-3); }
+  .part { border-top:1px solid var(--rule); padding-top:12px; display:flex;
+    flex-direction:column; gap:7px; }
+  .part .verdict { border-top:0; padding-top:0; }
+  .out { max-height:320px; overflow:auto; white-space:pre-wrap; padding:12px;
+    margin:0; border:1px solid var(--rule); border-radius:11px; background:var(--paper);
+    color:var(--ink); font:12px/1.55 var(--mono); }
 
-  footer { font-family:var(--sans); font-size:12px; color:var(--ink-3);
-    line-height:1.6; border-top:1px solid var(--rule-firm); padding-top:12px; }
-  footer a { color:var(--ink-3); }
+  /* The project board is the product workflow. Every status, assignment,
+     cost and output rendered here comes from the local OWI server. */
+  .workflow-shell { display:grid; grid-template-columns:minmax(230px,.48fr) 1.52fr;
+    gap:18px; align-items:start; }
+  .project-workspace { min-width:0; display:grid; gap:16px; }
+  .project-create,.project-board { background:var(--paper); border:1px solid var(--rule);
+    border-radius:24px; box-shadow:var(--shadow); padding:clamp(20px,4vw,34px); }
+  .project-create header,.board-head { display:flex; justify-content:space-between;
+    align-items:flex-start; gap:18px; }
+  .project-create h2,.project-board h2 { margin:5px 0 0; font-size:26px;
+    letter-spacing:-.035em; }
+  .project-create header p,.board-goal { color:var(--ink-2); line-height:1.55;
+    font-size:13px; margin:9px 0 0; }
+  .project-form { display:grid; grid-template-columns:1fr 1fr; gap:14px;
+    margin-top:22px; }
+  .field { display:grid; gap:7px; color:var(--ink-2); font-size:12px;
+    font-weight:760; }
+  .field.wide { grid-column:1/-1; }
+  .field input,.field textarea,.field select { width:100%; min-width:0; padding:12px 13px;
+    margin:0; color:var(--ink); background:var(--paper-2); border:1.5px solid var(--rule);
+    border-radius:12px; font-size:14px; font-weight:500; }
+  .field textarea { min-height:104px; font-family:var(--sans); }
+  .field small { color:var(--ink-3); font-size:10px; font-weight:550; line-height:1.4; }
+  .choice-field { grid-column:1/-1; display:flex; align-items:flex-start; gap:9px;
+    padding:12px 13px; border:1px solid var(--rule); border-radius:12px;
+    background:var(--paper-2); color:var(--ink-2); font-size:12px; line-height:1.45; }
+  .choice-field input { flex:0 0 auto; width:auto; margin:2px 0 0; }
+  .choice-field span { display:block; }
+  .choice-field small { display:block; margin-top:3px; color:var(--ink-3); font-size:10px; }
+  .form-actions { grid-column:1/-1; display:flex; align-items:center; gap:11px;
+    flex-wrap:wrap; }
+  .form-actions .primary { align-self:auto; }
+  .inline-state { color:var(--ink-2); font-size:12px; }
+  .inline-state.error,.workflow-notice.error { color:var(--bad); }
+  .static-notice,.workflow-notice { padding:14px 16px; border-radius:14px;
+    background:#FFF6D9; border:1px solid #EBCF79; color:#645425;
+    font-size:12px; line-height:1.55; }
+  .workflow-notice { background:var(--paper); border-color:var(--rule); color:var(--ink-2); }
+  .workflow-notice:empty { display:none; }
+  .board-warning { margin-top:14px; padding:12px 14px; border-radius:12px;
+    background:#FFF6D9; border:1px solid #EBCF79; color:#645425;
+    font-size:11px; line-height:1.5; }
+  .board-warning.blocking { background:#FFF1F1; border-color:#F0CACA; color:var(--bad); }
+  .workflow-steps { margin-top:22px; display:grid; gap:9px; }
+  .workflow-step { display:grid; grid-template-columns:30px 1fr; gap:10px;
+    align-items:start; padding:10px; border:1px solid var(--rule); border-radius:13px;
+    background:var(--paper-2); }
+  .workflow-step b { display:grid; place-items:center; width:30px; height:30px;
+    border-radius:10px; background:var(--blue-soft); color:var(--blue); font-size:12px; }
+  .workflow-step strong,.workflow-step span { display:block; }
+  .workflow-step strong { font-size:12px; }
+  .workflow-step span { margin-top:2px; color:var(--ink-3); font-size:10px; line-height:1.4; }
+  .active-project { margin-top:18px; padding:13px; border-radius:14px;
+    background:#E7F8F1; border:1px solid #BDE8D7; }
+  .active-project strong,.active-project span { display:block; }
+  .active-project strong { font-size:12px; }
+  .active-project span { color:#3F6F60; margin-top:4px; font-size:10px; }
+  .board-head-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+  .secondary,.quiet,.danger { padding:10px 13px; border-radius:11px; font-weight:800;
+    font-size:12px; }
+  .secondary { color:#fff; background:var(--blue); }
+  .quiet { color:var(--ink-2); background:var(--paper-2); border:1px solid var(--rule); }
+  .danger { color:var(--bad); background:#FFF1F1; border:1px solid #F0CACA; }
+  button:disabled { cursor:not-allowed; opacity:.48; transform:none !important; }
+  .project-meta { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
+  .project-stat { padding:8px 10px; border-radius:10px; background:var(--paper-2);
+    border:1px solid var(--rule); color:var(--ink-2); font-size:10px; }
+  .project-stat b { color:var(--ink); font-size:12px; }
+  .task-composer { margin:18px 0; padding:17px; border:1px solid var(--rule);
+    border-radius:16px; background:var(--paper-2); }
+  .task-composer h3 { margin:0 0 13px; font-size:16px; }
+  .task-list { display:grid; gap:12px; margin-top:18px; }
+  .task-item { border:1px solid var(--rule); border-radius:18px; background:var(--paper);
+    overflow:hidden; }
+  .task-item[data-status="needs_review"] { border-color:#A9C4FF;
+    box-shadow:0 0 0 3px var(--blue-soft); }
+  .task-item[data-status="accepted"] { border-color:#A7DFC9; }
+  .task-head { display:flex; align-items:flex-start; justify-content:space-between;
+    gap:12px; padding:17px 18px 12px; }
+  .task-number { color:var(--ink-3); font:10px var(--mono); }
+  .task-head h3 { margin:4px 0 0; font-size:17px; letter-spacing:-.02em; }
+  .status-pill { flex:0 0 auto; padding:5px 9px; border-radius:999px;
+    background:var(--paper-2); color:var(--ink-2); border:1px solid var(--rule);
+    font-size:9px; font-weight:850; text-transform:uppercase; letter-spacing:.06em; }
+  .status-pill.staffed { color:#315FB6; background:#EAF1FF; border-color:#BDD0F6; }
+  .status-pill.needs_review { color:#5A45A8; background:#F0EBFF; border-color:#D3C7F8; }
+  .status-pill.accepted { color:var(--good); background:#E7F8F1; border-color:#BDE8D7; }
+  .status-pill.rejected,.status-pill.run_failed { color:var(--bad);
+    background:#FFF1F1; border-color:#F0CACA; }
+  .status-pill.setup_required { color:#8B6512; background:#FFF6D9; border-color:#EBCF79; }
+  .task-content { padding:0 18px 17px; }
+  .task-brief { margin:0; color:var(--ink-2); font-size:12px; line-height:1.55;
+    white-space:pre-wrap; }
+  .assignment { margin-top:14px; display:grid; grid-template-columns:1.2fr .8fr;
+    gap:10px; }
+  .assignment-cell { min-width:0; padding:12px; border-radius:12px;
+    background:var(--paper-2); border:1px solid var(--rule); }
+  .assignment-cell span,.assignment-cell strong { display:block; }
+  .assignment-cell span { color:var(--ink-3); font-size:9px; font-weight:800;
+    text-transform:uppercase; letter-spacing:.08em; }
+  .assignment-cell strong { margin-top:6px; font-size:12px; overflow-wrap:anywhere; }
+  .worker-id { font-family:var(--mono); }
+  .staffing-proof { margin:10px 0 0; color:var(--ink-3); font-size:10px;
+    line-height:1.5; }
+  .evidence-list { margin:9px 0 0; padding-left:18px; color:var(--ink-2);
+    font-size:10px; line-height:1.55; }
+  .task-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    margin-top:14px; padding-top:13px; border-top:1px solid var(--rule); }
+  .task-actions .action-note { color:var(--ink-3); font-size:10px; line-height:1.4; }
+  .task-output { margin-top:14px; padding:14px; border-radius:13px;
+    background:#18213A; color:#EFF4FF; max-height:360px; overflow:auto;
+    white-space:pre-wrap; overflow-wrap:anywhere; font:11px/1.55 var(--mono); }
+  .task-output.empty-output { background:var(--paper-2); color:var(--ink-3);
+    border:1px dashed var(--rule); }
+  .check-list { display:grid; gap:6px; margin-top:11px; }
+  .check-item { padding:8px 10px; border-radius:9px; background:var(--paper-2);
+    color:var(--ink-2); font-size:10px; }
+  .check-item.pass { color:var(--good); background:#E7F8F1; }
+  .check-item.fail { color:var(--bad); background:#FFF1F1; }
+  .review-box,.edit-box { margin-top:13px; padding:14px; border-radius:13px;
+    background:var(--paper-2); border:1px solid var(--rule); }
+  .review-box .field,.edit-box .field { margin-top:10px; }
+  .review-box .field:first-child,.edit-box .field:first-child { margin-top:0; }
+  .empty-board { padding:28px 18px; text-align:center; border:1px dashed var(--rule);
+    border-radius:16px; color:var(--ink-3); font-size:12px; }
+
+  /* GitHub Manager room -------------------------------------------------
+   * All numbers and cards are painted from /api/v1/github responses. The
+   * playful scenery is decoration only; it never carries business data.
+   */
+  .manager-shell { display:grid; gap:18px; }
+  .manager-hero { min-width:0; display:grid;
+    grid-template-columns:minmax(0,1.35fr) minmax(250px,.65fr); gap:18px;
+    border:1px solid #CFE1EC; border-radius:26px; overflow:hidden;
+    background:linear-gradient(135deg,#FDFEFF 0 55%,#E6F5FF 55% 100%);
+    box-shadow:var(--shadow); }
+  .manager-intro { min-width:0; padding:clamp(24px,4vw,42px); }
+  .manager-intro h2 { margin:10px 0; max-width:15ch; font-size:clamp(30px,4vw,50px);
+    line-height:1; letter-spacing:-.05em; }
+  .manager-intro > p { max-width:62ch; margin:0; color:var(--ink-2);
+    font-size:14px; line-height:1.6; }
+  .manager-connection { display:flex; align-items:center; gap:9px; flex-wrap:wrap;
+    margin-top:18px; }
+  .manager-status { display:inline-flex; align-items:center; min-height:44px;
+    gap:8px; padding:7px 11px; border:1px solid var(--rule); border-radius:999px;
+    color:var(--ink-2); background:var(--paper); font-size:12px; font-weight:820; }
+  .manager-status::before { content:""; width:9px; height:9px; border-radius:50%;
+    background:var(--yellow); box-shadow:0 0 0 4px rgba(255,200,87,.18); }
+  .manager-status.connected::before { background:var(--green);
+    box-shadow:0 0 0 4px rgba(53,184,140,.16); }
+  .manager-safety { color:var(--ink-3); font-size:12px; line-height:1.45; }
+  .manager-scene { position:relative; min-height:250px; overflow:hidden;
+    background:linear-gradient(#93D8FF 0 48%,#BFE7A8 48% 61%,#F2D6A4 61%); }
+  .manager-scene::before { content:""; position:absolute; left:8%; right:8%; bottom:8%;
+    height:42%; border:6px solid #fff; border-bottom-width:14px; border-radius:24px 24px 12px 12px;
+    background:linear-gradient(90deg,#79A8F8 0 31%,#F9FCFF 31% 34%,#FFD77A 34% 66%,#F9FCFF 66% 69%,#EF8BB7 69%);
+    box-shadow:0 14px 0 rgba(86,102,126,.14); }
+  .manager-scene::after { content:""; position:absolute; width:46px; height:46px;
+    right:13%; top:12%; border-radius:50%; background:var(--yellow);
+    box-shadow:0 0 0 11px rgba(255,200,87,.2); }
+  .manager-orbit { position:absolute; z-index:2; left:50%; bottom:11%; width:150px;
+    max-height:190px; object-fit:contain; transform:translateX(-50%);
+    filter:drop-shadow(0 13px 10px rgba(45,67,101,.2)); }
+  .manager-console { min-width:0; display:grid;
+    grid-template-columns:minmax(250px,.72fr) minmax(0,1.28fr); gap:18px; }
+  .manager-panel { min-width:0; padding:22px; border:1px solid var(--rule);
+    border-radius:22px; background:var(--paper); box-shadow:var(--shadow); }
+  .manager-panel h3 { margin:5px 0 7px; font-size:20px; letter-spacing:-.03em; }
+  .manager-panel > p { margin:0; color:var(--ink-2); font-size:12px; line-height:1.55; }
+  .repo-search { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px;
+    margin-top:16px; }
+  .repo-search input,.repo-picker select { width:100%; min-width:0; min-height:48px;
+    padding:11px 12px; border:1px solid var(--rule); border-radius:12px;
+    color:var(--ink); background:var(--paper-2); }
+  .repo-search button,.repo-load { min-height:48px; padding:10px 14px;
+    border-radius:12px; color:#fff; background:var(--blue); font-weight:820; }
+  .repo-picker { margin-top:12px; }
+  .repo-picker label { display:block; margin-bottom:6px; color:var(--ink-2);
+    font-size:12px; font-weight:820; }
+  .repo-load { width:100%; margin-top:9px; }
+  .repo-load:disabled { color:var(--ink-3); background:var(--rule); }
+  .manager-inline-state { min-height:20px; margin-top:10px; color:var(--ink-3);
+    font-size:12px; line-height:1.45; }
+  .manager-inline-state.error { color:var(--bad); }
+  #managerRetry { min-height:44px; margin-top:8px; }
+  .selected-repo { margin-top:13px; padding:12px; border:1px solid #BFD7FF;
+    border-radius:14px; background:var(--blue-soft); }
+  .selected-repo strong,.selected-repo span { display:block; overflow-wrap:anywhere; }
+  .selected-repo strong { font-size:12px; }
+  .selected-repo span { margin-top:4px; color:var(--ink-2); font-size:11px; }
+  .manager-evidence { display:grid; grid-template-columns:repeat(5,minmax(0,1fr));
+    gap:9px; margin-top:15px; }
+  .manager-metric { min-width:0; min-height:102px; padding:13px; border:1px solid var(--rule);
+    border-radius:15px; background:var(--paper-2); }
+  .manager-metric span,.manager-metric strong,.manager-metric small { display:block; }
+  .manager-metric span { color:var(--ink-3); font-size:11px; font-weight:850;
+    letter-spacing:.06em; text-transform:uppercase; }
+  .manager-metric strong { margin-top:7px; font-size:24px; letter-spacing:-.04em; }
+  .manager-metric small { margin-top:5px; color:var(--ink-3); font-size:11px;
+    line-height:1.35; }
+  .manager-board-head { display:flex; align-items:flex-end; justify-content:space-between;
+    gap:12px; margin-bottom:13px; }
+  .manager-board-head h3 { margin:4px 0 0; font-size:23px; letter-spacing:-.035em; }
+  .manager-board-head p { max-width:58ch; margin:0; color:var(--ink-3);
+    font-size:12px; line-height:1.45; text-align:right; }
+  .manager-lanes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:11px; }
+  .manager-lane { min-width:0; padding:12px; border:1px solid var(--rule);
+    border-radius:17px; background:var(--paper-2); }
+  .manager-lane[data-lane="incoming"] { background:#F0F7FF; }
+  .manager-lane[data-lane="draft"] { background:#FFF8E9; }
+  .manager-lane[data-lane="staffing"] { background:#F0FBF7; }
+  .manager-lane[data-lane="running"] { background:#EEF4FF; }
+  .manager-lane[data-lane="review"] { background:#F6F1FF; }
+  .manager-lane[data-lane="done"] { background:#ECF9F3; }
+  .manager-lane[data-lane="blocked"] { background:#FFF2F2; }
+  .manager-lane-head { display:flex; align-items:center; justify-content:space-between;
+    gap:8px; margin-bottom:10px; }
+  .manager-lane-head strong { font-size:12px; }
+  .manager-lane-count { min-width:25px; height:25px; display:grid; place-items:center;
+    border-radius:9px; color:var(--ink-2); background:rgba(255,255,255,.78);
+    border:1px solid rgba(117,139,169,.18); font-size:11px; font-weight:900; }
+  .manager-lane-items { display:grid; gap:8px; }
+  .manager-work-item { min-width:0; padding:11px; border:1px solid rgba(132,154,184,.24);
+    border-radius:13px; background:color-mix(in srgb,var(--paper) 94%,transparent); }
+  .manager-work-item-top { display:flex; align-items:center; justify-content:space-between;
+    gap:8px; }
+  .manager-source { padding:4px 6px; border-radius:7px; color:var(--blue);
+    background:var(--blue-soft); font:800 11px var(--mono); text-transform:uppercase; }
+  .manager-work-item time { color:var(--ink-3); font-size:11px; }
+  .manager-work-item h4 { margin:8px 0 5px; font-size:13px; line-height:1.35;
+    overflow-wrap:anywhere; }
+  .manager-item-meta { color:var(--ink-3); font-size:11px; line-height:1.4;
+    overflow-wrap:anywhere; }
+  .manager-item-actions { display:grid; grid-template-columns:1fr auto; gap:7px; margin-top:9px; }
+  .manager-item-actions button,.manager-item-actions a { min-width:0; min-height:44px;
+    display:flex; align-items:center; justify-content:center; padding:8px 10px;
+    border-radius:10px; font-size:11px; font-weight:820; text-decoration:none; }
+  .manager-item-actions button { color:#fff; background:var(--blue); }
+  .manager-item-actions a { color:var(--ink-2); background:var(--paper-2);
+    border:1px solid var(--rule); }
+  .manager-lane-empty { min-height:70px; display:grid; place-items:center; padding:10px;
+    border:1px dashed rgba(132,154,184,.35); border-radius:12px; color:var(--ink-3);
+    font-size:11px; line-height:1.4; text-align:center; }
+  .manager-board-empty { padding:32px 16px; border:1px dashed var(--rule);
+    border-radius:16px; color:var(--ink-3); text-align:center; font-size:12px; }
+  .manager-drawer { position:fixed; z-index:880; inset:0; display:grid; place-items:stretch end;
+    background:rgba(23,35,59,.4); backdrop-filter:blur(2px); }
+  body.manager-modal-open { overflow:hidden; }
+  .manager-drawer[hidden] { display:none; }
+  .manager-drawer-card { width:min(480px,100%); height:100%; max-height:100dvh; overflow:auto;
+    padding:var(--game-safe-top) var(--game-safe-right) var(--game-safe-bottom) 24px;
+    color:var(--ink); background:var(--paper); box-shadow:-24px 0 70px rgba(25,46,79,.22); }
+  .manager-drawer-head { display:flex; align-items:flex-start; justify-content:space-between;
+    gap:12px; padding-top:12px; }
+  .manager-drawer-head h3 { margin:7px 0 0; font-size:24px; letter-spacing:-.035em; }
+  .manager-drawer-close { flex:0 0 44px; width:44px; height:44px; border-radius:13px;
+    color:var(--ink-2); background:var(--paper-2); font-size:20px; }
+  .manager-detail-source { margin-top:18px; padding:13px; border:1px solid var(--rule);
+    border-radius:14px; background:var(--paper-2); }
+  .manager-detail-source span,.manager-detail-source a { display:block; overflow-wrap:anywhere; }
+  .manager-detail-source span { color:var(--ink-2); font-size:12px; line-height:1.5; }
+  .manager-detail-source a { margin-top:7px; color:var(--blue); font-size:12px; }
+  .manager-import-truth { margin:16px 0; padding:12px; border:1px solid #E9CF79;
+    border-radius:13px; color:#665526; background:#FFF8DF; font-size:12px; line-height:1.5; }
+  .manager-import-form { display:grid; gap:12px; }
+  .manager-import-form .field { display:grid; gap:6px; }
+  .manager-import-form .field span { color:var(--ink-2); font-size:12px; font-weight:820; }
+  .manager-import-form .field small { color:var(--ink-3); font-size:11px; line-height:1.45; }
+  .manager-import-form .choice-field small { font-size:11px; line-height:1.45; }
+  .manager-import-form select,.manager-import-form textarea { width:100%; min-width:0;
+    min-height:48px; padding:11px 12px; border:1px solid var(--rule); border-radius:12px;
+    color:var(--ink); background:var(--paper-2); }
+  .manager-import-form textarea { min-height:100px; resize:vertical; }
+  .manager-import-actions { position:sticky; bottom:calc(-1 * var(--game-safe-bottom));
+    display:grid; grid-template-columns:1fr auto; gap:8px; padding:13px 0 var(--game-safe-bottom);
+    background:linear-gradient(transparent,var(--paper) 15%); }
+  .manager-import-actions button { min-height:48px; padding:11px 14px; border-radius:12px;
+    font-weight:850; }
+  .manager-import-submit { color:#fff; background:var(--blue); }
+  .manager-import-cancel { color:var(--ink-2); background:var(--paper-2);
+    border:1px solid var(--rule); }
+  .manager-import-result { margin-top:12px; color:var(--good); font-size:12px;
+    line-height:1.5; }
+  .manager-import-result.error { color:var(--bad); }
+
+  .results-layout { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+  .metric { padding:22px; background:var(--paper); border:1px solid var(--rule);
+    border-radius:20px; box-shadow:var(--shadow); }
+  .metric span { display:block; color:var(--ink-3); font-size:11px; text-transform:uppercase;
+    letter-spacing:.1em; font-weight:800; }
+  .metric strong { display:block; margin-top:8px; font-size:34px; letter-spacing:-.04em; }
+  .metric strong.unknown { color:var(--ink-3); }
+  .metric small { display:block; margin-top:5px; color:var(--ink-3);
+    font-size:10px; line-height:1.4; }
+  .results-card { grid-column:1/-1; padding:26px; }
+  .results-card p { color:var(--ink-2); font-size:13px; }
+  .result-list { display:grid; gap:8px; margin-top:17px; }
+  .result-row { display:grid; grid-template-columns:1fr auto auto; gap:12px;
+    padding:11px 12px; border-radius:12px; background:var(--paper-2); font-size:12px; }
+  .project-result { padding:15px; border:1px solid var(--rule); border-radius:14px;
+    background:var(--paper-2); }
+  .project-result-head { display:flex; justify-content:space-between; gap:12px;
+    align-items:flex-start; }
+  .project-result h3 { margin:0; font-size:14px; }
+  .project-result .result-facts { display:flex; flex-wrap:wrap; gap:7px;
+    margin-top:9px; color:var(--ink-2); font-size:10px; }
+  .project-result details { margin-top:10px; }
+  .empty { color:var(--ink-3); padding:20px 0; }
+  .mode { color:var(--good); font-weight:800; }
+  footer { max-width:900px; margin:24px auto 0; color:var(--ink-3); font-size:11px;
+    line-height:1.6; text-align:center; }
+  footer a { color:var(--blue); }
+
+  @media (max-width:900px) {
+    .topbar { flex-wrap:wrap; gap:10px; }
+    .nav { order:3; width:100%; }
+    .nav button { flex:1; }
+    .office-hero,.work-grid,.workflow-shell { grid-template-columns:1fr; }
+    .welcome { min-height:auto; padding:28px; }
+    .welcome h2 { max-width:12ch; }
+    .side-card { position:static; }
+    .manager-hero,.manager-console { grid-template-columns:1fr; }
+    .manager-scene { min-height:220px; }
+    .manager-lanes { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .manager-evidence { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  }
+  @media (max-width:620px) {
+    .app { width:min(100% - 18px,1240px); padding-top:9px; }
+    .topbar { top:5px; border-radius:18px; }
+    .top-actions { margin-left:auto; }
+    .connection span,.skin { max-width:104px; }
+    .office-room { min-height:530px; }
+    .window { width:43%; }
+    .board { width:43%; padding:10px; }
+    .crew-grid { grid-template-columns:repeat(3,1fr); left:2%; right:2%; gap:5px; }
+    .crew-model { min-height:28px; overflow:visible; text-overflow:clip;
+      white-space:normal; overflow-wrap:anywhere; font-size:7px; line-height:1.25; }
+    .desk { height:70px; }
+    .office-room { min-height:545px; background-size:100% auto;
+      background-position:center top; }
+    .office-room .board { display:none; }
+    .office-room .crew-grid { top:155px; bottom:auto; left:1%; right:1%; gap:2px; }
+    .office-room .desk { height:255px; }
+    .character-art { width:calc(var(--art-width,160px) * .55);
+      max-height:190px; bottom:20px; }
+    form { flex-direction:column; }
+    form button { min-height:48px; }
+    input[type=text],textarea,select { font-size:16px; }
+    .results-layout { grid-template-columns:1fr; }
+    .results-card { grid-column:1; }
+    .result-row { grid-template-columns:1fr; gap:4px; }
+    .project-create,.project-board { padding:18px 14px; }
+    .project-create header,.board-head { display:block; }
+    .board-head-actions { margin-top:13px; justify-content:flex-start; }
+    .project-form,.assignment { grid-template-columns:1fr; }
+    .field.wide,.form-actions { grid-column:1; }
+    .task-head { padding:14px 13px 10px; }
+    .task-content { padding:0 13px 14px; }
+    .task-actions button { min-height:42px; }
+    .manager-intro { padding:24px 18px; }
+    .manager-scene { min-height:200px; }
+    .manager-console { gap:12px; }
+    .manager-panel { padding:17px 13px; border-radius:19px; }
+    .repo-search { grid-template-columns:1fr; }
+    .repo-search button { width:100%; }
+    .manager-evidence { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .manager-metric { min-height:96px; }
+    .manager-board-head { display:block; }
+    .manager-board-head p { margin-top:7px; text-align:left; }
+    .manager-lanes { grid-template-columns:1fr; }
+    .manager-drawer { align-items:end; }
+    .manager-drawer-card { width:100%; height:auto; max-height:88dvh;
+      padding:17px var(--game-safe-right) var(--game-safe-bottom) var(--game-safe-left);
+      border-radius:24px 24px 0 0; }
+    .manager-item-actions { grid-template-columns:1fr 48px; }
+    .nav { gap:3px; }
+    .nav button { min-width:0; padding:8px 5px; font-size:11px; }
+  }
+  @media (prefers-reduced-motion:reduce) {
+    *,*::before,*::after { animation:none !important; transition:none !important; }
+  }
+  __OFFICE_GAME_CSS__
 </style>
+</head>
+<body>
 
-<div class="shell">
-  <h1>ask<small>Open Workforce Index</small></h1>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true"><i class="antenna"></i><i class="face"></i><i class="bowl"></i></div>
+      <h1>Open Workforce Index<small>your AI office</small></h1>
+    </div>
+    <nav class="nav" aria-label="Main views">
+      <button type="button" class="on" data-view="office">Office</button>
+      <button type="button" data-view="manager">Manager</button>
+      <button type="button" data-view="work">Work</button>
+      <button type="button" data-view="results">Results</button>
+    </nav>
+    <div class="top-actions">
+      <div class="connection"><i></i><span id="connectionLabel">advisor ready</span></div>
+      <button type="button" class="tour-launch" id="tourLaunch">
+        <span class="tour-launch-label">Training tour</span>
+      </button>
+      <select id="skin" class="skin" aria-label="Office skin">
+        <option value="bright">Bright office</option>
+        <option value="human">Human studio</option>
+        <option value="night">Night shift</option>
+      </select>
+    </div>
+  </header>
 
-  <form id="form">
-    <input type="text" id="q" autocomplete="off" autofocus
-      placeholder='e.g. "rewrite this email to the supplier"'>
-    <button type="submit">ask</button>
-  </form>
+  <main>
+    <section id="view-office" class="view active" aria-labelledby="office-title">
+      <div class="office-hero">
+        <div class="welcome" data-tour-id="company-hq">
+          <span class="eyebrow" id="officeStatus">Meet your AI office</span>
+          <h2 id="office-title">Put the right mind on every task.</h2>
+          <p id="officeIntro">OWI checks ability, tools, privacy, quality and price before assigning work. You approve the task; the office explains every choice.</p>
+          <button type="button" class="primary" id="officeCta" data-open-view="work">Give the team a task</button>
+          <span class="truth" id="officeTruth"><b>●</b> Exact model identities are shown below. Unknown costs or abilities are never presented as facts.</span>
+        </div>
+        <div class="office-room" data-tour-id="office-roster" aria-label="Bright cartoon AI office">
+          <div class="sun" aria-hidden="true"></div><div class="window" aria-hidden="true"></div>
+          <div class="board"><strong>Today in the office</strong><span>Describe the work. OWI staffs each part independently.</span><i class="scribble"></i></div>
+          <div class="crew-grid" id="crewGrid"></div><div class="plant" aria-hidden="true"></div>
+        </div>
+      </div>
+    </section>
 
-  <div class="checks">
-    <label for="checks">checklist — one line per item the result must pass
-      (optional; the live page writes one for you if empty)</label>
-    <textarea id="checks" rows="3" autocapitalize="off" autocorrect="off"
-      spellcheck="false" placeholder="contains:thermal · min-words:60 · anything else is judged by a different model (live page)"></textarea>
-    <label><input type="checkbox" id="confid"> confidential — only workers
-      cleared for confidential content; your text never leaves this browser
-      until you paste it somewhere yourself</label>
-  </div>
+    <section id="view-manager" class="view" aria-labelledby="manager-title">
+      <div class="manager-shell">
+        <section class="manager-hero">
+          <div class="manager-intro">
+            <span class="eyebrow">GitHub Manager room</span>
+            <h2 id="manager-title">See the work before you staff it.</h2>
+            <p>Select one repository from the server-visible catalog, observe its issues, pull requests and recent failed Actions runs, then explicitly turn a source item into an unassigned local draft task.</p>
+            <div class="manager-connection">
+              <span class="manager-status" id="managerStatus">Checking local GitHub setup</span>
+              <span class="manager-safety" id="managerSafety">Read-only on-demand snapshots · source code is not downloaded or scanned · no automatic action</span>
+            </div>
+          </div>
+          <div class="manager-scene" aria-hidden="true">
+            <img class="manager-orbit" src="__ART_ORBIT__" alt="">
+          </div>
+        </section>
 
-  <div class="answer" id="answer"></div>
+        <div class="manager-console">
+          <section class="manager-panel" data-tour-id="github-projects" aria-labelledby="repo-control-title">
+            <span class="eyebrow">Repository control</span>
+            <h3 id="repo-control-title">Choose what Orbit observes</h3>
+            <p>Only repositories returned by the local server appear here. Credentials are configured outside the browser.</p>
+            <form class="repo-search" id="managerRepoSearch">
+              <input type="text" id="managerRepoQuery" maxlength="120" autocomplete="off" placeholder="Filter visible repositories" aria-label="Filter visible repositories">
+              <button type="submit" id="managerRepoSearchButton">Find</button>
+            </form>
+            <div class="repo-picker">
+              <label for="managerRepoSelect">Server-visible repositories</label>
+              <select id="managerRepoSelect" disabled>
+                <option value="">No repository catalog loaded</option>
+              </select>
+              <button type="button" class="repo-load" id="managerRepoLoad" disabled>Observe selected repository</button>
+            </div>
+            <div class="manager-inline-state" id="managerRepoState" role="status" aria-live="polite"></div>
+            <button type="button" class="quiet" id="managerRetry" hidden>Retry local Manager</button>
+            <div class="selected-repo" id="managerSelectedRepo" hidden>
+              <strong id="managerSelectedRepoName"></strong>
+              <span id="managerSelectedRepoMeta"></span>
+            </div>
+          </section>
+
+          <section class="manager-panel" aria-labelledby="manager-overview-title">
+            <span class="eyebrow">Observed evidence</span>
+            <h3 id="manager-overview-title">Repository overview</h3>
+            <p id="managerObservationNote">Choose a repository to request an on-demand observation. No zero is shown until the server reports zero.</p>
+            <div class="manager-evidence">
+              <div class="manager-metric"><span>Open issues</span><strong id="managerOpenIssues">—</strong><small id="managerOpenIssuesNote">not observed</small></div>
+              <div class="manager-metric"><span>Open pull requests</span><strong id="managerOpenPrs">—</strong><small id="managerOpenPrsNote">not observed</small></div>
+              <div class="manager-metric"><span>Recent failed Actions runs</span><strong id="managerFailedCi">—</strong><small id="managerFailedCiNote">not observed</small></div>
+              <div class="manager-metric"><span>Selected work</span><strong id="managerSelectedWork">—</strong><small id="managerSelectedWorkNote">not observed</small></div>
+              <div class="manager-metric"><span>Waiting for owner</span><strong id="managerWaitingOwner">—</strong><small id="managerWaitingOwnerNote">not observed</small></div>
+            </div>
+          </section>
+        </div>
+
+        <section class="manager-panel" data-tour-id="manager-incoming" aria-labelledby="manager-board-title">
+          <div class="manager-board-head">
+            <div><span class="eyebrow">Manager board</span><h3 id="manager-board-title">Incoming → Done or Blocked</h3></div>
+            <p id="managerBoardTruth">Lanes come from the local server. Selecting a repository does not select work, create a task, staff a worker, run a model, spend money or write to GitHub.</p>
+          </div>
+          <div class="manager-board-empty" id="managerBoardEmpty">No repository has been observed in this browser session.</div>
+          <div class="manager-lanes" id="managerLanes" hidden aria-live="polite"></div>
+        </section>
+      </div>
+    </section>
+
+    <section id="view-work" class="view" aria-labelledby="work-title">
+      <div class="workflow-shell">
+        <aside class="side-card">
+          <span class="eyebrow">Project workflow</span>
+          <h2 id="work-title">Run work like a real office.</h2>
+          <p>Start with a goal, inspect the tasks, staff each one, run only a configured worker, then review the real output.</p>
+          <div class="work-guide"><img src="__ART_ORBIT__" alt=""><div>
+            <strong>Orbit · staffing guide</strong><span>The character guides the flow. The exact model, estimated cost and result remain visible.</span>
+          </div></div>
+          <div class="workflow-steps" aria-label="Workflow stages">
+            <div class="workflow-step"><b>1</b><div><strong>Create the project</strong><span>Give the office one clear goal.</span></div></div>
+            <div class="workflow-step"><b>2</b><div><strong>Inspect the tasks</strong><span>Add or edit work before spending.</span></div></div>
+            <div class="workflow-step"><b>3</b><div><strong>Staff every task</strong><span>Rust chooses from qualified workers.</span></div></div>
+            <div class="workflow-step"><b>4</b><div><strong>Run and review</strong><span>Accept, reject or retry the actual output.</span></div></div>
+          </div>
+          <div class="active-project" id="activeProjectSummary" hidden>
+            <strong id="activeProjectName"></strong><span id="activeProjectProgress"></span>
+          </div>
+        </aside>
+
+        <div class="project-workspace" data-tour-id="task-board">
+          <div class="project-create" id="projectCreateCard" data-tour-id="project-create">
+            <header><div><span class="eyebrow">1 · Create</span>
+              <h2>What are we delivering?</h2>
+              <p>OWI can propose task boundaries. You can add and edit them before staffing.</p>
+            </div></header>
+            <div class="setup-panel" id="setupPanel" hidden>
+              <strong id="setupTitle">Connect your real workforce</strong>
+              <span id="setupMessage"></span>
+              <span>Launch with an existing OWI workspace:</span>
+              <code id="setupExistingCommand"></code>
+              <span class="setup-note">For an explicitly labelled sample only:</span>
+              <code id="setupDemoCommand"></code>
+            </div>
+            <div class="static-notice" id="staticNotice" hidden>
+              This published page is a read-only product preview. It cannot access your models or credentials. Open the local OWI Office with <code>tools/owi-serve --home PATH</code> to create, staff and run real projects.
+            </div>
+            <form id="projectForm" class="project-form">
+              <label class="field"><span>Project name</span>
+                <input type="text" id="projectName" maxlength="100" placeholder="e.g. Battery repository release">
+              </label>
+              <label class="field"><span>Maximum task-forecast budget (USD)</span>
+                <input type="number" id="projectBudget" min="0" step="0.01" inputmode="decimal" placeholder="Optional">
+                <small>Gates the sum of allocator task forecasts. It is not a verified all-in cash cap.</small>
+              </label>
+              <label class="field wide"><span>Goal</span>
+                <textarea id="projectGoal" required maxlength="6000" placeholder="Describe the result you need, the repository or context, and what success means."></textarea>
+                <small>The server creates draft tasks. No maker task runs yet, and model planning stays off unless you select it below.</small>
+              </label>
+              <label class="field"><span>Privacy</span>
+                <select id="projectPrivacy"><option value="private_metadata">Private metadata</option><option value="confidential_content">Confidential content · local clearance required</option><option value="secret">Secret · exact local clearance required</option><option value="public">Public</option></select>
+              </label>
+              <label class="choice-field"><input type="checkbox" id="usePlanningModel"><span><b>Use a configured planning model</b><small id="planningPrivacyNote">Optional and unchecked by default. It may cost money, and that unmetered planning call is outside the task-forecast budget. Disabled for Confidential and Secret projects so the goal is not sent to a planning model.</small></span></label>
+              <div class="form-actions"><button type="submit" class="primary" id="createProject">Create project &amp; draft tasks</button><button type="button" class="quiet" id="backToProject" hidden>Back to active project</button><span class="inline-state" id="createState" role="status"></span></div>
+            </form>
+          </div>
+
+          <section class="project-board" id="projectBoard" hidden aria-labelledby="projectBoardTitle">
+            <div class="board-head"><div><span class="eyebrow">Your active project</span>
+              <h2 id="projectBoardTitle"></h2><p class="board-goal" id="projectBoardGoal"></p>
+            </div><div class="board-head-actions">
+              <button type="button" class="quiet" id="newProject">New project</button>
+              <button type="button" class="quiet" id="addTask">+ Add task</button>
+              <button type="button" class="secondary" id="staffProject" data-tour-id="staffing">Staff unassigned tasks</button>
+            </div></div>
+            <div class="project-meta" id="projectMeta"></div>
+            <div class="board-warning" id="planningProblem" hidden></div>
+            <div class="board-warning blocking" id="budgetWarning" hidden></div>
+
+            <div class="task-composer" id="taskComposer" hidden>
+              <h3>Add a task</h3>
+              <form id="taskForm" class="project-form">
+                <label class="field"><span>Task title</span><input type="text" id="taskTitle" maxlength="120" placeholder="Short, concrete name"></label>
+                <label class="field"><span>Skill (optional)</span><select id="taskSkill"></select></label>
+                <label class="field wide"><span>Task brief</span><textarea id="taskBrief" required maxlength="8000" placeholder="Describe one deliverable. Keep different kinds of work in separate tasks."></textarea></label>
+                <label class="field wide"><span>Acceptance checks · one per line</span><textarea id="taskChecklist" maxlength="4000" placeholder="contains: migration plan&#10;min-words: 80&#10;states the main limitation"></textarea></label>
+                <div class="form-actions"><button type="submit" class="secondary">Add draft task</button><button type="button" class="quiet" id="cancelTask">Cancel</button><span class="inline-state" id="taskCreateState" role="status"></span></div>
+              </form>
+            </div>
+
+            <div class="task-list" id="taskList" data-tour-id="run-review" aria-live="polite"></div>
+          </section>
+          <div class="workflow-notice" id="workflowNotice" role="status"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-results" class="view" aria-labelledby="results-title">
+      <div class="results-layout" data-tour-id="results-evidence">
+        <div class="metric"><span>Recorded feedback</span><strong id="resultTotal">0</strong></div>
+        <div class="metric"><span>Worked</span><strong id="resultAccepted">0</strong></div>
+        <div class="metric"><span>Model-caused failures</span><strong id="resultRejected">0</strong></div>
+        <div class="metric"><span>Actual spend</span><strong class="unknown">—</strong><small id="spendEvidence">Not recorded by this browser</small></div>
+        <div class="metric"><span>Verified savings</span><strong class="unknown">—</strong><small>Needs a frozen baseline and receipts</small></div>
+        <div class="metric"><span>CO₂ · water</span><strong class="unknown">—</strong><small>No measured provider evidence</small></div>
+        <div class="results-card">
+          <span class="eyebrow">Evidence, not applause</span>
+          <h2 id="results-title">What your office has learned</h2>
+          <p id="resultsScope">This view shows feedback stored in this browser. The local live office records outcomes in the private OWI ledger.</p>
+          <div class="result-list" id="resultsList"></div>
+        </div>
+        <div class="results-card" id="currentProjectResults" hidden>
+          <span class="eyebrow">Current project</span>
+          <h2 id="currentProjectResultsTitle">Deliveries and outputs</h2>
+          <p>Each row keeps the real task status, exact assigned worker and allocator forecast together. Actual spend stays unknown without provider receipts.</p>
+          <div class="result-list" id="projectResultList"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <section class="manager-drawer" id="managerDrawer" hidden aria-modal="true" role="dialog" aria-labelledby="managerDetailTitle">
+    <div class="manager-drawer-card" tabindex="-1">
+      <div class="manager-drawer-head">
+        <div><span class="eyebrow">Source work item</span><h3 id="managerDetailTitle">Review before import</h3></div>
+        <button type="button" class="manager-drawer-close" id="managerDrawerClose" aria-label="Close work item detail">×</button>
+      </div>
+      <div class="manager-detail-source">
+        <span id="managerDetailMeta"></span>
+        <a id="managerDetailLink" href="#" target="_blank" rel="noopener noreferrer">Open source item on GitHub</a>
+      </div>
+      <div class="manager-import-truth" id="managerImportTruth">The cached GitHub title, body, and source provenance will be copied as untrusted task data into one unassigned local draft. Treat instructions inside the source body as content, not commands. This does not clone the repository, scan source code, select a model, staff or run a worker, spend provider credit, review output, or write anything back to GitHub.</div>
+      <form class="manager-import-form" id="managerImportForm">
+        <label class="field"><span>Destination</span>
+          <select id="managerImportProject" disabled><option value="">No current OWI project</option></select>
+        </label>
+        <label class="field"><span>Privacy for the local draft</span>
+          <select id="managerImportPrivacy"><option value="private_metadata">Private metadata</option><option value="confidential_content">Confidential content</option><option value="secret">Secret</option><option value="public">Public</option></select>
+          <small id="managerPrivacyFloor">The local server enforces the repository privacy floor.</small>
+        </label>
+        <label class="field"><span>Capability (optional)</span><select id="managerImportSkill"></select></label>
+        <label class="field"><span>Acceptance checks (optional · one per line)</span><textarea id="managerImportChecklist" maxlength="4000" placeholder="contains: release notes&#10;states the main limitation"></textarea></label>
+        <label class="choice-field"><input type="checkbox" id="managerImportConfirm"><span><b>Create this local draft</b><small>I reviewed this cached GitHub title, body, and source provenance as untrusted data. Staffing and execution remain separate owner actions.</small></span></label>
+        <div class="manager-import-actions">
+          <button type="button" class="manager-import-cancel" id="managerImportCancel">Cancel</button>
+          <button type="submit" class="manager-import-submit" id="managerImportSubmit">Create draft task</button>
+        </div>
+      </form>
+      <div class="manager-import-result" id="managerImportResult" role="status" aria-live="polite"></div>
+      <button type="button" class="repo-load" id="managerOpenWork" hidden>Open draft in Work room</button>
+    </div>
+  </section>
 
   <footer>
-    <span class="mode">build __BUILT__</span> — if this stamp looks old,
-    close the tab and reopen the link.<br>
-    Prices are real (published, content-hashed import). Abilities are assumed
-    starting points; your <b>worked / didn't</b> answers reshape them with the
-    same Beta update the engine uses — stored only in this browser
-    (<a href="#" id="reset">reset</a>). This page ranks on <b>public evidence
-    only</b>: it runs the engine's exact arithmetic — same gates, same quality
-    floor, same micros, checked against it on every build — but it carries no
-    private ledger, so a terminal that has lived through real work knows more
-    and may rank differently. That gap is the privacy boundary, not a bug. "Run in Claude/ChatGPT" opens the
-    picked model's own chat with your task prefilled — your account, your
-    keys; this page never calls a provider. For real runs with nothing to
-    install, open this repo in Claude Code and say the task; on your own
-    machine, <code>tools/owi-serve</code>.
+    <span class="mode">build __BUILT__</span> · <span id="footerTruth">Prices come from published, content-hashed sources. Ability begins as evidence-scoped estimates and changes only through recorded outcomes. Unknown values stay unknown.</span> <a href="#" id="reset">Reset this browser's learning</a>. The static page never holds provider credentials; <code>tools/owi-serve</code> enables approved local execution through exact worker-ID runner bindings.
   </footer>
 </div>
 
+<div class="tour-root" id="trainingTour" hidden>
+  <div class="tour-shade" aria-hidden="true"></div>
+  <div class="tour-spotlight" id="tourSpotlight" aria-hidden="true"></div>
+  <section class="tour-coach" id="tourCoach" role="dialog" aria-modal="true"
+           aria-labelledby="tourTitle" aria-describedby="tourBody">
+    <div class="tour-coach-head">
+      <img class="tour-orbit" src="__ART_ORBIT__" alt="">
+      <div><span class="tour-kicker" id="tourProgress" role="status" aria-live="polite">Training</span>
+        <h2 id="tourTitle">Welcome to your AI office</h2></div>
+      <button type="button" class="tour-close" id="tourClose" aria-label="Pause training">×</button>
+    </div>
+    <p class="tour-copy" id="tourBody"></p>
+    <p class="tour-honesty" id="tourModeTruth">The tour explains real controls but never creates, staffs, runs, approves, or spends for you.</p>
+    <div class="tour-progress-row">
+      <div class="tour-dots" id="tourDots" aria-hidden="true"></div>
+      <span class="tour-progress-label">Owner training</span>
+    </div>
+    <div class="tour-actions">
+      <button type="button" class="tour-back" id="tourBack">Back</button>
+      <button type="button" class="tour-skip" id="tourSkip">Skip tour</button>
+      <button type="button" class="tour-next" id="tourNext">Next</button>
+    </div>
+  </section>
+</div>
+
+<script id="office-tour-data" type="application/json">__OFFICE_TOUR_DATA__</script>
 <script id="ask-data" type="application/json">__DATA__</script>
 <script>
   const DATA = JSON.parse(document.getElementById("ask-data").textContent);
+  // The server exchanges the bootstrap token for an HttpOnly cookie. Remove
+  // it from the visible address immediately so it does not remain in copied
+  // links or browser history entries.
+  if (location.protocol.startsWith("http")
+      && new URLSearchParams(location.search).has("token"))
+    history.replaceState(null, "", location.pathname + location.hash);
   const KEYWORDS = {
     "skill:python-numerical-implementation":
       ["code","implement","fix","bug","test","function","rust","python",
@@ -177,8 +959,20 @@
        "styling"],
   };
   const STORE = "owi-ask-v1";
-  const local = () => JSON.parse(localStorage.getItem(STORE) || "{}");
-  const save = (d) => localStorage.setItem(STORE, JSON.stringify(d));
+  const preferenceStorage = {
+    get(key, fallback = null) {
+      try { const value = localStorage.getItem(key); return value === null ? fallback : value; }
+      catch (_) { return fallback; }
+    },
+    set(key, value) { try { localStorage.setItem(key, value); return true; }
+      catch (_) { return false; } },
+    remove(key) { try { localStorage.removeItem(key); } catch (_) { /* preference only */ } },
+  };
+  const local = () => {
+    try { return JSON.parse(preferenceStorage.get(STORE, "{}")); }
+    catch (_) { return {}; }
+  };
+  const save = (d) => preferenceStorage.set(STORE, JSON.stringify(d));
 
   // >>> decision-math >>>
   // Everything between these markers is a second implementation of the
@@ -300,584 +1094,1474 @@
   }
   // <<< decision-math <<<
 
-  const requiredPrivacy = () =>
-    document.getElementById("confid").checked
-      ? "confidential_content" : "private_metadata";
-
-  const $ = (m) => "$" + (m / 1e6).toFixed(4);
   const short = (id) => id.replace("worker:", "");
-  const modelOf = (id) => id.split(":")[1].split("/")[0];
-  // Where each roster model can be run in a browser with the task prefilled.
-  // Navigation only — the page never calls a provider itself. `reliable`
-  // marks hand-offs that dependably open a FRESH chat carrying the task
-  // (Claude's /new route). ChatGPT's app has been observed dropping the
-  // task and reopening old chats on phones, so it is never the primary run
-  // path — the same rule the terminal applies: a worker that cannot be
-  // dependably executed is unavailable, not a bargain. No deep link can
-  // force an app's model selection; exact models need the router.
-  const LAUNCH = {
-    "haiku-4-5":  { name: "Claude",  url: "https://claude.ai/new?q=", reliable: true },
-    "sonnet-4-5": { name: "Claude",  url: "https://claude.ai/new?q=", reliable: true },
-    "opus-4-5":   { name: "Claude",  url: "https://claude.ai/new?q=", reliable: true },
-    "sonnet-5":   { name: "Claude",  url: "https://claude.ai/new?q=", reliable: true },
-    "opus-5":     { name: "Claude",  url: "https://claude.ai/new?q=", reliable: true },
-    "gpt-5":      { name: "ChatGPT",
-                    url: "https://chatgpt.com/?model=gpt-5&q=", reliable: false },
-    "gpt-5-mini": { name: "ChatGPT",
-                    url: "https://chatgpt.com/?model=gpt-5-mini&q=", reliable: false },
+  const modelOf = (id) => {
+    const match = String(id).match(/^worker:([^/]+)\//);
+    return match ? match[1] : "";
   };
-  // The bench the page actually stands behind. Without a server, a worker
-  // whose hand-off is unreliable cannot be delivered — so it cannot be the
-  // pick. It stays visible as "cheaper on paper", pointing at the router.
-  const launchBench = (rows) => {
-    if (LIVE) return rows;
-    const ok = rows.filter(r => (LAUNCH[modelOf(r.id)] || {}).reliable);
-    return ok.length ? ok : rows;
-  };
-
-  // On phones, provider apps intercept ?q= links and drop the task — no
-  // deep link survives, for any provider. So mobile gets no launch links at
-  // all: copy → paste → bring the answer back. Desktop web honors ?q=.
-  const MOBILE = matchMedia("(max-width: 520px), (pointer: coarse)").matches;
   const esc = (s) => String(s).replace(/[&<>"]/g,
     c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-  let last = null;
-  let LIVE = null;   // replaced by /api/data when a local server is present
+  // A server renders its own data into the first response. Treat it as live
+  // immediately so an unconfigured office never flashes the static catalog.
+  let LIVE = DATA.local ? DATA : null;
   const data = () => LIVE || DATA;
-  fetch("/api/data").then(r => r.ok ? r.json() : null).then(d => {
-    if (d && d.local) { LIVE = d;
-      document.querySelector("h1 small").insertAdjacentHTML("afterend",
-        '<span class="mode"> · local — runs for real</span>'); }
-  }).catch(() => {});
 
-  // Highest quality bound wins; among equals, cheaper. The counterpart to
-  // the cost ranking — the other corner of the cost/quality/time triangle.
-  const qualityBest = (rows) => rows.length
-    ? [...rows].sort((x, y) => y.bound - x.bound || y.mean - x.mean
-        || x.total - y.total)[0]
-    : null;
+  const OFFICE_ART = {
+    orbit: "__ART_ORBIT__",
+    nova: "__ART_NOVA__",
+    mira: "__ART_MIRA__",
+  };
+  const CREW_PERSONAS = [
+    { name: "Orbit", asset: "orbit", width: "220px" },
+    { name: "Nova", asset: "nova", width: "250px" },
+    { name: "Mira", asset: "mira", width: "250px" },
+  ];
 
-  function render(learnedNote, preferId) {
-    const text = document.getElementById("q").value.trim();
-    if (!text) return;
-    // The checklist is given TO the task as acceptance criteria, then the
-    // same items are verified against the output (live page only).
-    const checks = document.getElementById("checks").value
-      .split("\n").map(s => s.trim()).filter(Boolean).slice(0, 10);
-    const askText = checks.length ? text
-      + "\n\nYour output must pass every item on this checklist:\n"
-      + checks.map(c => "- " + c).join("\n") : text;
-    const parts = splitTask(text);
-    if (parts.length > 1) { renderParts(parts, checks, learnedNote); return; }
-    const skill = guess(text);
-    const privacy = requiredPrivacy();
-    window.__privacy = privacy;
-    const tokensIn = 1500 + Math.floor(text.length / 4);
-    const { rows, turnedAway } = evaluate(skill, tokensIn, 800, privacy);
-    const box = document.getElementById("answer");
-    box.classList.add("show");
+  function roleFor(worker) {
+    const skill = (worker.skills || [])[0] || "skill:unmeasured";
+    return skill.replace("skill:", "").replaceAll("-", " ");
+  }
 
-    const closeButton = `<button type="button" class="close" id="closeAnswer"
-      aria-label="close">✕</button>`;
-    if (!rows.length) {
-      last = null;
-      const why = privacy === "confidential_content"
-        ? `<div class="none">no worker on this roster is cleared for
-           confidential content in this skill.</div>
-           <div class="meta">confidential work belongs to workers on your own
-           machine — the roster's local-llama (via ollama) is cleared; see
-           docs/ROUTER.md. Cloud workers carry metadata clearance only.</div>`
-        : `<div class="none">nobody qualified — every capable worker has
-           fallen below the quality floor.</div>
-           <div class="meta">that is your own feedback speaking; reset below
-           to forgive, or measure for real with the terminal.</div>`;
-      box.innerHTML = closeButton + `<div class="line">skill:
-        ${skill.replace("skill:", "")}</div>` + why;
-      wireClose();
+  function renderCrew() {
+    const roster = data().workers || [];
+    const priorities = ["skill:planning-decomposition",
+      "skill:code-review-debugging", "skill:ui-design"];
+    const workers = [];
+    for (const skill of priorities) {
+      const freshModel = roster.find(worker =>
+        (worker.skills || []).includes(skill) && !workers.includes(worker)
+        && !workers.some(chosen => modelOf(chosen.id) === modelOf(worker.id)));
+      const candidate = freshModel || roster.find(worker =>
+        (worker.skills || []).includes(skill) && !workers.includes(worker));
+      if (candidate) workers.push(candidate);
+    }
+    for (const worker of roster) {
+      if (workers.length >= 3) break;
+      if (!workers.includes(worker)) workers.push(worker);
+    }
+    const grid = document.getElementById("crewGrid");
+    if (!workers.length) {
+      grid.classList.add("unconfigured");
+      const message = (data().setup || {}).message ||
+        "No workers are loaded. Configure a roster before assigning work.";
+      grid.innerHTML = `<div class="office-setup">
+        <strong>No AI workers assigned</strong>
+        <span>${esc(message)}</span>
+      </div>`;
       return;
     }
-    const bench = launchBench(rows);
-    const cheapest = bench[0];
-    const top = preferId
-      ? (bench.find(r => r.id === preferId) || cheapest) : cheapest;
-    const best = qualityBest(bench);
-    const paper = rows[0].id !== bench[0].id ? rows[0] : null;
-    last = { skill, id: top.id };
-    box.innerHTML = closeButton + `
-      <div class="line">skill: ${skill.replace("skill:", "")}
-        &nbsp;·&nbsp; ~${tokensIn} in / 800 out tokens</div>
-      <div class="pick">→ ${short(top.id)}
-        <span class="price">${$(top.total)}</span>
-        <span class="meta">per accepted result</span></div>
-      ${top.id !== cheapest.id ? `<div class="meta">picked for quality —
-        cheapest qualified is ${short(cheapest.id)}
-        at ${$(cheapest.total)}</div>` : ""}
-      ${paper ? `<div class="meta">cheaper on paper: ${short(paper.id)}
-        ${$(paper.total)} — its app drops phone hand-offs, so it runs as
-        itself only in the router (this repo in Claude Code, or
-        tools/owi-serve)</div>` : ""}
-      ${bench.filter(r => r.id !== top.id).slice(0, 2).map(r => `<div class="alt">next:
-        ${short(r.id)} &nbsp;+${$(r.total - top.total)}</div>`).join("")}
-      ${best && best.id !== top.id ? `<div class="alt">quality option:
-        ${short(best.id)} ${$(best.total)} · confidence
-        ${best.bound.toFixed(2)} vs ${top.bound.toFixed(2)}
-        <button type="button" class="mini" id="preferq">use it</button></div>` : ""}
-      <div class="meta">checked ${data().workers.length},
-        turned away ${turnedAway}</div>
-      ${learnedNote ? `<div class="learned ${learnedNote.cls}">
-        ${learnedNote.text}</div>` : ""}
-      ${!LIVE ? (() => {
-        const topLaunch = LAUNCH[modelOf(top.id)];
-        const links = (!MOBILE && topLaunch) ? `<a class="golink"
-            target="_blank" rel="noopener" data-worker="${top.id}"
-            href="${topLaunch.url}${encodeURIComponent(askText)}"
-            >run in ${topLaunch.name}</a>` : "";
-        const after = MOBILE
-          ? "paste it into your Claude, then bring the answer back"
-          : (checks.length ? "run it there, paste the result below"
-                           : "run it there, come back, answer below");
-        const pasteback = checks.length ? `
-          <textarea id="pasteback" rows="4" placeholder="paste the model's answer here — it is checked against your checklist right in this page"></textarea>
-          <div class="verdict">
-            <button type="button" id="checkbtn">check the result</button>
-            <span id="checkstate" class="meta"></span></div>
-          <div class="checkrep" id="checkrep"></div>` : "";
-        const handoff = MOBILE ? `<div class="meta">phone apps drop link
-          hand-offs, so the page hands you the task instead. One-tap real
-          runs live in the router: open this repo in Claude Code and say
-          the task.</div>`
-          : (links ? `<div class="meta">Tapping run also copies the task.
-          The app still uses its own selected model — exact-model runs:
-          open this repo in Claude Code, or tools/owi-serve.</div>` : "");
-        return `<div class="verdict">${links}
-          <button type="button" id="copybtn">copy task</button>
-          <span class="meta">${after}</span>
-        </div>${handoff}${pasteback}`;
-      })() : ""}
-      ${LIVE ? (() => {
-        const runnable = rows.find(r =>
-          (data().runnable || []).includes(modelOf(r.c ? r.c.id : r.id)));
-        const target = runnable ? (runnable.c ? runnable.c.id : runnable.id) : null;
-        if (!target) return `<div class="meta">no runner configured for any
-          eligible worker — fill in .owi-quick/runners.json</div>`;
-        window.__runTarget = target;
-        const label = target === top.id ? "run it"
-          : `run with ${short(target)}`;
-        const why = target === top.id ? "" : `<span class="meta">
-          ${modelOf(top.id)} has no runner here</span>`;
-        return `<div class="verdict">
-          <button type="button" id="go">${label}</button>${why}
-          <span id="runstate"></span></div>
-          <pre class="out" id="out" hidden></pre>
-          <div class="checkrep" id="checkrep"></div>`;
-      })() : ""}
-      <div class="verdict"><span>${LIVE ? "then:" : "after you run it:"}</span>
-        <button type="button" id="yes">worked</button>
-        <button type="button" class="no" id="no">didn't</button></div>
-      <div class="verdict" id="causes" hidden>
-        <span>why? — only "the model" counts against it:</span>
-        <button type="button" data-cause="worker">the model</button>
-        <button type="button" class="no" data-cause="task_spec">unclear task</button>
-        <button type="button" class="no" data-cause="environment">my setup</button>
-      </div>`;
-    wireClose();
-    const copyButton = document.getElementById("copybtn");
-    if (copyButton) copyButton.onclick = async () => {
-      try { await navigator.clipboard.writeText(askText);
-            copyButton.textContent = "copied"; }
-      catch { window.prompt("copy the task:", askText); }
-    };
-    // Copy the task in the same tap so nothing is ever lost, and point the
-    // verdict at whichever worker's link was actually tapped.
-    box.querySelectorAll("a.golink").forEach(a =>
-      a.addEventListener("click", () => {
-        if (a.dataset.worker) last = { skill, id: a.dataset.worker };
-        try { navigator.clipboard.writeText(askText); } catch (error) {}
-      }));
-    document.getElementById("yes").onclick = () => verdict(true);
-    document.getElementById("no").onclick = () => {
-      document.getElementById("causes").hidden = false;
-    };
-    document.getElementById("causes").addEventListener("click", (e) => {
-      if (e.target.dataset.cause) verdict(false, e.target.dataset.cause);
-    });
-    if (LIVE && document.getElementById("go"))
-      document.getElementById("go").onclick = () => {
-        last = { skill, id: window.__runTarget }; runIt(text, checks); };
-    const checkButton = document.getElementById("checkbtn");
-    if (checkButton) checkButton.onclick = () => checkPasted(checks);
-    const preferButton = document.getElementById("preferq");
-    if (preferButton) preferButton.onclick = () => render(undefined, best.id);
-  }
-
-  // The checklist is a system input even without a server: mechanical items
-  // are verified right here, in the page, against the pasted result — the
-  // same rules the terminal applies (quote-stripped contains, regex, json,
-  // min-words). Only judgement items need the live page's judge.
-  function checkItemJS(item, output) {
-    const text = item.trim(), low = text.toLowerCase();
-    const strip = (s) => {
-      s = s.trim();
-      if (s.length >= 2 && s[0] === s[s.length - 1] && "'\"".includes(s[0]))
-        s = s.slice(1, -1).trim();
-      return s;
-    };
-    if (low.startsWith("contains:")) {
-      const needle = strip(text.slice(9));
-      return ["contains", output.toLowerCase().includes(needle.toLowerCase()),
-              `output contains "${needle}"`];
-    }
-    if (low.startsWith("regex:")) {
-      try { return ["regex", new RegExp(text.slice(6).trim(), "s").test(output),
-                    "matches the pattern"]; }
-      catch (error) { return ["regex", null, "unusable regex"]; }
-    }
-    if (low === "json")
-      return ["json", findJsonJS(output) !== undefined, "contains valid JSON"];
-    if (low.startsWith("min-words:")) {
-      const floor = parseInt(text.slice(10).trim(), 10);
-      if (isNaN(floor)) return ["min-words", null, "unusable min-words"];
-      return ["min-words",
-              output.split(/\s+/).filter(Boolean).length >= floor,
-              `at least ${floor} words`];
-    }
-    if (low === "python")
-      return ["python", null, "needs the live page (code compiles there)"];
-    return ["judged", null, "needs a judge — the live page has one"];
-  }
-  function findJsonJS(t) {
-    const candidates = [];
-    const fence = /```(?:json)?\s*([\s\S]*?)```/g;
-    let m; while ((m = fence.exec(t))) candidates.push(m[1]);
-    candidates.push(t);
-    const embedded = t.match(/[\[{][\s\S]*[\]}]/);
-    if (embedded) candidates.push(embedded[0]);
-    for (const c of candidates) { try { return JSON.parse(c); } catch (e) {} }
-    return undefined;
-  }
-
-  function checkPasted(checks) {
-    const output = document.getElementById("pasteback").value;
-    const state = document.getElementById("checkstate");
-    if (!output.trim()) { state.textContent = "paste the result first"; return; }
-    const marks = { true: ["✓", "ok"], false: ["✗", "fail"], null: ["?", "open"] };
-    const results = checks.map(item => {
-      const [kind, pass, note] = checkItemJS(item, output);
-      return { item, kind, pass, note };
-    });
-    document.getElementById("checkrep").innerHTML = results.map(i => {
-      const [mark, cls] = marks[i.pass];
-      return `<div class="${cls}">[${mark}] ${esc(i.item)} — ${esc(i.note)}</div>`;
+    grid.classList.remove("unconfigured");
+    grid.innerHTML = workers.map((worker, index) => {
+      const persona = CREW_PERSONAS[index % CREW_PERSONAS.length];
+      const ready = Boolean(LIVE
+        && (data().runnable || []).includes(worker.id));
+      const status = ready ? "ready to run" : (LIVE ? "setup required" : "catalog");
+      return `<article class="crew">
+        <div class="desk">
+          <img class="character-art" src="${OFFICE_ART[persona.asset]}" alt=""
+               style="--art-width:${persona.width}">
+        </div>
+        <span class="crew-name">${persona.name}</span>
+        <span class="crew-role">${esc(roleFor(worker))}</span>
+        <span class="crew-status ${ready ? "ready" : ""}">${status}</span>
+        <span class="crew-model" title="${esc(worker.id)}">${esc(worker.id)}</span>
+      </article>`;
     }).join("");
-    const failed = results.some(i => i.pass === false);
-    const open = results.filter(i => i.pass === null).length;
-    if (failed) {
-      state.textContent = "checklist failed → " + learn(false, "worker");
-      hideManualVerdict();
-    } else if (!open) {
-      state.textContent = "all items passed → " + learn(true);
-      hideManualVerdict();
-    } else {
-      state.textContent =
-        `${open} item(s) need judgement — your call below, or use the live page`;
-    }
   }
 
-  // Several parts: each is classified and staffed on its own bench. A code
-  // part and a text part land on different workers — one model never gets
-  // everything by default.
-  function renderParts(parts, checks, learnedNote) {
-    const box = document.getElementById("answer");
-    box.classList.add("show");
-    window.__partsArgs = { parts, checks };
-    const privacy = requiredPrivacy();
-    window.__privacy = privacy;
-    const detail = parts.map((p, i) => {
-      const skill = guess(p);
-      const { rows } = evaluate(skill, 1500 + Math.floor(p.length / 4), 800,
-                                privacy);
-      const bench = launchBench(rows);
-      const cheapest = bench[0] || null;
-      const pref = (window.__qpref || {})[i];
-      const top = pref ? (bench.find(r => r.id === pref) || cheapest) : cheapest;
-      const paper = rows[0] && cheapest && rows[0].id !== cheapest.id
-        ? rows[0] : null;
-      return { text: p, skill, top, cheapest, best: qualityBest(bench), paper };
+  function switchView(name, options = {}) {
+    document.querySelectorAll(".view").forEach(view =>
+      view.classList.toggle("active", view.id === `view-${name}`));
+    document.querySelectorAll("[data-view]").forEach(button => {
+      const selected = button.dataset.view === name;
+      button.classList.toggle("on", selected);
+      button.setAttribute("aria-current", selected ? "page" : "false");
     });
-    window.__parts = detail;
-    const staffed = detail.filter(d => d.top);
-    const distinct = new Set(staffed.map(d => d.top.id)).size;
-    const total = staffed.reduce((s, d) => s + d.top.total, 0);
-    box.innerHTML = `<button type="button" class="close" id="closeAnswer"
-        aria-label="close">✕</button>
-      <div class="line">${detail.length} parts — different work goes to
-        different workers</div>
-      ${detail.map((d, i) => {
-        const head = `<div class="line">part ${i + 1} ·
-          ${d.skill.replace("skill:", "")} —
-          “${esc(d.text.slice(0, 90))}”</div>`;
-        if (!d.top) return `<div class="part">${head}
-          <div class="none">nobody qualified</div></div>`;
-        const topLaunch = LAUNCH[modelOf(d.top.id)];
-        const link = (!LIVE && !MOBILE && topLaunch) ? `<a class="golink"
-            target="_blank" rel="noopener" data-launch="${i}"
-            data-worker="${d.top.id}"
-            href="${topLaunch.url}${encodeURIComponent(d.text)}"
-            >run in ${topLaunch.name}</a>` : "";
-        const paperNote = (!LIVE && d.paper) ? `<div class="meta">cheaper on
-          paper: ${short(d.paper.id)} ${$(d.paper.total)} — runs as itself
-          only in the router</div>` : "";
-        const runButton = LIVE ? `<button type="button" class="mini"
-            data-run="${i}">run</button>` : "";
-        const quality = d.best && d.best.id !== d.top.id ? `<div class="alt">
-          quality option: ${short(d.best.id)} ${$(d.best.total)} · confidence
-          ${d.best.bound.toFixed(2)} vs ${d.top.bound.toFixed(2)}
-          <button type="button" class="mini" data-qswap="${i}">use it</button>
-          </div>` : "";
-        const preferred = d.cheapest && d.top.id !== d.cheapest.id
-          ? `<div class="meta">picked for quality — cheapest is
-             ${short(d.cheapest.id)} at ${$(d.cheapest.total)}</div>` : "";
-        return `<div class="part">${head}
-          <div class="pick">→ ${short(d.top.id)}
-            <span class="price">${$(d.top.total)}</span></div>
-          ${preferred}${paperNote}${quality}
-          <div class="verdict">${runButton}${link}
-            <button type="button" class="mini" data-copy="${i}">copy</button>
-            <button type="button" class="mini" data-good="${i}">worked</button>
-            <button type="button" class="mini no" data-bad="${i}">didn't</button>
-            <span class="meta" id="pstate-${i}"></span></div>
-          <pre class="out" id="pout-${i}" hidden></pre>
-          <div class="checkrep" id="prep-${i}"></div></div>`;
-      }).join("")}
-      <div class="meta">all parts: ${$(total)} ·
-        ${distinct} different worker(s)${checks.length
-          ? " · your checklist applies to single-part asks; the live page writes one per part"
-          : ""}${LIVE ? "" : (MOBILE ? " · copy each part, paste it into your Claude, mark worked/didn't here · one-tap real runs: open this repo in Claude Code and say the task" : " · tapping run also copies the part · exact-model runs: open this repo in Claude Code and say the task")}</div>
-      ${learnedNote ? `<div class="learned ${learnedNote.cls}">
-        ${learnedNote.text}</div>` : ""}`;
-    wireClose();
-    box.querySelectorAll("[data-copy]").forEach(b => b.onclick = async () => {
-      const d = window.__parts[+b.dataset.copy];
-      try { await navigator.clipboard.writeText(d.text); b.textContent = "copied"; }
-      catch { window.prompt("copy the part:", d.text); }
-    });
-    box.querySelectorAll("[data-launch]").forEach(a =>
-      a.addEventListener("click", () => {
-        const d = window.__parts[+a.dataset.launch];
-        if (a.dataset.worker) d.ran = a.dataset.worker;
-        try { navigator.clipboard.writeText(d.text); } catch (error) {}
-      }));
-    box.querySelectorAll("[data-good]").forEach(b => b.onclick = () =>
-      partVerdict(+b.dataset.good, true));
-    box.querySelectorAll("[data-bad]").forEach(b => b.onclick = () =>
-      partVerdict(+b.dataset.bad, false));
-    box.querySelectorAll("[data-run]").forEach(b => b.onclick = () =>
-      runPart(+b.dataset.run));
-    box.querySelectorAll("[data-qswap]").forEach(b => b.onclick = () => {
-      const i = +b.dataset.qswap;
-      window.__qpref = window.__qpref || {};
-      window.__qpref[i] = window.__parts[i].best.id;
-      renderParts(window.__partsArgs.parts, window.__partsArgs.checks);
+    // Training changes rooms only. It must not turn a spotlight transition
+    // into a repository request; the owner opens Manager after the tour.
+    if (name === "manager" && options.passive !== true
+      && !document.body.classList.contains("tour-open"))
+      managerEnsureBooted();
+    if (name === "results") renderResults();
+    if (name === "work" && options.focusContent !== false) requestAnimationFrame(() => {
+      const target = document.getElementById("projectGoal");
+      if (target && !document.getElementById("projectBoard").hidden)
+        document.getElementById("addTask").focus();
+      else if (target) target.focus();
     });
   }
 
-  async function partVerdict(i, worked) {
-    const d = window.__parts[i];
-    if (!d.top) return;
-    const who = { skill: d.skill, id: d.ran || d.top.id };
-    const state = document.getElementById("pstate-" + i);
-    if (LIVE) {
-      await postOutcome(worked, worked ? null : "worker", "", d.text, [], who, "");
-      state.textContent = worked ? "recorded accepted" : "recorded rejected";
-    } else {
-      state.textContent = learn(worked, worked ? null : "worker", who);
+  function renderResults() {
+    const ledger = LIVE && data().configured ? data().ledgerFeedback : null;
+    const rows = ledger ? (ledger.rows || []).map(row => ({
+      skill: row.skill, worker: row.worker, s: row.accepted || 0,
+      f: row.modelRejected || 0, other: row.otherRejected || 0,
+    })) : [];
+    if (!LIVE) {
+      for (const [skill, workers] of Object.entries(local())) {
+        for (const [worker, counts] of Object.entries(workers))
+          rows.push({ skill, worker, s: counts.s || 0, f: counts.f || 0,
+                      other: 0 });
+      }
+      rows.sort((a, b) => (b.s + b.f) - (a.s + a.f)
+        || a.worker.localeCompare(b.worker));
     }
+    const accepted = ledger ? ledger.accepted
+      : rows.reduce((sum, row) => sum + row.s, 0);
+    const rejected = ledger ? ledger.modelRejected
+      : rows.reduce((sum, row) => sum + row.f, 0);
+    const total = ledger ? ledger.total : accepted + rejected;
+    document.getElementById("resultTotal").textContent = total;
+    document.getElementById("resultAccepted").textContent = accepted;
+    document.getElementById("resultRejected").textContent = rejected;
+    document.getElementById("resultsList").innerHTML = rows.length
+      ? rows.map(row => `<div class="result-row">
+          <span><b>${esc(short(row.worker))}</b><br>
+            <span class="meta">${esc(row.skill.replace("skill:", ""))}</span></span>
+          <span class="learned up">${row.s} worked</span>
+          <span class="learned down">${row.f} model-caused${row.other
+            ? ` · ${row.other} other` : ""}</span>
+        </div>`).join("")
+      : `<div class="empty">${LIVE && !data().configured
+          ? "Connect a workspace before outcomes can be recorded."
+          : "No feedback recorded yet. Complete a task and tell OWI whether it worked."}</div>`;
+    document.getElementById("resultsScope").textContent = LIVE
+      ? (data().configured
+          ? "These feedback counts come from the selected private OWI ledger. Task text and output remain local."
+          : "No private ledger is active, so this view contains no model outcomes.")
+      : "This view shows feedback stored in this browser. No prompt or output is uploaded by this page.";
+    if (typeof WORKFLOW_PROJECT !== "undefined") workflowRenderProjectResults();
   }
 
-  async function runPart(i) {
-    const d = window.__parts[i];
-    if (!d.top) return;
-    const who = { skill: d.skill, id: d.top.id };
-    const state = document.getElementById("pstate-" + i);
-    const out = document.getElementById("pout-" + i);
-    let model = modelOf(who.id);
-    if (!(data().runnable || []).includes(model)) {
-      const { rows } = evaluate(d.skill, 1500 + Math.floor(d.text.length / 4),
-                                800, window.__privacy);
-      const alt = rows.find(r => (data().runnable || []).includes(modelOf(r.id)));
-      if (!alt) { state.textContent = "no runner configured"; return; }
-      who.id = alt.id; model = modelOf(alt.id);
-      state.textContent = `running with ${short(alt.id)} (cheapest runnable)…`;
-    } else {
-      state.textContent = "running via your CLI…";
+  document.querySelectorAll("[data-view]").forEach(button =>
+    button.addEventListener("click", () => switchView(button.dataset.view)));
+  document.querySelectorAll("[data-open-view]").forEach(button =>
+    button.addEventListener("click", () => switchView(button.dataset.openView)));
+  const skinSelect = document.getElementById("skin");
+  const savedSkin = preferenceStorage.get("owi-office-skin-v1", "bright");
+  skinSelect.value = ["bright", "human", "night"].includes(savedSkin)
+    ? savedSkin : "bright";
+  if (skinSelect.value === "bright") document.documentElement.removeAttribute("data-skin");
+  else document.documentElement.dataset.skin = skinSelect.value;
+  skinSelect.addEventListener("change", () => {
+    const skin = skinSelect.value;
+    if (skin === "bright") document.documentElement.removeAttribute("data-skin");
+    else document.documentElement.dataset.skin = skin;
+    preferenceStorage.set("owi-office-skin-v1", skin);
+  });
+  // ---------------------------------------------------------------------
+  // Server-authoritative project workflow
+  // ---------------------------------------------------------------------
+  // The browser never chooses a model for a live run. It sends a project or
+  // task ID; the local server resolves the saved Rust allocation and derives
+  // the worker, model, prompt and ledger identity itself.
+  let WORKFLOW_PROJECT = null;
+  let WORKFLOW_BUSY = false;
+  let WORKFLOW_CREATING = false;
+
+  const workflowStatusLabel = (status) => ({
+    draft: "draft", unstaffed: "needs staffing", staffed: "staffed",
+    setup_required: "runner required", running: "running",
+    needs_review: "ready to review", accepted: "accepted",
+    rejected: "needs work", run_failed: "run failed",
+  }[status] || String(status || "unknown").replaceAll("_", " "));
+
+  const workflowMoney = (micros) => micros !== null && micros !== undefined
+    && micros !== "" && Number.isFinite(Number(micros))
+    ? "$" + (Number(micros) / 1e6).toFixed(4) : "not available";
+
+  const workflowChecklist = (value) => Array.isArray(value)
+    ? value.map(item => typeof item === "string" ? item : (item.item || ""))
+        .map(item => item.trim()).filter(Boolean)
+    : String(value || "").split("\n").map(item => item.trim()).filter(Boolean);
+
+  const workflowPath = (projectId, taskId, suffix) =>
+    `/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}${suffix || ""}`;
+
+  function workflowNotice(message, error) {
+    const notice = document.getElementById("workflowNotice");
+    notice.textContent = message || "";
+    notice.classList.toggle("error", Boolean(error));
+  }
+
+  function workflowErrorMessage(error) {
+    return error && error.message ? error.message : "The local OWI server did not complete the request.";
+  }
+
+  async function workflowRequest(path, options) {
+    const request = { method: "GET", credentials: "same-origin", ...(options || {}) };
+    if (request.body !== undefined) {
+      request.headers = { "Content-Type": "application/json", ...(request.headers || {}) };
+      if (typeof request.body !== "string") request.body = JSON.stringify(request.body);
     }
+    const response = await fetch(path, request);
+    let payload = {};
+    try { payload = await response.json(); }
+    catch (error) { payload = {}; }
+    if (!response.ok) {
+      const message = payload.error || payload.message ||
+        `OWI returned ${response.status} ${response.statusText}`;
+      throw new Error(message);
+    }
+    return payload;
+  }
+
+  // ---------------------------------------------------------------------
+  // GitHub Manager: read-only observation -> explicit local draft import
+  // ---------------------------------------------------------------------
+  // GitHub credentials never enter this page. The local server owns auth,
+  // repository visibility, lane classification and every reported count.
+  const MANAGER_BASE = "/api/v1/github";
+  const MANAGER_LANE_ORDER = [
+    ["incoming", "Incoming"], ["draft", "Draft"],
+    ["staffing", "Staffing"], ["running", "Running"],
+    ["review", "Review"], ["done", "Done"], ["blocked", "Blocked"],
+  ];
+  let MANAGER_BOOTED = false;
+  let MANAGER_BUSY = false;
+  let MANAGER_STATUS = null;
+  let MANAGER_REPOSITORIES = [];
+  let MANAGER_SELECTED_REPOSITORY = null;
+  let MANAGER_ITEMS = [];
+  let MANAGER_DETAIL = null;
+  let MANAGER_LAST_FOCUS = null;
+
+  async function managerRequest(path, options) {
+    const request = { method: "GET", credentials: "same-origin", ...(options || {}) };
+    if (request.body !== undefined) {
+      request.headers = { "Content-Type": "application/json", ...(request.headers || {}) };
+      if (typeof request.body !== "string") request.body = JSON.stringify(request.body);
+    }
+    const response = await fetch(path, request);
+    let payload = {};
+    try { payload = await response.json(); }
+    catch (_) { payload = {}; }
+    if (!response.ok) {
+      const error = new Error(payload.error || payload.message ||
+        `OWI returned ${response.status} ${response.statusText}`);
+      error.httpStatus = response.status;
+      error.managerCode = payload.code || "";
+      error.resetAt = payload.resetAt || payload.rateLimitResetAt || null;
+      throw error;
+    }
+    return payload;
+  }
+
+  function managerSafeUrl(value) {
     try {
-      const response = await fetch("/api/run", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model, task: d.text, skill: d.skill, check: [] }) });
-      const result = await response.json();
-      out.hidden = false;
-      if (!response.ok) { out.textContent = result.error; state.textContent = ""; return; }
-      out.textContent = result.output || result.stderr || "(no output)";
-      const inspection = result.inspection ? result.inspection.level : "";
-      const rep = document.getElementById("prep-" + i);
-      if (result.inspection)
-        rep.innerHTML = `<div class="open">inspection:
-          ${esc(result.inspection.level)} — ${esc(result.inspection.why)}</div>`;
-      if (!result.check) {
-        state.textContent = result.exit === 0
-          ? "done — worked or didn't?" : `exit ${result.exit}`;
+      const url = new URL(String(value || ""));
+      const trustedHost = url.hostname === "github.com";
+      const trustedPort = url.port === "" || url.port === "443";
+      return url.protocol === "https:" && trustedHost && trustedPort
+        && !url.username && !url.password ? url.href : "";
+    } catch (_) { return ""; }
+  }
+
+  function managerWhen(value) {
+    if (!value) return "time not reported";
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return "time not reported";
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium", timeStyle: "short",
+    }).format(date);
+  }
+
+  function managerErrorText(error) {
+    if (!error) return "The local GitHub Manager did not complete the request.";
+    const reset = error.resetAt ? ` Try again after ${managerWhen(error.resetAt)}.` : "";
+    if (error.httpStatus === 429 || error.managerCode === "github_rate_limited")
+      return `GitHub rate limit reached.${reset}`;
+    if (error.httpStatus === 403 || error.managerCode === "github_permission_denied")
+      return "GitHub permission denied for this repository. Change server-side credential permissions; no credential belongs in this page.";
+    if (error.httpStatus === 401 || error.managerCode === "github_auth_failed")
+      return "The server-side GitHub credential was rejected. Replace it outside the browser, then retry.";
+    if (error.httpStatus === 502)
+      return "GitHub is unavailable. The last observed local snapshot, if any, has not been replaced.";
+    return error.message || "The local GitHub Manager did not complete the request.";
+  }
+
+  function managerRepoNotice(message, error) {
+    const state = document.getElementById("managerRepoState");
+    state.textContent = message || "";
+    state.classList.toggle("error", Boolean(error));
+  }
+
+  function managerOfferRetry(show) {
+    document.getElementById("managerRetry").hidden = !show;
+  }
+
+  function managerShowFailureState(error) {
+    const badge = document.getElementById("managerStatus");
+    if (error && (error.httpStatus === 401 || error.managerCode === "github_auth_failed"))
+      badge.textContent = "GitHub credential rejected";
+    else if (error && (error.httpStatus === 429 || error.managerCode === "github_rate_limited"))
+      badge.textContent = "GitHub rate limited";
+    else if (error && error.httpStatus === 403)
+      badge.textContent = "GitHub permission denied";
+    else badge.textContent = LIVE
+      ? "Local GitHub Manager unavailable" : "Static preview · Manager unavailable";
+    badge.classList.remove("connected");
+    if (MANAGER_SELECTED_REPOSITORY) {
+      document.getElementById("managerObservationNote").textContent =
+        `Stale cached snapshot · new observation failed · last observed ${managerWhen(MANAGER_STATUS && MANAGER_STATUS.lastSyncAt)}. Retained values have not been presented as current.`;
+      for (const id of ["managerOpenIssues", "managerOpenPrs", "managerFailedCi",
+        "managerSelectedWork", "managerWaitingOwner"]) {
+        if (document.getElementById(id).textContent !== "—")
+          document.getElementById(`${id}Note`).textContent = "stale cached server count";
+      }
+    }
+    managerOfferRetry(true);
+  }
+
+  function managerSetBusy(busy, label) {
+    MANAGER_BUSY = Boolean(busy);
+    const search = document.getElementById("managerRepoSearchButton");
+    const select = document.getElementById("managerRepoSelect");
+    const load = document.getElementById("managerRepoLoad");
+    search.disabled = MANAGER_BUSY;
+    select.disabled = MANAGER_BUSY || !MANAGER_REPOSITORIES.length;
+    load.disabled = MANAGER_BUSY || !select.value;
+    load.textContent = MANAGER_BUSY ? (label || "Observing…") : "Observe selected repository";
+  }
+
+  function managerAuthLabel(status) {
+    if (LIVE && data().mode === "demo") return "Explicit demo · GitHub not simulated";
+    switch (status && status.authMode) {
+      case "fine_grained_pat": return status.credentialVerified === true
+        ? "Credential verified · fine-grained read access"
+        : status.credentialConfigured === true
+          ? "Credential configured · verification pending"
+          : "Fine-grained credential missing";
+      case "github_app_user_token": return status.credentialVerified === true
+        ? "Credential verified · GitHub App read access"
+        : status.credentialConfigured === true
+          ? "GitHub App credential configured · verification pending"
+          : "GitHub App credential missing";
+      case "public_only": return "Public repository read access";
+      default: return "GitHub setup required";
+    }
+  }
+
+  function managerApplyStatus(status) {
+    MANAGER_STATUS = status || null;
+    const badge = document.getElementById("managerStatus");
+    const safety = document.getElementById("managerSafety");
+    const safeContract = Boolean(status && status.version === "v1"
+      && status.readOnly === true && status.githubWriteEnabled === false);
+    badge.textContent = managerAuthLabel(status);
+    const accessVerified = status && (status.authMode === "public_only"
+      || status.credentialVerified === true);
+    badge.classList.toggle("connected", safeContract && accessVerified
+      && !(LIVE && data().mode === "demo"));
+    safety.textContent = safeContract
+      ? "Read-only on-demand snapshots · source code is not downloaded or scanned · no automatic action"
+      : "Manager disabled: the local server did not confirm the read-only v1 safety contract";
+    const selected = status && status.selectedRepository;
+    const privateAccessVerified = Boolean(status && status.credentialVerified === true
+      && status.privateRepositoriesAvailable === true);
+    const selectedMayBeShown = Boolean(selected
+      && (selected.private !== true || privateAccessVerified));
+    if (!safeContract || selected && !selectedMayBeShown) {
+      managerHideObservation(selected
+        ? "A cached private selection is hidden until the current server credential is verified."
+        : "No repository observation is available.");
+    } else if (status && status.summary) {
+      managerPaintSummary(status.summary, "last server-reported observation");
+    }
+    if (selectedMayBeShown) {
+      MANAGER_SELECTED_REPOSITORY = status.selectedRepository;
+      managerPaintSelectedRepository(status.selectedRepository, status.lastSyncAt);
+    }
+    return safeContract;
+  }
+
+  function managerHideObservation(message) {
+    MANAGER_SELECTED_REPOSITORY = null;
+    MANAGER_ITEMS = [];
+    document.getElementById("managerSelectedRepo").hidden = true;
+    document.getElementById("managerSelectedRepoName").textContent = "";
+    document.getElementById("managerSelectedRepoMeta").textContent = "";
+    document.getElementById("managerLanes").hidden = true;
+    const empty = document.getElementById("managerBoardEmpty");
+    empty.hidden = false;
+    empty.textContent = message || "No repository has been observed in this browser session.";
+    managerPaintSummary({}, "not available");
+  }
+
+  function managerPaintMetric(id, value, evidence) {
+    const number = Number(value);
+    const known = value !== null && value !== undefined && Number.isFinite(number);
+    document.getElementById(id).textContent = known ? String(number) : "—";
+    document.getElementById(`${id}Note`).textContent = known ? evidence : "unknown · not reported";
+  }
+
+  function managerPaintSummary(summary, evidence) {
+    const values = summary || {};
+    managerPaintMetric("managerOpenIssues", values.openIssues, evidence);
+    managerPaintMetric("managerOpenPrs", values.openPullRequests, evidence);
+    managerPaintMetric("managerFailedCi",
+      values.failedActionRuns ?? values.failedCi, evidence);
+    managerPaintMetric("managerSelectedWork", values.selectedWork, evidence);
+    managerPaintMetric("managerWaitingOwner", values.waitingForOwner, evidence);
+  }
+
+  function managerPaintSelectedRepository(repository, observedAt) {
+    const box = document.getElementById("managerSelectedRepo");
+    box.hidden = false;
+    document.getElementById("managerSelectedRepoName").textContent =
+      repository.fullName || repository.name || "Selected repository";
+    const visibility = repository.private === true ? "private" : "public";
+    const archived = repository.archived === true ? " · archived" : "";
+    document.getElementById("managerSelectedRepoMeta").textContent =
+      `${visibility}${archived} · default branch ${repository.defaultBranch || "not reported"} · last observed ${managerWhen(observedAt)}`;
+  }
+
+  function managerFilterRepositories() {
+    const query = document.getElementById("managerRepoQuery").value.trim().toLowerCase();
+    const select = document.getElementById("managerRepoSelect");
+    const previous = select.value;
+    const visible = MANAGER_REPOSITORIES.filter(repository =>
+      !query || String(repository.fullName || repository.name || "").toLowerCase().includes(query));
+    select.replaceChildren();
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = visible.length
+      ? "Select a repository" : "No server-visible repository matches";
+    select.append(placeholder);
+    for (const repository of visible) {
+      const option = document.createElement("option");
+      option.value = String(repository.id);
+      option.textContent = `${repository.fullName || repository.name}${repository.private ? " · private" : " · public"}${repository.archived ? " · archived" : ""}`;
+      select.append(option);
+    }
+    if (visible.some(repository => String(repository.id) === previous)) select.value = previous;
+    else if (MANAGER_SELECTED_REPOSITORY
+      && visible.some(repository => String(repository.id) === String(MANAGER_SELECTED_REPOSITORY.id)))
+      select.value = String(MANAGER_SELECTED_REPOSITORY.id);
+    select.disabled = MANAGER_BUSY || !visible.length;
+    document.getElementById("managerRepoLoad").disabled = MANAGER_BUSY || !select.value;
+    managerRepoNotice(visible.length
+      ? `${visible.length} server-returned repositor${visible.length === 1 ? "y" : "ies"} shown. Filtering does not contact GitHub.`
+      : "No matching repository was returned by the local server.");
+  }
+
+  async function managerLoadRepositories() {
+    const payload = await managerRequest(`${MANAGER_BASE}/repositories`);
+    MANAGER_REPOSITORIES = Array.isArray(payload.repositories) ? payload.repositories : [];
+    try { managerApplyStatus(await managerRequest(`${MANAGER_BASE}/status`)); }
+    catch (_) { /* Repository response remains authoritative for this catalog. */ }
+    managerFilterRepositories();
+    if (payload.truncated === true)
+      managerRepoNotice(`${MANAGER_REPOSITORIES.length} repositories loaded from a partial catalog. The server safety cap omitted additional repositories; this list is not presented as complete.`);
+    else if (payload.nextPage !== null && payload.nextPage !== undefined)
+      managerRepoNotice(`${MANAGER_REPOSITORIES.length} repositories loaded; the server reports an additional catalog page.`);
+    return payload;
+  }
+
+  function managerSummaryFromObservation(sync, items) {
+    return {
+      openIssues: sync && sync.openIssues !== undefined ? sync.openIssues : null,
+      openPullRequests: sync && sync.openPullRequests !== undefined ? sync.openPullRequests : null,
+      failedActionRuns: sync && sync.failedActionRuns !== undefined
+        ? sync.failedActionRuns
+        : sync && sync.failedCi !== undefined ? sync.failedCi : null,
+      selectedWork: sync && sync.selectedWork !== undefined ? sync.selectedWork : null,
+      waitingForOwner: sync && sync.waitingForOwner !== undefined ? sync.waitingForOwner : null,
+    };
+  }
+
+  function managerItemById(id) {
+    return MANAGER_ITEMS.find(item => String(item.id) === String(id));
+  }
+
+  function managerSourceLabel(item) {
+    const type = ({ issue: "issue", pull_request: "pull request",
+      action_failure: "failed Actions run" })[item.sourceType] || "source item";
+    return item.sourceNumber === null || item.sourceNumber === undefined
+      ? type : `${type} #${item.sourceNumber}`;
+  }
+
+  function managerWorkItemCard(item) {
+    const url = managerSafeUrl(item.url);
+    const labels = Array.isArray(item.labels) ? item.labels.slice(0, 3) : [];
+    const flags = [item.selectedForWork === true ? "selected work" : "",
+      item.waitingForOwner === true ? "waiting for owner" : "",
+      item.stale === true ? "stale cached item" : "",
+      item.observedAt ? `observed ${managerWhen(item.observedAt)}` : "observation time unknown",
+      item.importedTaskId ? "local draft imported" : ""].filter(Boolean);
+    const metadata = [String(item.state || "state not reported"), ...labels, ...flags].join(" · ");
+    return `<article class="manager-work-item">
+      <div class="manager-work-item-top"><span class="manager-source">${esc(managerSourceLabel(item))}</span><time datetime="${esc(item.updatedAt || "")}">${esc(managerWhen(item.updatedAt))}</time></div>
+      <h4>${esc(item.title || "Untitled source item")}</h4>
+      <div class="manager-item-meta">${esc(metadata)}</div>
+      <div class="manager-item-actions"><button type="button" data-manager-detail="${esc(item.id)}">${item.importedTaskId ? "View imported draft" : "Review & create draft"}</button>${url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="Open ${esc(managerSourceLabel(item))} on GitHub">↗</a>` : ""}</div>
+    </article>`;
+  }
+
+  function managerRenderLanes(items, repository, observedAt, stale, partial, cached) {
+    MANAGER_ITEMS = Array.isArray(items) ? items : [];
+    MANAGER_SELECTED_REPOSITORY = repository || MANAGER_SELECTED_REPOSITORY;
+    if (MANAGER_SELECTED_REPOSITORY)
+      managerPaintSelectedRepository(MANAGER_SELECTED_REPOSITORY, observedAt);
+    const lanes = document.getElementById("managerLanes");
+    const empty = document.getElementById("managerBoardEmpty");
+    lanes.hidden = false;
+    empty.hidden = true;
+    const allowed = new Set(MANAGER_LANE_ORDER.map(([key]) => key));
+    const unclassified = MANAGER_ITEMS.filter(item => !allowed.has(item.lane));
+    lanes.innerHTML = MANAGER_LANE_ORDER.map(([key, label]) => {
+      const rows = MANAGER_ITEMS.filter(item => item.lane === key);
+      return `<section class="manager-lane" data-lane="${key}" aria-labelledby="manager-lane-${key}">
+        <div class="manager-lane-head"><strong id="manager-lane-${key}">${label}</strong><span class="manager-lane-count" aria-label="${rows.length} loaded items">${rows.length}</span></div>
+        <div class="manager-lane-items">${rows.length ? rows.map(managerWorkItemCard).join("") : `<div class="manager-lane-empty">No server-returned items in this lane.</div>`}</div>
+      </section>`;
+    }).join("");
+    const note = document.getElementById("managerObservationNote");
+    const time = managerWhen(observedAt);
+    const hasStaleItems = MANAGER_ITEMS.some(item => item.stale === true);
+    const snapshotState = stale && partial
+      ? cached ? "Partial stale cached snapshot"
+        : hasStaleItems ? "Partial on-demand snapshot with stale retained items"
+          : "Partial on-demand snapshot"
+      : stale ? "Stale cached snapshot"
+        : partial ? `${cached ? "Partial cached" : "Partial on-demand"} snapshot`
+          : cached ? "Cached snapshot" : "On-demand snapshot";
+    note.textContent = `${snapshotState} · last observed ${time} · ${MANAGER_ITEMS.length} work item${MANAGER_ITEMS.length === 1 ? "" : "s"} returned by the server. Source code was not downloaded or scanned. Repository totals above remain server-reported.`;
+    document.getElementById("managerBoardTruth").textContent = unclassified.length
+      ? `${unclassified.length} item${unclassified.length === 1 ? " was" : "s were"} not placed because the server did not return a recognized lane. No client-side lane was invented.`
+      : "Lanes come from the local server. Selecting a repository does not select work, create a task, staff a worker, run a model, spend money or write to GitHub.";
+  }
+
+  async function managerLoadObservedItems(repositoryId, observedAt, cached) {
+    const payload = await managerRequest(`${MANAGER_BASE}/work-items?repositoryId=${encodeURIComponent(repositoryId)}`);
+    const repository = payload.repository || MANAGER_SELECTED_REPOSITORY;
+    managerPaintSummary(payload.summary || {}, "server-reported repository count");
+    const coverage = payload.coverage && Object.values(payload.coverage);
+    const partial = payload.partial === true || Boolean(MANAGER_STATUS && MANAGER_STATUS.partial)
+      || Boolean(coverage && coverage.some(value => value.status !== "observed"
+        || value.truncated === true));
+    managerRenderLanes(payload.workItems, repository, observedAt,
+      payload.stale === true,
+      partial, Boolean(cached));
+    managerOfferRetry(false);
+    return payload;
+  }
+
+  function managerObservationTruth(payload, cached) {
+    const sync = payload && payload.sync || {};
+    const coverage = payload && payload.coverage || sync.coverage || {};
+    const warning = payload && payload.warning || {};
+    const outcome = payload && payload.outcome;
+    const labels = {
+      issue: "issues", pull_request: "pull requests",
+      action_failure: "failed Actions run history",
+    };
+    const problems = Object.entries(coverage).filter(([, value]) => value
+      && (value.error || value.status === "unknown" || value.status === "partial"
+        || value.truncated === true));
+    const names = problems.map(([kind]) => labels[kind]).filter(Boolean).join(", ");
+    const warningProblems = Array.isArray(warning.problems) ? warning.problems : [];
+    const values = [...problems.map(([, value]) => value),
+      ...warningProblems.map(value => ({ ...value, error: value.code }))];
+    const rate = values.find(value => value.error === "rate_limited");
+    const permission = values.find(value => value.error === "permission_denied");
+    const resetAt = rate && rate.resetAt
+      || sync.rateLimit && sync.rateLimit.resetAt
+      || MANAGER_STATUS && MANAGER_STATUS.rateLimit && MANAGER_STATUS.rateLimit.resetAt;
+    const retrySeconds = rate && Number(rate.retryAfterSeconds);
+    const retryInstruction = resetAt ? ` until ${managerWhen(resetAt)}`
+      : Number.isFinite(retrySeconds) && retrySeconds >= 0
+        ? `; retry manually after ${retrySeconds} seconds` : "";
+    const partial = Boolean(payload && payload.partial === true || sync.partial === true
+      || problems.length);
+    const stale = Boolean(payload && payload.stale === true);
+    const hasStaleItems = Boolean(payload && Array.isArray(payload.workItems)
+      && payload.workItems.some(item => item.stale === true));
+    const retainedTruth = hasStaleItems
+      ? "Any retained items shown are stale."
+      : "No retained item is implied for unavailable categories.";
+    const prefix = cached ? "Cached snapshot" : "On-demand snapshot";
+    if (rate) return {
+      problem: true,
+      message: `${prefix} is partial. ${retainedTruth} GitHub rate limited ${names || "repository evidence"}${retryInstruction}; unavailable totals remain unknown, never zero.`,
+    };
+    if (permission) return {
+      problem: true,
+      message: `${prefix} is partial. ${retainedTruth} GitHub permission is unavailable for ${names || "some repository evidence"}; those totals remain unknown, never zero.`,
+    };
+    if (!cached && outcome === "failed") return {
+      problem: true,
+      message: "On-demand snapshot failed. No new complete repository observation was recorded; retained values are stale and unavailable totals remain unknown, never zero.",
+    };
+    if (partial || stale) return {
+      problem: true,
+      message: `${prefix} is ${partial ? "partial" : "stale"}${names ? ` for ${names}` : ""}. Cached items may be retained and unavailable totals remain unknown, never zero.`,
+    };
+    if (!cached && outcome !== "complete") return {
+      problem: true,
+      message: "The server did not confirm a complete on-demand snapshot. No result is presented as current.",
+    };
+    return { problem: false, message: cached
+      ? "Cached snapshot loaded. Use Observe to request a new on-demand snapshot."
+      : "On-demand snapshot observed. Review a source item before creating any local draft." };
+  }
+
+  async function managerObserveSelectedRepository() {
+    if (MANAGER_BUSY) return;
+    const select = document.getElementById("managerRepoSelect");
+    const repositoryId = select.value;
+    if (!repositoryId) return;
+    managerSetBusy(true, "Observing…");
+    managerRepoNotice("Requesting an on-demand read-only GitHub observation. No repository content is cloned or scanned.");
+    try {
+      const payload = await managerRequest(
+        `${MANAGER_BASE}/repositories/${encodeURIComponent(repositoryId)}/sync`,
+        { method: "POST", body: {} });
+      const observedAt = payload.sync && payload.sync.syncedAt;
+      MANAGER_SELECTED_REPOSITORY = payload.repository || null;
+      if (MANAGER_STATUS) MANAGER_STATUS = { ...MANAGER_STATUS,
+        selectedRepository: payload.repository || null, lastSyncAt: observedAt || null,
+        stale: payload.stale === true,
+        partial: payload.partial === true || Boolean(payload.sync && payload.sync.partial) };
+      managerPaintSummary(managerSummaryFromObservation(payload.sync, payload.workItems),
+        "server-reported repository count");
+      managerRenderLanes(payload.workItems, payload.repository, observedAt,
+        payload.stale === true,
+        Boolean(payload.sync && payload.sync.partial));
+      let observed = null;
+      try { observed = await managerLoadObservedItems(repositoryId, observedAt, false); }
+      catch (_) { /* The explicit observation remains visible with unknown optional counts. */ }
+      managerOfferRetry(false);
+      const truth = managerObservationTruth(observed
+        ? { ...payload, ...observed, sync: payload.sync,
+            partial: payload.partial === true || observed.partial === true,
+            stale: payload.stale === true || observed.stale === true }
+        : payload, false);
+      managerRepoNotice(truth.message, truth.problem);
+    } catch (error) {
+      managerRepoNotice(managerErrorText(error), true);
+      managerShowFailureState(error);
+    } finally { managerSetBusy(false); }
+  }
+
+  async function managerEnsureBooted() {
+    if (MANAGER_BOOTED) return;
+    MANAGER_BOOTED = true;
+    managerRepoNotice("Loading the local server safety contract and repository catalog.");
+    try {
+      const status = await managerRequest(`${MANAGER_BASE}/status`);
+      managerOfferRetry(false);
+      if (!managerApplyStatus(status)) {
+        managerRepoNotice("Manager is disabled until the server reports readOnly=true and githubWriteEnabled=false.", true);
+        managerOfferRetry(true);
         return;
       }
-      const marks = { true: ["✓", "ok"], false: ["✗", "fail"], null: ["?", "open"] };
-      rep.innerHTML += result.check.items.map(it => {
-        const [mark, cls] = marks[it.pass];
-        return `<div class="${cls}">[${mark}] ${esc(it.item)} — ${esc(it.note)}</div>`;
-      }).join("");
-      const judged = result.check.judge ? ` · judge: ${result.check.judge}` : "";
-      if (result.check.verdict === "accepted") {
-        await postOutcome(true, null, "", d.text, result.check.items, who, inspection);
-        state.textContent = `passed${judged} → recorded accepted`;
-      } else if (result.check.verdict === "rejected") {
-        const det = result.check.items.filter(x => x.pass === false)
-          .map(x => `failed: ${x.item} (${x.note})`).join("; ");
-        await postOutcome(false, "worker", det, d.text, result.check.items, who, inspection);
-        state.textContent = `failed${judged} → recorded rejected`;
-      } else {
-        state.textContent = `not fully checked${judged} — worked/didn't is your call`;
+      if (!status.configured || status.authMode === "unconfigured") {
+        managerRepoNotice(LIVE && data().mode === "demo"
+          ? "Explicit demo mode contains no simulated GitHub repository. Configure GitHub on a real local OWI server."
+          : "Restart the local Office with --github-owner OWNER for public repositories, or --github-token-file PATH plus --github-auth-mode fine_grained_pat for private read access. The credential file stays server-side; this page has no token field.");
+        managerOfferRetry(true);
+        return;
       }
-    } catch (error) { state.textContent = "server went away"; }
-  }
-
-  async function runIt(text, checks) {
-    const state = document.getElementById("runstate");
-    const out = document.getElementById("out");
-    state.textContent = "running via your CLI…";
-    try {
-      const response = await fetch("/api/run", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: modelOf(last.id), task: text,
-                               skill: last.skill, check: checks || [] }) });
-      const result = await response.json();
-      out.hidden = false;
-      if (!response.ok) { out.textContent = result.error; state.textContent = ""; return; }
-      out.textContent = result.output || result.stderr || "(no output)";
-      window.__inspection = result.inspection ? result.inspection.level : "";
-      if (result.inspection)
-        document.getElementById("checkrep").innerHTML =
-          `<div class="open">inspection: ${esc(result.inspection.level)} — ${esc(result.inspection.why)}</div>`;
-      if (result.check) { await applyCheck(result.check, text); return; }
-      state.textContent = result.exit === 0 ? "done — worked or didn't?"
-                                            : `exit ${result.exit}`;
-    } catch (error) { state.textContent = "server went away"; }
-  }
-
-  // The checklist verdict is earned, not asked for: decisive results are
-  // recorded to the real ledger immediately, and the report stays on screen.
-  async function applyCheck(report, task) {
-    const marks = { true: ["✓", "ok"], false: ["✗", "fail"], null: ["?", "open"] };
-    document.getElementById("checkrep").innerHTML +=
-      report.items.map(i => {
-        const [mark, cls] = marks[i.pass];
-        return `<div class="${cls}">[${mark}] ${esc(i.item)} — ${esc(i.note)}</div>`;
-      }).join("");
-    const state = document.getElementById("runstate");
-    const judged = report.judge ? ` · judge: ${report.judge}` : "";
-    if (report.verdict === "accepted") {
-      await postOutcome(true, null, "", task, report.items);
-      state.textContent = `checklist passed${judged} → recorded accepted`;
-      hideManualVerdict();
-    } else if (report.verdict === "rejected") {
-      const detail = report.items.filter(i => i.pass === false)
-        .map(i => `failed: ${i.item} (${i.note})`).join("; ");
-      await postOutcome(false, "worker", detail, task, report.items);
-      state.textContent =
-        `checklist failed${judged} → recorded rejected (worker)`;
-      hideManualVerdict();
-    } else {
-      state.textContent = `could not verify every item${judged} — your call below`;
+      await managerLoadRepositories();
+      const currentStatus = MANAGER_STATUS || status;
+      if (currentStatus.selectedRepository) {
+        const select = document.getElementById("managerRepoSelect");
+        select.value = String(currentStatus.selectedRepository.id);
+        managerSetBusy(false);
+        try {
+          const observed = await managerLoadObservedItems(currentStatus.selectedRepository.id,
+            currentStatus.lastSyncAt, true);
+          const truth = managerObservationTruth(observed, true);
+          managerRepoNotice(truth.message, truth.problem);
+        } catch (error) {
+          managerRepoNotice(managerErrorText(error), true);
+          managerShowFailureState(error);
+        }
+      }
+    } catch (error) {
+      managerShowFailureState(error);
+      document.getElementById("managerSafety").textContent =
+        "Open the local OWI server to use repository observation; the published page has no GitHub credentials";
+      managerRepoNotice(managerErrorText(error), true);
+      MANAGER_BOOTED = false;
     }
   }
 
-  async function postOutcome(worked, cause, detail, task, checklist, who,
-                             inspection) {
-    who = who || last;
-    try {
-      const response = await fetch("/api/outcome", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ worker: who.id, skill: who.skill,
-          accepted: worked, cause, detail: detail || "", task: task || "",
-          checklist: checklist || [],
-          privacy: window.__privacy || "private_metadata",
-          inspection: inspection !== undefined ? inspection
-                      : (window.__inspection || "") }) });
-      const result = await response.json();
-      if (result.ok) LIVE = result.data;
-    } catch (error) { /* server went away; the report stays on screen */ }
+  function managerUpdateImportAction() {
+    const confirm = document.getElementById("managerImportConfirm").checked;
+    const hasDestination = Boolean(document.getElementById("managerImportProject").value);
+    const alreadyImported = Boolean(MANAGER_DETAIL && MANAGER_DETAIL.importedTaskId);
+    document.getElementById("managerImportSubmit").disabled =
+      MANAGER_BUSY || !confirm || !hasDestination || alreadyImported;
   }
 
-  function hideManualVerdict() {
-    const yes = document.getElementById("yes");
-    if (yes) yes.closest(".verdict").hidden = true;
-    document.getElementById("causes").hidden = true;
-  }
-
-  async function verdict(worked, cause) {
-    if (!last) return;
-    if (LIVE) {
-      try {
-        const response = await fetch("/api/outcome", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ worker: last.id, skill: last.skill,
-                                 accepted: worked, cause,
-                                 task: document.getElementById("q").value }) });
-        const result = await response.json();
-        if (result.ok) { LIVE = result.data;
-          render({ cls: worked ? "up" : "down",
-                   text: `${short(last.id)} ${worked ? "credited" : "marked down"}
-                     — recorded to your real ledger` });
-          return; }
-      } catch (error) { /* fall through to browser-only */ }
+  function managerApplyPrivacyFloor() {
+    const privacy = document.getElementById("managerImportPrivacy");
+    const privateRepository = Boolean(MANAGER_SELECTED_REPOSITORY
+      && MANAGER_SELECTED_REPOSITORY.private === true);
+    for (const option of privacy.options) {
+      const tooWeak = option.value === "public" || option.value === "private_metadata";
+      option.disabled = privateRepository && tooWeak;
     }
-    render({ cls: worked ? "up" : "down", text: learn(worked, cause) });
+    if (privateRepository && ["public", "private_metadata"].includes(privacy.value))
+      privacy.value = "confidential_content";
+    else if (!privateRepository) privacy.value = "private_metadata";
+    document.getElementById("managerPrivacyFloor").textContent = privateRepository
+      ? "Private repository: Confidential is the minimum. The local server enforces this floor again."
+      : "The local server enforces the selected privacy and will reject a weaker source boundary.";
   }
 
-  // The browser-only Beta update, shared by the buttons, the paste-back
-  // checker, and per-part verdicts. Only worker-caused failures count
-  // against the model, here too.
-  function learn(worked, cause, who) {
-    who = who || last;
-    const store = local();
-    store[who.skill] = store[who.skill] || {};
-    const mine = store[who.skill][who.id] || { s: 0, f: 0 };
-    if (worked) mine.s += 1;
-    else if (!cause || cause === "worker") mine.f += 1;
-    store[who.skill][who.id] = mine;
-    save(store);
-    const p = posterior(who.skill, who.id);
-    return `${short(who.id)} ${worked ? "credited" : "marked down"} — its
-      estimate is now ${(p.a / (p.a + p.b)).toFixed(2)}
-      (${mine.s} worked / ${mine.f} didn't, this browser only)`;
+  function managerSetBackgroundInert(active) {
+    for (const surface of document.querySelectorAll(".app > header,.app > main,.app > footer")) {
+      surface.inert = Boolean(active);
+      if (active) surface.setAttribute("aria-hidden", "true");
+      else surface.removeAttribute("aria-hidden");
+    }
+    document.body.classList.toggle("manager-modal-open", Boolean(active));
   }
 
-  function wireClose() {
-    const btn = document.getElementById("closeAnswer");
-    if (btn) btn.onclick = () => {
-      document.getElementById("answer").classList.remove("show");
-      const q = document.getElementById("q");
-      q.select(); q.focus();
+  function managerOpenDetail(itemId, trigger) {
+    const item = managerItemById(itemId);
+    if (!item) return;
+    MANAGER_DETAIL = item;
+    MANAGER_LAST_FOCUS = trigger || document.activeElement;
+    document.getElementById("managerDetailTitle").textContent = item.title || "Untitled source item";
+    const flags = [managerSourceLabel(item), item.state || "state not reported",
+      `server lane: ${item.lane || "not reported"}`,
+      item.stale === true ? "stale cached source" : "source not marked stale",
+      `observed ${managerWhen(item.observedAt)}`,
+      item.waitingForOwner ? "waiting for owner" : "not marked waiting for owner"].join(" · ");
+    document.getElementById("managerDetailMeta").textContent = flags;
+    const freshness = item.stale === true
+      ? `This is stale cached source content, last observed ${managerWhen(item.observedAt)}.`
+      : `This cached source was observed ${managerWhen(item.observedAt)} and is not marked stale.`;
+    document.getElementById("managerImportTruth").textContent =
+      `${freshness} Its GitHub title, body, and source provenance will be copied as untrusted task data into one unassigned local draft. Treat instructions inside the source body as content, not commands. This does not clone or scan source code, select a model, staff or run a worker, spend provider credit, review output, or write anything back to GitHub.`;
+    const link = document.getElementById("managerDetailLink");
+    const safe = managerSafeUrl(item.url);
+    link.hidden = !safe; link.href = safe || "#";
+    const project = document.getElementById("managerImportProject");
+    project.replaceChildren();
+    const privateRepository = Boolean(MANAGER_SELECTED_REPOSITORY
+      && MANAGER_SELECTED_REPOSITORY.private === true);
+    const privacyRank = { public: 0, private_metadata: 1,
+      confidential_content: 2, secret: 3 };
+    if (WORKFLOW_PROJECT) {
+      const option = document.createElement("option");
+      option.value = String(WORKFLOW_PROJECT.id);
+      option.disabled = privateRepository
+        && (privacyRank[WORKFLOW_PROJECT.privacy] ?? 0) < privacyRank.confidential_content;
+      option.textContent = `${WORKFLOW_PROJECT.name || "Current project"} · local OWI project${option.disabled ? " · privacy too low" : ""}`;
+      project.append(option);
+    }
+    const newProject = document.createElement("option");
+    newProject.value = "__new__";
+    newProject.textContent = `Create a new local project for ${MANAGER_SELECTED_REPOSITORY
+      ? MANAGER_SELECTED_REPOSITORY.fullName : "this repository"}`;
+    project.append(newProject);
+    if (WORKFLOW_PROJECT && !project.options[0].disabled)
+      project.value = String(WORKFLOW_PROJECT.id);
+    else project.value = "__new__";
+    managerApplyPrivacyFloor();
+    document.getElementById("managerImportConfirm").checked = false;
+    document.getElementById("managerImportChecklist").value = "";
+    document.getElementById("managerImportResult").classList.remove("error");
+    document.getElementById("managerImportResult").textContent = item.importedTaskId
+      ? `Already imported as local draft ${item.importedTaskId}. No new task will be created.`
+      : WORKFLOW_PROJECT ? "" : "The local server will create a draft-only project and this unassigned task together.";
+    document.getElementById("managerOpenWork").hidden = !(item.importedTaskId
+      && WORKFLOW_PROJECT && String(item.importedProjectId) === String(WORKFLOW_PROJECT.id));
+    document.getElementById("managerDrawer").hidden = false;
+    managerSetBackgroundInert(true);
+    managerUpdateImportAction();
+    requestAnimationFrame(() => document.getElementById("managerDrawerClose").focus());
+  }
+
+  function managerCloseDetail() {
+    document.getElementById("managerDrawer").hidden = true;
+    managerSetBackgroundInert(false);
+    MANAGER_DETAIL = null;
+    if (MANAGER_LAST_FOCUS && MANAGER_LAST_FOCUS.isConnected
+      && typeof MANAGER_LAST_FOCUS.focus === "function")
+      MANAGER_LAST_FOCUS.focus();
+    else {
+      const fallback = document.querySelector('[data-view="manager"]');
+      if (fallback) fallback.focus();
+    }
+    MANAGER_LAST_FOCUS = null;
+  }
+
+  async function managerImportDraft(event) {
+    event.preventDefault();
+    const destination = document.getElementById("managerImportProject").value;
+    if (MANAGER_BUSY || !MANAGER_DETAIL || !destination
+      || !document.getElementById("managerImportConfirm").checked) return;
+    const button = document.getElementById("managerImportSubmit");
+    MANAGER_BUSY = true; button.disabled = true; button.textContent = "Creating local draft…";
+    const result = document.getElementById("managerImportResult");
+    result.classList.remove("error");
+    result.textContent = "Creating one unassigned local draft. No worker or GitHub write is being requested.";
+    const body = {
+      privacy: document.getElementById("managerImportPrivacy").value,
+      checklist: workflowChecklist(document.getElementById("managerImportChecklist").value),
     };
+    if (destination !== "__new__") body.projectId = destination;
+    const skill = document.getElementById("managerImportSkill").value;
+    if (skill) body.skill = skill;
+    try {
+      const payload = await managerRequest(
+        `${MANAGER_BASE}/work-items/${encodeURIComponent(MANAGER_DETAIL.id)}/import`,
+        { method: "POST", body });
+      if (payload.project) WORKFLOW_PROJECT = payload.project;
+      const created = Boolean(payload.import && payload.import.created);
+      const importedProjectId = payload.project && payload.project.id;
+      const importedTaskId = payload.task && payload.task.id;
+      const itemId = MANAGER_DETAIL.id;
+      MANAGER_DETAIL = { ...MANAGER_DETAIL, importedProjectId, importedTaskId };
+      MANAGER_ITEMS = MANAGER_ITEMS.map(item => String(item.id) === String(itemId)
+        ? MANAGER_DETAIL : item);
+      workflowRenderProject();
+      result.textContent = created
+        ? "Draft created in the local OWI project. It is still unassigned and has not run."
+        : "This source item was already imported. The existing local draft is shown; no duplicate was created.";
+      document.getElementById("managerOpenWork").hidden = false;
+      if (MANAGER_SELECTED_REPOSITORY) {
+        try {
+          const refreshed = await managerLoadObservedItems(MANAGER_SELECTED_REPOSITORY.id,
+            MANAGER_STATUS && MANAGER_STATUS.lastSyncAt, true);
+          const current = (refreshed.workItems || []).find(item => String(item.id) === String(itemId));
+          if (current) MANAGER_DETAIL = current;
+        } catch (_) { managerRenderLanes(MANAGER_ITEMS, MANAGER_SELECTED_REPOSITORY,
+          MANAGER_STATUS && MANAGER_STATUS.lastSyncAt, true, true, true); }
+      }
+    } catch (error) {
+      result.textContent = managerErrorText(error); result.classList.add("error");
+    }
+    finally {
+      MANAGER_BUSY = false; button.textContent = "Create draft task";
+      managerUpdateImportAction();
+    }
   }
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape")
-      document.getElementById("answer").classList.remove("show");
+
+  document.getElementById("managerRepoSearch").addEventListener("submit", event => {
+    event.preventDefault(); managerFilterRepositories();
   });
-  document.getElementById("form").addEventListener("submit", (e) => {
-    e.preventDefault(); window.__qpref = {}; render();
+  document.getElementById("managerRepoQuery").addEventListener("input", managerFilterRepositories);
+  document.getElementById("managerRepoSelect").addEventListener("change", event => {
+    document.getElementById("managerRepoLoad").disabled = MANAGER_BUSY || !event.target.value;
+    managerRepoNotice(event.target.value
+      ? "Repository chosen in the selector. Nothing has been observed or imported yet."
+      : "Choose a server-visible repository.");
   });
-  document.getElementById("reset").addEventListener("click", (e) => {
-    e.preventDefault(); localStorage.removeItem(STORE);
-    document.getElementById("answer").classList.remove("show");
-    document.getElementById("q").value = ""; document.getElementById("q").focus();
+  document.getElementById("managerRepoLoad").addEventListener("click", managerObserveSelectedRepository);
+  document.getElementById("managerRetry").addEventListener("click", async () => {
+    managerOfferRetry(false);
+    if (!MANAGER_STATUS || !MANAGER_STATUS.configured) {
+      MANAGER_BOOTED = false;
+      MANAGER_STATUS = null;
+      await managerEnsureBooted();
+      return;
+    }
+    const selected = document.getElementById("managerRepoSelect").value;
+    if (selected) await managerObserveSelectedRepository();
+    else {
+      try { await managerLoadRepositories(); }
+      catch (error) { managerRepoNotice(managerErrorText(error), true); managerShowFailureState(error); }
+    }
   });
+  document.getElementById("managerLanes").addEventListener("click", event => {
+    const button = event.target.closest("[data-manager-detail]");
+    if (button) managerOpenDetail(button.dataset.managerDetail, button);
+  });
+  document.getElementById("managerImportForm").addEventListener("submit", managerImportDraft);
+  document.getElementById("managerImportConfirm").addEventListener("change", managerUpdateImportAction);
+  document.getElementById("managerDrawerClose").addEventListener("click", managerCloseDetail);
+  document.getElementById("managerImportCancel").addEventListener("click", managerCloseDetail);
+  document.getElementById("managerOpenWork").addEventListener("click", () => {
+    managerCloseDetail(); switchView("work");
+  });
+  document.getElementById("managerDrawer").addEventListener("click", event => {
+    if (event.target.id === "managerDrawer") managerCloseDetail();
+  });
+  document.getElementById("managerDrawer").addEventListener("keydown", event => {
+    if (event.key === "Escape") { event.preventDefault(); managerCloseDetail(); return; }
+    if (event.key !== "Tab") return;
+    const focusable = [...event.currentTarget.querySelectorAll(
+      'button:not([disabled]),a[href]:not([hidden]),select:not([disabled]),textarea:not([disabled]),input:not([disabled])')]
+      .filter(control => control.offsetParent !== null);
+    if (!focusable.length) return;
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault(); last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault(); first.focus();
+    }
+  });
+
+  function workflowSetBusy(button, label) {
+    if (WORKFLOW_BUSY) return false;
+    WORKFLOW_BUSY = true;
+    if (button) {
+      button.dataset.idleLabel = button.textContent;
+      button.textContent = label;
+      button.disabled = true;
+    }
+    document.querySelectorAll("[data-workflow-action]").forEach(control =>
+      control.disabled = true);
+    return true;
+  }
+
+  function workflowClearBusy(button) {
+    WORKFLOW_BUSY = false;
+    if (button && button.dataset.idleLabel)
+      button.textContent = button.dataset.idleLabel;
+    workflowRenderProject();
+  }
+
+  async function workflowRefreshRuntime() {
+    try {
+      const runtime = await workflowRequest("/api/data");
+      if (runtime && runtime.local) LIVE = runtime;
+    } catch (error) { /* The project response remains valid and visible. */ }
+    workflowApplyRuntime();
+    renderCrew();
+    renderResults();
+  }
+
+  function workflowSyncPlanningPrivacy(configured) {
+    const privacy = document.getElementById("projectPrivacy").value;
+    const sensitive = privacy === "confidential_content" || privacy === "secret";
+    const planning = document.getElementById("usePlanningModel");
+    if (sensitive) planning.checked = false;
+    planning.disabled = !configured || sensitive;
+    document.getElementById("planningPrivacyNote").textContent = sensitive
+      ? "Model planning is disabled for Confidential and Secret projects so the project goal is not sent to a planning model. Add or edit the deterministic draft tasks yourself."
+      : "Optional and unchecked by default. It may cost money, and that unmetered planning call is outside the task-forecast budget.";
+  }
+
+  function workflowApplyRuntime() {
+    const configured = Boolean(LIVE && data().configured !== false);
+    const isStatic = !LIVE;
+    const demo = Boolean(LIVE && data().mode === "demo");
+    const runnable = LIVE ? (data().runnable || []) : [];
+    const setup = LIVE ? (data().setup || {}) : {};
+    const connection = document.querySelector(".connection");
+    const label = document.getElementById("connectionLabel");
+    const form = document.getElementById("projectForm");
+    const setupPanel = document.getElementById("setupPanel");
+    const staticNotice = document.getElementById("staticNotice");
+    connection.classList.toggle("attention", isStatic || !configured || demo || !runnable.length);
+    staticNotice.hidden = !isStatic;
+    setupPanel.hidden = isStatic || configured;
+    form.querySelectorAll("input,textarea,select,button").forEach(control => {
+      if (control.id !== "backToProject") control.disabled = isStatic || !configured;
+    });
+    workflowSyncPlanningPrivacy(configured);
+
+    if (isStatic) {
+      label.textContent = "read-only preview";
+      document.getElementById("officeStatus").textContent = "See the real workflow";
+      document.getElementById("officeIntro").textContent =
+        "The published page shows the product and catalog. Real projects, model runs and outputs stay inside your local OWI Office.";
+      document.getElementById("officeCta").textContent = "See project workflow";
+      document.getElementById("footerTruth").textContent =
+        "Read-only preview. It does not access provider credentials, create work or pretend a model ran.";
+      document.getElementById("spendEvidence").textContent =
+        "No execution occurs in the read-only preview";
+      return;
+    }
+    if (!configured) {
+      label.textContent = "local office · setup required";
+      document.getElementById("setupMessage").textContent = (setup.message ||
+        "No stored OWI roster snapshot and price evidence are connected.") +
+        " Runner commands in runners.json must bind the exact worker ID; model-only runner keys are not executable.";
+      document.getElementById("setupExistingCommand").textContent =
+        setup.existingCommand || "tools/owi-serve --home PATH";
+      document.getElementById("setupDemoCommand").textContent =
+        setup.demoCommand || "tools/owi-serve --demo";
+      document.getElementById("officeStatus").textContent = "Connect your workforce";
+      document.getElementById("officeIntro").textContent =
+        "The office needs a stored roster snapshot, price evidence and exact worker runners before it can staff or run work.";
+      document.getElementById("footerTruth").textContent =
+        "No model, price, assignment or result is shown until a real OWI workspace and exact worker-ID runner bindings are connected.";
+      document.getElementById("spendEvidence").textContent =
+        "No private ledger is active";
+      return;
+    }
+    label.textContent = demo ? "local office · explicit demo" :
+      `local office · ${runnable.length} runner${runnable.length === 1 ? "" : "s"} ready`;
+    document.getElementById("officeStatus").textContent = demo
+      ? "Explicit sample office" : "Your real AI office";
+    document.getElementById("officeIntro").textContent = demo
+      ? "This explicitly labelled demo exercises the workflow with sample capabilities."
+      : "Create a project, inspect its tasks, then let the Rust allocator staff each task from your stored roster snapshot and price evidence.";
+    document.getElementById("officeCta").textContent = WORKFLOW_PROJECT
+      ? "Open active project" : "Create a project";
+    document.getElementById("footerTruth").textContent = demo
+      ? "Explicit demo data is active. Its abilities are examples, not measurements of your models."
+      : "Live local office. Assignments and outcomes come from the selected private OWI workspace; execution requires an exact worker-ID runner binding.";
+    document.getElementById("spendEvidence").textContent = demo
+      ? "No metered provider receipts in this demo"
+      : "Runner/provider receipts are not exposed; actual spend remains unknown";
+  }
+
+  function workflowTaskById(id) {
+    return WORKFLOW_PROJECT && (WORKFLOW_PROJECT.tasks || [])
+      .find(task => String(task.id) === String(id));
+  }
+
+  function workflowCandidateIdentity(candidate) {
+    if (typeof candidate === "string") return candidate;
+    return candidate.worker || candidate.workerId || candidate.worker_id ||
+      candidate.id || candidate.model || "candidate identity unavailable";
+  }
+
+  function workflowCandidateCost(candidate) {
+    if (!candidate || typeof candidate === "string") return null;
+    const direct = candidate.estimatedCostMicros ?? candidate.expectedAcceptedCostMicros
+      ?? candidate.expected_accepted_cost_micros;
+    if (direct !== undefined && direct !== null) return direct;
+    const cost = candidate.cost || {};
+    return cost.expectedAcceptedCostMicros ?? cost.expected_accepted_cost_micros ?? null;
+  }
+
+  function workflowEvidence(task) {
+    const alternatives = (task.alternatives || []).slice(0, 3);
+    const rejections = (task.rejections || []).slice(0, 3);
+    let html = "";
+    if (alternatives.length) html += `<div class="staffing-proof"><b>Qualified alternatives</b></div><ul class="evidence-list">${alternatives.map(candidate => {
+      const cost = workflowCandidateCost(candidate);
+      return `<li><span class="worker-id">${esc(workflowCandidateIdentity(candidate))}</span>${cost === null ? "" : ` · ${workflowMoney(cost)} estimated`}</li>`;
+    }).join("")}</ul>`;
+    if (rejections.length) html += `<div class="staffing-proof"><b>Why others were filtered</b></div><ul class="evidence-list">${rejections.map(item => {
+      if (typeof item === "string") return `<li>${esc(item)}</li>`;
+      const who = workflowCandidateIdentity(item);
+      const why = item.reason || item.why || item.code || "not eligible";
+      return `<li><span class="worker-id">${esc(who)}</span> · ${esc(why)}</li>`;
+    }).join("")}</ul>`;
+    return html;
+  }
+
+  function workflowCheckReport(checks) {
+    if (!checks || !Array.isArray(checks.items) || !checks.items.length) return "";
+    const policy = checks.judgementPolicy
+      ? `<div class="staffing-proof">Judgement policy: ${esc(String(checks.judgementPolicy).replaceAll("_", " "))}</div>` : "";
+    return `${policy}<div class="check-list">${checks.items.map(item => {
+      const cls = item.pass === true ? "pass" : item.pass === false ? "fail" : "";
+      const mark = item.pass === true ? "✓" : item.pass === false ? "✗" : "?";
+      return `<div class="check-item ${cls}">[${mark}] ${esc(item.item || "check")} · ${esc(item.note || "no explanation returned")}</div>`;
+    }).join("")}</div>`;
+  }
+
+  function workflowSkillOptions(selected) {
+    const skills = Object.keys((data() && data().skillTools) || {}).sort();
+    return `<option value="">Let OWI classify it</option>` + skills.map(skill =>
+      `<option value="${esc(skill)}" ${skill === selected ? "selected" : ""}>${esc(skill.replace("skill:", "").replaceAll("-", " "))}</option>`).join("");
+  }
+
+  function workflowTaskCard(task, index) {
+    const status = task.status || "draft";
+    const worker = task.worker || "";
+    const model = task.model || (worker ? modelOf(worker) : "");
+    const checklist = workflowChecklist(task.checklist || []);
+    const outputKnown = ["needs_review", "accepted", "rejected", "run_failed"]
+      .includes(status) || task.exitCode !== undefined && task.exitCode !== null;
+    const output = outputKnown ? String(task.output) : "";
+    const editable = ["draft", "unstaffed", "setup_required", "staffed",
+      "rejected", "run_failed"].includes(status);
+    const removable = ["draft", "unstaffed", "setup_required", "rejected",
+      "run_failed"].includes(status);
+    const attempts = Number.isFinite(Number(task.attemptCount))
+      ? Number(task.attemptCount) : 0;
+    const maxAttempts = Number.isFinite(Number(task.maxAttempts))
+      ? Number(task.maxAttempts) : 2;
+    const hasAttempt = attempts < maxAttempts;
+    const exactRunner = task.runnerReady === true && task.runnerBinding === "worker";
+    const canRun = status === "staffed" && exactRunner && hasAttempt;
+    const canRetry = ["needs_review", "rejected", "run_failed"].includes(status)
+      && exactRunner && hasAttempt;
+    const needsReview = status === "needs_review";
+    const cost = task.estimatedCostMicros;
+    const binding = task.runnerBinding === "worker"
+      ? "exact worker command"
+      : task.runnerBinding === "model_fallback"
+        ? "model-wide fallback · not runnable"
+        : task.runnerReady ? "configured · binding not reported" : "setup required";
+    const bindingTruth = task.runnerBinding === "model_fallback"
+      ? "The exact worker was staffed, but only a model-wide command exists. Execution is blocked because the worker-specific harness or skill pack is not proven."
+      : task.runnerBinding === "worker"
+        ? "Execution is bound to this exact worker command." : "";
+    const assignment = worker ? `<div class="assignment">
+      <div class="assignment-cell"><span>Exact assigned worker</span><strong class="worker-id">${esc(worker)}</strong>${model ? `<small class="meta">model: ${esc(model)}</small>` : ""}</div>
+      <div class="assignment-cell"><span>Estimated accepted-result cost</span><strong>${workflowMoney(cost)}</strong></div>
+      <div class="assignment-cell"><span>Capability</span><strong>${esc(task.skill || "not returned")}</strong></div>
+      <div class="assignment-cell"><span>Runner binding</span><strong>${esc(binding)}</strong></div>
+      <div class="assignment-cell"><span>Attempts</span><strong>${attempts} / ${maxAttempts}</strong></div>
+    </div>${bindingTruth ? `<p class="staffing-proof">${esc(bindingTruth)}</p>` : ""}<p class="staffing-proof">Assigned by the server-side Rust allocator after capability, tool, privacy, quality and cost gates. This task forecast excludes unmetered planner/checker calls and is not a provider receipt.</p>${workflowEvidence(task)}` :
+      `<p class="staffing-proof">No worker has been assigned by the server yet.</p>${workflowEvidence(task)}`;
+    const checklistHtml = checklist.length ? `<div class="staffing-proof"><b>Acceptance checks</b></div><ul class="evidence-list">${checklist.map(item => `<li>${esc(item)}</li>`).join("")}</ul>` : "";
+    const outputHtml = (outputKnown || task.stderr) ? `<pre class="task-output ${!output && !task.stderr ? "empty-output" : ""}">${esc(output || task.stderr || "The runner returned no output.")}</pre>` : "";
+    const runnerNote = worker && !exactRunner
+      ? `<span class="action-note">Execution is blocked until an exact command is configured for <span class="worker-id">${esc(worker)}</span>. A model-wide fallback does not prove the staffed worker harness or skill pack.</span>` : "";
+    const review = needsReview ? `<div class="review-box" data-reject-box="${esc(task.id)}" hidden>
+      <label class="field"><span>Why does it need work?</span><select name="cause"><option value="worker">The model output</option><option value="task_spec">The task was unclear</option><option value="environment">The environment or runner</option></select></label>
+      <label class="field"><span>Review note</span><textarea name="detail" maxlength="3000" placeholder="What failed, and what should change on retry?"></textarea></label>
+      <div class="task-actions"><button type="button" class="danger" data-workflow-action="confirm-reject" data-task-id="${esc(task.id)}">Record needs work</button><button type="button" class="quiet" data-workflow-action="cancel-reject" data-task-id="${esc(task.id)}">Cancel</button></div>
+    </div>` : "";
+    const edit = editable ? `<form class="edit-box" data-edit-form="${esc(task.id)}" hidden>
+      <label class="field"><span>Task title</span><input name="title" maxlength="120" value="${esc(task.title || "")}"></label>
+      <label class="field"><span>Task brief</span><textarea name="brief" maxlength="8000" required>${esc(task.brief || task.summary || "")}</textarea></label>
+      <label class="field"><span>Skill</span><select name="skill">${workflowSkillOptions(task.skill || "")}</select></label>
+      <label class="field"><span>Acceptance checks · one per line</span><textarea name="checklist" maxlength="4000">${esc(checklist.join("\n"))}</textarea></label>
+      <div class="task-actions"><button type="submit" class="secondary">Save as draft</button><button type="button" class="quiet" data-workflow-action="cancel-edit" data-task-id="${esc(task.id)}">Cancel</button></div>
+    </form>` : "";
+    return `<article class="task-item" data-status="${esc(status)}" data-task-card="${esc(task.id)}">
+      <div class="task-head"><div><span class="task-number">TASK ${index + 1} · ${esc(task.id)}</span><h3>${esc(task.title || `Task ${index + 1}`)}</h3></div><span class="status-pill ${esc(status)}">${esc(workflowStatusLabel(status))}</span></div>
+      <div class="task-content"><p class="task-brief">${esc(task.brief || task.summary || "No brief returned.")}</p>
+        ${assignment}${checklistHtml}${outputHtml}${workflowCheckReport(task.checks)}
+        <div class="task-actions">
+          ${editable ? `<button type="button" class="quiet" data-workflow-action="edit" data-task-id="${esc(task.id)}">Edit task</button>` : ""}
+          ${removable ? `<button type="button" class="danger" data-workflow-action="remove" data-task-id="${esc(task.id)}">Remove task</button>` : ""}
+          ${["draft", "unstaffed", "setup_required"].includes(status) ? `<button type="button" class="secondary" data-workflow-action="staff" data-task-id="${esc(task.id)}">Staff all unassigned</button>` : ""}
+          ${status === "staffed" ? `<button type="button" class="secondary" data-workflow-action="run" data-task-id="${esc(task.id)}" ${canRun ? "" : "disabled"}>Run assigned worker</button>` : ""}
+          ${needsReview ? `<button type="button" class="secondary" data-workflow-action="accept" data-task-id="${esc(task.id)}">Accept result</button><button type="button" class="danger" data-workflow-action="reject" data-task-id="${esc(task.id)}">Needs work</button>` : ""}
+          ${["needs_review", "rejected", "run_failed"].includes(status) ? `<button type="button" class="quiet" data-workflow-action="retry" data-task-id="${esc(task.id)}" ${canRetry ? "" : "disabled"}>Retry same assignment</button>` : ""}
+          ${["rejected", "run_failed"].includes(status) ? `<button type="button" class="secondary" data-workflow-action="restaff" data-task-id="${esc(task.id)}">Restaff using new evidence</button>` : ""}
+          ${runnerNote}
+          ${!hasAttempt ? `<span class="action-note">Attempt limit reached. Edit/restaff the task or create a new task before another run.</span>` : ""}
+          ${status === "running" ? `<span class="action-note">The server reports that this task is running.</span>` : ""}
+          ${status === "accepted" ? `<span class="action-note">Accepted and recorded in the private OWI ledger.</span>` : ""}
+        </div>${review}${edit}
+      </div></article>`;
+  }
+
+  function workflowRenderProject() {
+    const createCard = document.getElementById("projectCreateCard");
+    const board = document.getElementById("projectBoard");
+    const summary = document.getElementById("activeProjectSummary");
+    const back = document.getElementById("backToProject");
+    if (!WORKFLOW_PROJECT || WORKFLOW_CREATING) {
+      createCard.hidden = false;
+      board.hidden = true;
+      summary.hidden = !WORKFLOW_PROJECT;
+      back.hidden = !WORKFLOW_PROJECT;
+      if (WORKFLOW_PROJECT) {
+        document.getElementById("activeProjectName").textContent = WORKFLOW_PROJECT.name;
+        document.getElementById("activeProjectProgress").textContent = "Your active project remains saved until the new one is created.";
+      }
+      workflowRenderProjectResults();
+      return;
+    }
+    createCard.hidden = true;
+    board.hidden = false;
+    summary.hidden = false;
+    back.hidden = true;
+    const project = WORKFLOW_PROJECT;
+    const tasks = project.tasks || [];
+    const totals = project.totals || {};
+    const accepted = totals.accepted ?? tasks.filter(task => task.status === "accepted").length;
+    const rejected = totals.rejected ?? tasks.filter(task => task.status === "rejected").length;
+    const blocked = totals.blocked ?? tasks.filter(task => task.status === "setup_required").length;
+    const pending = totals.pending ?? Math.max(0, tasks.length - accepted - rejected);
+    document.getElementById("projectBoardTitle").textContent = project.name || "Untitled project";
+    document.getElementById("projectBoardGoal").textContent = project.goal || "";
+    document.getElementById("activeProjectName").textContent = project.name || "Untitled project";
+    document.getElementById("activeProjectProgress").textContent =
+      `${accepted} accepted · ${pending} pending${blocked ? ` · ${blocked} blocked` : ""}`;
+    const coverage = totals.estimateCoverage || {
+      estimated: tasks.filter(task => task.estimatedCostMicros !== null
+        && task.estimatedCostMicros !== undefined).length,
+      tasks: tasks.length,
+    };
+    const estimated = totals.estimatedCostMicros;
+    const subtotal = totals.selectedSubtotalMicros ?? tasks.reduce((sum, task) =>
+      sum + (task.estimatedCostMicros === null
+        || task.estimatedCostMicros === undefined ? 0 : Number(task.estimatedCostMicros)), 0);
+    const forecastLabel = estimated !== null && estimated !== undefined
+      ? workflowMoney(estimated)
+      : coverage.estimated
+        ? `${workflowMoney(subtotal)} partial · ${coverage.estimated}/${coverage.tasks} costed`
+        : `not available · 0/${coverage.tasks} costed`;
+    const source = project.planningSource
+      ? String(project.planningSource).replaceAll("_", " ") : "not reported";
+    const budgetBasis = project.budgetBasis === "forecast_ceiling_expected_accepted_cost"
+      ? "accepted-result task forecast ceiling"
+      : project.budgetBasis ? String(project.budgetBasis).replaceAll("_", " ")
+        : "not reported";
+    const budgetScope = project.budgetScope === "staffed_task_execution_only"
+      ? "staffed task execution only"
+      : project.budgetScope ? String(project.budgetScope).replaceAll("_", " ")
+        : "not reported";
+    document.getElementById("projectMeta").innerHTML = `
+      <span class="project-stat"><b>${tasks.length}</b> tasks</span>
+      <span class="project-stat"><b>${accepted}</b> accepted</span>
+      <span class="project-stat"><b>${rejected}</b> needs work</span>
+      <span class="project-stat"><b>${blocked}</b> runner blocked</span>
+      <span class="project-stat"><b>${esc(forecastLabel)}</b> task forecast coverage</span>
+      <span class="project-stat">plan source: <b>${esc(source)}</b></span>
+      <span class="project-stat">budget basis: <b>${esc(budgetBasis)}</b></span>
+      <span class="project-stat">budget scope: <b>${esc(budgetScope)}</b></span>
+      <span class="project-stat">actual spend enforcement: <b>${project.actualSpendEnforced === true ? "enabled" : "unavailable"}</b></span>`;
+    const planningProblem = document.getElementById("planningProblem");
+    planningProblem.hidden = !project.planningProblem;
+    planningProblem.textContent = project.planningProblem || "";
+    const budgetWarning = document.getElementById("budgetWarning");
+    const overBudget = totals.overBudget === true;
+    budgetWarning.hidden = !overBudget;
+    budgetWarning.textContent = overBudget
+      ? `Execution is blocked: the ${workflowMoney(estimated)} summed accepted-result task forecast exceeds this project's ${workflowMoney(project.budgetMicros)} task-forecast budget. This gate excludes unmetered planner/checker calls and is not a verified all-in spend cap.`
+      : "";
+    document.getElementById("taskList").innerHTML = tasks.length
+      ? tasks.map(workflowTaskCard).join("")
+      : `<div class="empty-board">No tasks were returned. Add a concrete task, then staff it.</div>`;
+    const needsStaffing = tasks.some(task =>
+      ["draft", "unstaffed", "setup_required"].includes(task.status));
+    document.getElementById("staffProject").disabled = WORKFLOW_BUSY || !needsStaffing;
+    workflowRenderProjectResults();
+  }
+
+  function workflowRenderProjectResults() {
+    const card = document.getElementById("currentProjectResults");
+    const list = document.getElementById("projectResultList");
+    if (!WORKFLOW_PROJECT) {
+      card.hidden = true;
+      list.innerHTML = "";
+      return;
+    }
+    const tasks = WORKFLOW_PROJECT.tasks || [];
+    card.hidden = false;
+    document.getElementById("currentProjectResultsTitle").textContent =
+      `${WORKFLOW_PROJECT.name || "Untitled project"} · deliveries and outputs`;
+    list.innerHTML = tasks.length ? tasks.map((task, index) => {
+      const hasOutput = typeof task.output === "string" && task.output.trim();
+      return `<article class="project-result">
+        <div class="project-result-head"><h3>${index + 1}. ${esc(task.title || "Untitled task")}</h3><span class="status-pill ${esc(task.status || "draft")}">${esc(workflowStatusLabel(task.status))}</span></div>
+        <div class="result-facts"><span>worker: <b class="worker-id">${esc(task.worker || "not staffed")}</b></span><span>capability: <b>${esc(task.skill || "not returned")}</b></span><span>runner: <b>${esc(task.runnerBinding === "worker" ? "exact worker command" : task.runnerBinding === "model_fallback" ? "model-wide fallback · not runnable" : task.runnerReady ? "binding not reported · not runnable" : "not ready")}</b></span><span>accepted-result forecast: <b>${workflowMoney(task.estimatedCostMicros)}</b></span></div>
+        ${hasOutput ? `<details><summary>View returned output</summary><pre class="task-output">${esc(task.output)}</pre></details>` : `<div class="staffing-proof">No runner output exists for this task yet.</div>`}
+      </article>`;
+    }).join("") : `<div class="empty">No tasks exist in this project.</div>`;
+  }
+
+  function workflowUsePayload(payload) {
+    if (payload && payload.project) WORKFLOW_PROJECT = payload.project;
+    WORKFLOW_CREATING = false;
+    workflowRenderProject();
+  }
+
+  async function workflowCreateProject(event) {
+    event.preventDefault();
+    const button = document.getElementById("createProject");
+    if (!workflowSetBusy(button, "Creating real project…")) return;
+    const state = document.getElementById("createState");
+    state.classList.remove("error"); state.textContent = "The local server is drafting tasks.";
+    const goal = document.getElementById("projectGoal").value.trim();
+    const budgetText = document.getElementById("projectBudget").value.trim();
+    const body = { goal, privacy: document.getElementById("projectPrivacy").value,
+      usePlanningModel: document.getElementById("usePlanningModel").checked };
+    const name = document.getElementById("projectName").value.trim();
+    if (name) body.name = name;
+    if (budgetText) body.budgetMicros = Math.round(Number(budgetText) * 1e6);
+    try {
+      const payload = await workflowRequest("/api/projects", { method: "POST", body });
+      workflowUsePayload(payload);
+      state.textContent = "";
+      workflowNotice("Project created. Inspect or edit the tasks before staffing them.");
+    } catch (error) {
+      state.textContent = workflowErrorMessage(error); state.classList.add("error");
+    } finally { workflowClearBusy(button); }
+  }
+
+  async function workflowAddTask(event) {
+    event.preventDefault();
+    if (!WORKFLOW_PROJECT) return;
+    const button = event.submitter;
+    if (!workflowSetBusy(button, "Adding task…")) return;
+    const state = document.getElementById("taskCreateState");
+    const brief = document.getElementById("taskBrief").value.trim();
+    const body = { title: document.getElementById("taskTitle").value.trim() || undefined,
+      summary: brief, brief,
+      checklist: workflowChecklist(document.getElementById("taskChecklist").value) };
+    const skill = document.getElementById("taskSkill").value;
+    if (skill) body.skill = skill;
+    try {
+      const payload = await workflowRequest(
+        `/api/projects/${encodeURIComponent(WORKFLOW_PROJECT.id)}/tasks`,
+        { method: "POST", body });
+      workflowUsePayload(payload);
+      document.getElementById("taskForm").reset();
+      document.getElementById("taskComposer").hidden = true;
+      state.textContent = "";
+      workflowNotice("Draft task added. Review it, then staff the project.");
+    } catch (error) {
+      state.textContent = workflowErrorMessage(error); state.classList.add("error");
+    } finally { workflowClearBusy(button); }
+  }
+
+  async function workflowStaff(button) {
+    if (!WORKFLOW_PROJECT || !workflowSetBusy(button, "Staffing through Rust…")) return;
+    workflowNotice("Rust is evaluating capability, tools, privacy, quality and cost.");
+    try {
+      const payload = await workflowRequest(
+        `/api/projects/${encodeURIComponent(WORKFLOW_PROJECT.id)}/staff`,
+        { method: "POST", body: {} });
+      workflowUsePayload(payload);
+      const blocked = (WORKFLOW_PROJECT.tasks || [])
+        .filter(task => task.status === "setup_required").length;
+      workflowNotice(blocked
+        ? `Staffing finished. ${blocked} assigned task${blocked === 1 ? " needs" : "s need"} a configured runner before execution.`
+        : "Staffing finished. Exact workers and estimated accepted-result costs are shown on each task.");
+    } catch (error) { workflowNotice(workflowErrorMessage(error), true); }
+    finally { workflowClearBusy(button); }
+  }
+
+  async function workflowRun(taskId, button) {
+    if (!WORKFLOW_PROJECT || !workflowSetBusy(button, "Running assigned worker…")) return;
+    workflowNotice("The local server is running the saved assignment. This may take a while.");
+    try {
+      // Deliberately empty: identity, task text and runner are server-owned.
+      const payload = await workflowRequest(
+        workflowPath(WORKFLOW_PROJECT.id, taskId, "/run"),
+        { method: "POST", body: {} });
+      workflowUsePayload(payload);
+      const task = payload.task || workflowTaskById(taskId);
+      if (task && ["accepted", "rejected"].includes(task.status))
+        await workflowRefreshRuntime();
+      workflowNotice(task && task.status === "needs_review"
+        ? "Run finished. Check the returned output and acceptance evidence, then accept or send it back."
+        : `Run returned with status: ${workflowStatusLabel(task && task.status)}.`);
+    } catch (error) { workflowNotice(workflowErrorMessage(error), true); }
+    finally { workflowClearBusy(button); }
+  }
+
+  async function workflowReview(taskId, accepted, cause, detail, button) {
+    if (!WORKFLOW_PROJECT || !workflowSetBusy(button, accepted ? "Accepting…" : "Recording review…")) return;
+    const body = { accepted: Boolean(accepted) };
+    if (!accepted) { body.cause = cause || "worker"; body.detail = detail || ""; }
+    try {
+      const payload = await workflowRequest(
+        workflowPath(WORKFLOW_PROJECT.id, taskId, "/review"),
+        { method: "POST", body });
+      workflowUsePayload(payload);
+      await workflowRefreshRuntime();
+      workflowNotice(accepted
+        ? "Result accepted and recorded in the private model-outcome ledger."
+        : "Review recorded. Edit the brief if needed, then retry the saved assignment.");
+    } catch (error) { workflowNotice(workflowErrorMessage(error), true); }
+    finally { workflowClearBusy(button); }
+  }
+
+  async function workflowEditTask(form) {
+    if (!WORKFLOW_PROJECT) return;
+    const taskId = form.dataset.editForm;
+    const button = form.querySelector('button[type="submit"]');
+    if (!workflowSetBusy(button, "Saving…")) return;
+    const brief = form.elements.brief.value.trim();
+    const body = { title: form.elements.title.value.trim() || undefined,
+      summary: brief, brief, checklist: workflowChecklist(form.elements.checklist.value) };
+    if (form.elements.skill.value) body.skill = form.elements.skill.value;
+    try {
+      const payload = await workflowRequest(
+        workflowPath(WORKFLOW_PROJECT.id, taskId),
+        { method: "PATCH", body });
+      workflowUsePayload(payload);
+      workflowNotice("Task saved. Any stale assignment was cleared; staff it again before running.");
+    } catch (error) { workflowNotice(workflowErrorMessage(error), true); }
+    finally { workflowClearBusy(button); }
+  }
+
+  async function workflowDeleteTask(taskId, button) {
+    if (!WORKFLOW_PROJECT) return;
+    const task = workflowTaskById(taskId);
+    const label = task ? task.title : taskId;
+    if (!window.confirm(`Remove “${label}” from this project? This cannot be undone.`))
+      return;
+    if (!workflowSetBusy(button, "Removing…")) return;
+    try {
+      const payload = await workflowRequest(
+        workflowPath(WORKFLOW_PROJECT.id, taskId), { method: "DELETE" });
+      workflowUsePayload(payload);
+      workflowNotice("Task removed. Remaining task positions and forecast coverage were updated by the server.");
+    } catch (error) { workflowNotice(workflowErrorMessage(error), true); }
+    finally { workflowClearBusy(button); }
+  }
+
+  document.getElementById("projectForm").addEventListener("submit", workflowCreateProject);
+  document.getElementById("projectPrivacy").addEventListener("change", () =>
+    workflowSyncPlanningPrivacy(Boolean(LIVE && data().configured !== false)));
+  document.getElementById("taskForm").addEventListener("submit", workflowAddTask);
+  document.getElementById("addTask").addEventListener("click", () => {
+    document.getElementById("taskComposer").hidden = false;
+    document.getElementById("taskTitle").focus();
+  });
+  document.getElementById("cancelTask").addEventListener("click", () => {
+    document.getElementById("taskComposer").hidden = true;
+  });
+  document.getElementById("staffProject").addEventListener("click", event =>
+    workflowStaff(event.currentTarget));
+  document.getElementById("newProject").addEventListener("click", () => {
+    WORKFLOW_CREATING = true;
+    document.getElementById("projectForm").reset();
+    workflowSyncPlanningPrivacy(Boolean(LIVE && data().configured !== false));
+    document.getElementById("createState").textContent = "";
+    workflowRenderProject();
+    document.getElementById("projectGoal").focus();
+  });
+  document.getElementById("backToProject").addEventListener("click", () => {
+    WORKFLOW_CREATING = false; workflowRenderProject();
+  });
+  document.getElementById("taskList").addEventListener("click", event => {
+    const button = event.target.closest("[data-workflow-action]");
+    if (!button || button.disabled) return;
+    const id = button.dataset.taskId;
+    const card = button.closest("[data-task-card]");
+    switch (button.dataset.workflowAction) {
+      case "staff": workflowStaff(button); break;
+      case "restaff": workflowStaff(button); break;
+      case "run": case "retry": workflowRun(id, button); break;
+      case "remove": workflowDeleteTask(id, button); break;
+      case "accept": workflowReview(id, true, null, "", button); break;
+      case "reject": card.querySelector("[data-reject-box]").hidden = false; break;
+      case "cancel-reject": card.querySelector("[data-reject-box]").hidden = true; break;
+      case "confirm-reject": {
+        const box = card.querySelector("[data-reject-box]");
+        workflowReview(id, false, box.querySelector('[name="cause"]').value,
+          box.querySelector('[name="detail"]').value.trim(), button); break;
+      }
+      case "edit": card.querySelector("[data-edit-form]").hidden = false; break;
+      case "cancel-edit": card.querySelector("[data-edit-form]").hidden = true; break;
+    }
+  });
+  document.getElementById("taskList").addEventListener("submit", event => {
+    const form = event.target.closest("[data-edit-form]");
+    if (!form) return; event.preventDefault(); workflowEditTask(form);
+  });
+  document.getElementById("reset").addEventListener("click", event => {
+    event.preventDefault(); preferenceStorage.remove(STORE); renderResults();
+    workflowNotice("Browser-only learning was cleared. Server projects and private ledger evidence were not deleted.");
+  });
+
+  async function workflowBoot() {
+    document.getElementById("taskSkill").innerHTML = workflowSkillOptions("");
+    document.getElementById("managerImportSkill").innerHTML = workflowSkillOptions("");
+    try {
+      const runtime = await workflowRequest("/api/data");
+      if (runtime && runtime.local) LIVE = runtime;
+    } catch (error) { /* Static page: intentionally read-only. */ }
+    workflowApplyRuntime();
+    renderCrew();
+    renderResults();
+    if (LIVE && data().configured !== false) {
+      try {
+        const payload = await workflowRequest("/api/projects/current");
+        WORKFLOW_PROJECT = payload.project || null;
+      } catch (error) { workflowNotice(workflowErrorMessage(error), true); }
+    }
+    workflowRenderProject();
+    if (window.OWITrainingTour) window.OWITrainingTour.ready();
+  }
+  __OFFICE_TOUR_JS__
+  workflowBoot();
 </script>
+</body>
+</html>

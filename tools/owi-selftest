@@ -94,8 +94,27 @@ def run(no_cargo: bool) -> int:
             except urllib.error.HTTPError as error:
                 return error.code
 
+        def post_status(url: str, headers: dict) -> int:
+            request = urllib.request.Request(
+                url, data=b"{}", headers=headers, method="POST")
+            try:
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    return response.status
+            except urllib.error.HTTPError as error:
+                return error.code
+
+        with tempfile.TemporaryDirectory() as scratch:
+            missing = Path(scratch) / "empty-workspace"
+            empty = owi_serve.load_workspace(missing)
+            suite.check(
+                "empty server workspace stays honestly unconfigured",
+                empty["configured"] is gate["empty_workspace_configured"]
+                and len(empty["workers"]) == gate["empty_workspace_workers"]
+                and not missing.exists(),
+                "default launcher must not create or seed a roster")
+
         owi_serve.Handler.token = "frozen-suite-token"
-        owi_serve.Handler.data = {}
+        owi_serve.Handler.data = owi_serve.setup_payload(Path("frozen-empty"))
         server = ThreadingHTTPServer(("127.0.0.1", 0), owi_serve.Handler)
         threading.Thread(target=server.serve_forever, daemon=True).start()
         base = f"http://127.0.0.1:{server.server_address[1]}"
@@ -107,9 +126,28 @@ def run(no_cargo: bool) -> int:
                            {"X-OWI-Token": "frozen-suite-token"}) == 200)
         suite.check("the token as a query admits",
                     status(f"{base}/api/data?token=frozen-suite-token") == 200)
+        suite.check("localhost also requires the token",
+                    status(f"{base}/api/data") == want
+                    if gate.get("localhost_requires_token") else True)
+        auth = {"X-OWI-Token": "frozen-suite-token"}
+        suite.check("non-JSON writes are rejected",
+                    post_status(f"{base}/api/run",
+                                {**auth, "Content-Type": "text/plain"})
+                    == gate["non_json_post_status"])
+        suite.check("cross-origin writes are rejected",
+                    post_status(f"{base}/api/run", {
+                        **auth, "Content-Type": "application/json",
+                        "Origin": "https://attacker.example",
+                        "Sec-Fetch-Site": "cross-site",
+                    }) == gate["cross_origin_post_status"])
+        suite.check("legacy browser-supplied execution stays disabled",
+                    post_status(f"{base}/api/run", {
+                        **auth, "Content-Type": "application/json",
+                        "Origin": base, "Sec-Fetch-Site": "same-origin",
+                    }) == gate["legacy_run_status"])
         owi_serve.Handler.token = None
-        suite.check("localhost mode stays gate-free",
-                    status(f"{base}/api/data") == 200)
+        suite.check("a missing server token fails closed",
+                    status(f"{base}/api/data") == want)
         server.shutdown()
 
     qc = frozen.get("qc_expectations")
@@ -183,24 +221,35 @@ def run(no_cargo: bool) -> int:
                 (root / name).write_text("# you are the router, not the worker\n")
             home = root / ".owi-quick"
             home.mkdir()
-            (home / "runners.json").write_text('{"gpt-5-mini": "pwd"}')
-            stdout, _, code = owi_do.run_command(home, "gpt-5-mini", "")
-            where = Path(stdout.strip()) if stdout.strip() else None
-            suite.check("the runner reports where it ran",
-                        code == 0 and where is not None,
-                        f"got {stdout.strip()!r}")
-            if where is not None:
-                suite.check("workers do not execute from the owi home",
-                            where.resolve() != home,
-                            f"ran in the home directory: {where}")
-                inherited = owi_do.instruction_files_above(where)
-                suite.check("a worker inherits no standing instructions",
-                            not inherited,
-                            f"would obey: {inherited[:2]}")
-                suite.check("the fixture reproduces the real hazard",
-                            bool(owi_do.instruction_files_above(home)),
-                            "the home under test has no instructions above "
-                            "it, so this proves nothing")
+            (home / "runners.json").write_text(json.dumps({
+                "gpt-5-mini": "pwd",
+                "worker:gpt-5-mini/editor": "pwd",
+            }))
+            cases = (
+                ("model runner", lambda: owi_do.run_command(
+                    home, "gpt-5-mini", "")),
+                ("exact worker", lambda: owi_do.run_worker_command(
+                    home, "worker:gpt-5-mini/editor", "",
+                    allow_model_fallback=False)),
+            )
+            for label, invoke in cases:
+                stdout, _, code = invoke()
+                where = Path(stdout.strip()) if stdout.strip() else None
+                suite.check(f"{label} reports where it ran",
+                            code == 0 and where is not None,
+                            f"got {stdout.strip()!r}")
+                if where is not None:
+                    suite.check(f"{label} does not execute from the owi home",
+                                where.resolve() != home,
+                                f"ran in the home directory: {where}")
+                    inherited = owi_do.instruction_files_above(where)
+                    suite.check(f"{label} inherits no standing instructions",
+                                not inherited,
+                                f"would obey: {inherited[:2]}")
+            suite.check("the fixture reproduces the real hazard",
+                        bool(owi_do.instruction_files_above(home)),
+                        "the home under test has no instructions above it, "
+                        "so this proves nothing")
 
     privacy_rules = frozen.get("privacy_expectations")
     if privacy_rules:

@@ -1,0 +1,140 @@
+{
+  "$schema": "./scene.schema.json",
+  "schema_version": 1,
+  "scene_id": "project-room",
+  "version": "1.0.0",
+  "title": "Project staffing room",
+  "description": "The reusable bright office scene behind the real project task board and exact worker assignments.",
+  "asset_pack": {
+    "pack_id": "org.open-workforce-index.office",
+    "minimum_version": "2.0.0-dev.1"
+  },
+  "design_space": { "width_px": 1280, "height_px": 720 },
+  "layout_profiles": [
+    { "id": "phone-portrait", "min_width_px": 0, "max_width_px": 599, "max_height_px": null, "scene_fit": "contain", "scene_aspect_ratio": [16, 9] },
+    { "id": "phone-landscape", "min_width_px": 480, "max_width_px": 959, "max_height_px": 500, "scene_fit": "cover", "scene_aspect_ratio": [16, 9] },
+    { "id": "tablet", "min_width_px": 600, "max_width_px": 1023, "max_height_px": null, "scene_fit": "cover", "scene_aspect_ratio": [16, 9] },
+    { "id": "desktop", "min_width_px": 1024, "max_width_px": null, "max_height_px": null, "scene_fit": "cover", "scene_aspect_ratio": [16, 9] }
+  ],
+  "layers": [
+    { "id": "background", "z_min": 0, "z_max": 99 },
+    { "id": "environment", "z_min": 100, "z_max": 199 },
+    { "id": "rear-props", "z_min": 200, "z_max": 299 },
+    { "id": "characters", "z_min": 300, "z_max": 399 },
+    { "id": "front-props", "z_min": 400, "z_max": 499 },
+    { "id": "effects", "z_min": 500, "z_max": 599 },
+    { "id": "hud", "z_min": 800, "z_max": 899 },
+    { "id": "shade", "z_min": 900, "z_max": 909 },
+    { "id": "spotlight", "z_min": 910, "z_max": 919 },
+    { "id": "coach", "z_min": 920, "z_max": 949 },
+    { "id": "toast", "z_min": 990, "z_max": 999 }
+  ],
+  "instances": [
+    {
+      "instance_id": "office-room",
+      "asset_id": "background-bright-office-main",
+      "layer_id": "background",
+      "z_index": 0,
+      "decorative": true,
+      "state_binding": null,
+      "reduced_motion": "static",
+      "layout_by_profile": {
+        "phone-portrait": { "visible": true, "anchor": "center", "bounds": [0, 0, 1, 1], "fit": "contain", "focal_point": [0.5, 0.5] },
+        "phone-landscape": { "visible": true, "anchor": "center", "bounds": [0, 0, 1, 1], "fit": "cover", "focal_point": [0.5, 0.5] },
+        "tablet": { "visible": true, "anchor": "center", "bounds": [0, 0, 1, 1], "fit": "cover", "focal_point": [0.5, 0.5] },
+        "desktop": { "visible": true, "anchor": "center", "bounds": [0, 0, 1, 1], "fit": "cover", "focal_point": [0.5, 0.5] }
+      }
+    },
+    {
+      "instance_id": "dispatcher",
+      "asset_id": "character-orbit-dispatcher-idle",
+      "layer_id": "characters",
+      "z_index": 320,
+      "decorative": false,
+      "state_binding": "crew.dispatcher.visual-state",
+      "reduced_motion": "use-idle",
+      "layout_by_profile": {
+        "phone-portrait": { "visible": true, "anchor": "bottom-center", "bounds": [0.34, 0.29, 0.32, 0.66], "fit": "contain", "focal_point": [0.5, 0.82] },
+        "phone-landscape": { "visible": true, "anchor": "bottom-center", "bounds": [0.07, 0.33, 0.24, 0.62], "fit": "contain", "focal_point": [0.5, 0.82] },
+        "tablet": { "visible": true, "anchor": "bottom-center", "bounds": [0.06, 0.31, 0.25, 0.64], "fit": "contain", "focal_point": [0.5, 0.82] },
+        "desktop": { "visible": true, "anchor": "bottom-center", "bounds": [0.06, 0.29, 0.25, 0.66], "fit": "contain", "focal_point": [0.5, 0.82] }
+      }
+    },
+    {
+      "instance_id": "researcher",
+      "asset_id": "character-nova-researcher-idle",
+      "layer_id": "characters",
+      "z_index": 321,
+      "decorative": false,
+      "state_binding": "crew.researcher.visual-state",
+      "reduced_motion": "use-idle",
+      "layout_by_profile": {
+        "phone-portrait": { "visible": false, "anchor": "bottom-center", "bounds": [0.36, 0.24, 0.28, 0.71], "fit": "contain", "focal_point": [0.5, 0.85] },
+        "phone-landscape": { "visible": true, "anchor": "bottom-center", "bounds": [0.37, 0.28, 0.25, 0.67], "fit": "contain", "focal_point": [0.5, 0.85] },
+        "tablet": { "visible": true, "anchor": "bottom-center", "bounds": [0.37, 0.26, 0.25, 0.69], "fit": "contain", "focal_point": [0.5, 0.85] },
+        "desktop": { "visible": true, "anchor": "bottom-center", "bounds": [0.37, 0.24, 0.25, 0.71], "fit": "contain", "focal_point": [0.5, 0.85] }
+      }
+    },
+    {
+      "instance_id": "designer",
+      "asset_id": "character-mira-designer-idle",
+      "layer_id": "characters",
+      "z_index": 322,
+      "decorative": false,
+      "state_binding": "crew.designer.visual-state",
+      "reduced_motion": "use-idle",
+      "layout_by_profile": {
+        "phone-portrait": { "visible": false, "anchor": "bottom-center", "bounds": [0.67, 0.24, 0.27, 0.71], "fit": "contain", "focal_point": [0.5, 0.85] },
+        "phone-landscape": { "visible": true, "anchor": "bottom-center", "bounds": [0.69, 0.28, 0.24, 0.67], "fit": "contain", "focal_point": [0.5, 0.85] },
+        "tablet": { "visible": true, "anchor": "bottom-center", "bounds": [0.69, 0.26, 0.24, 0.69], "fit": "contain", "focal_point": [0.5, 0.85] },
+        "desktop": { "visible": true, "anchor": "bottom-center", "bounds": [0.69, 0.24, 0.24, 0.71], "fit": "contain", "focal_point": [0.5, 0.85] }
+      }
+    }
+  ],
+  "hotspots": [
+    {
+      "hotspot_id": "project-create",
+      "target_anchor": "project-create",
+      "accessible_label": "Create a local project or edit its goal",
+      "bounds_by_profile": {
+        "phone-portrait": [0.10, 0.02, 0.80, 0.24],
+        "phone-landscape": [0.26, 0.02, 0.48, 0.28],
+        "tablet": [0.26, 0.02, 0.48, 0.28],
+        "desktop": [0.26, 0.02, 0.48, 0.28]
+      }
+    },
+    {
+      "hotspot_id": "crew-roster",
+      "target_anchor": "office-roster",
+      "accessible_label": "Exact worker roster",
+      "bounds_by_profile": {
+        "phone-portrait": [0.28, 0.24, 0.44, 0.72],
+        "phone-landscape": [0.03, 0.24, 0.94, 0.72],
+        "tablet": [0.03, 0.22, 0.94, 0.74],
+        "desktop": [0.03, 0.20, 0.94, 0.76]
+      }
+    },
+    {
+      "hotspot_id": "task-board",
+      "target_anchor": "task-board",
+      "accessible_label": "Draft task board",
+      "bounds_by_profile": {
+        "phone-portrait": [0.16, 0.04, 0.68, 0.24],
+        "phone-landscape": [0.32, 0.04, 0.36, 0.28],
+        "tablet": [0.32, 0.04, 0.36, 0.28],
+        "desktop": [0.32, 0.04, 0.36, 0.28]
+      }
+    },
+    {
+      "hotspot_id": "staff-controls",
+      "target_anchor": "staffing",
+      "accessible_label": "Staffing proposal and approval controls",
+      "bounds_by_profile": {
+        "phone-portrait": [0.02, 0.70, 0.96, 0.28],
+        "phone-landscape": [0.02, 0.72, 0.96, 0.26],
+        "tablet": [0.02, 0.72, 0.96, 0.26],
+        "desktop": [0.02, 0.72, 0.96, 0.26]
+      }
+    }
+  ]
+}

@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:owi:schema:office-assets:v2:manifest",
+  "title": "OWI Office graphics pack manifest v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "pack_id",
+    "pack_version",
+    "status",
+    "title",
+    "description",
+    "default_skin",
+    "license_file",
+    "sources_file",
+    "initial_payload_budget_bytes",
+    "skins",
+    "assets"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 2 },
+    "pack_id": { "$ref": "#/$defs/dottedId" },
+    "pack_version": { "$ref": "#/$defs/semver" },
+    "status": {
+      "enum": ["development", "release-candidate", "released", "retired"]
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 1 },
+    "default_skin": { "$ref": "#/$defs/kebabId" },
+    "license_file": { "$ref": "#/$defs/relativePath" },
+    "sources_file": { "$ref": "#/$defs/relativePath" },
+    "initial_payload_budget_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2097152
+    },
+    "skins": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/skin" }
+    },
+    "assets": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/asset" }
+    }
+  },
+  "$defs": {
+    "normalized": { "type": "number", "minimum": 0, "maximum": 1 },
+    "kebabId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "dottedId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "skin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "description", "status", "inherits"],
+      "properties": {
+        "id": { "$ref": "#/$defs/kebabId" },
+        "title": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["base", "experimental", "available", "retired"] },
+        "inherits": {
+          "oneOf": [
+            { "$ref": "#/$defs/kebabId" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "revision",
+        "kind",
+        "skin_ids",
+        "title",
+        "alt_text",
+        "decorative",
+        "brand_status",
+        "embedded_text",
+        "states",
+        "source_record_ids",
+        "rights",
+        "renditions",
+        "tags"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/kebabId" },
+        "revision": { "$ref": "#/$defs/semver" },
+        "kind": {
+          "enum": [
+            "background",
+            "character",
+            "prop",
+            "effect",
+            "ui-decoration",
+            "skin-overlay"
+          ]
+        },
+        "skin_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/kebabId" }
+        },
+        "title": { "type": "string", "minLength": 1 },
+        "alt_text": { "type": "string" },
+        "decorative": { "type": "boolean" },
+        "brand_status": { "const": "original-unbranded" },
+        "embedded_text": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "states": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "static",
+              "idle",
+              "assigned",
+              "working",
+              "waiting-review",
+              "accepted",
+              "needs-work",
+              "blocked",
+              "offline"
+            ]
+          }
+        },
+        "character": { "$ref": "#/$defs/character" },
+        "source_record_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/kebabId" }
+        },
+        "rights": { "$ref": "#/$defs/rights" },
+        "renditions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/rendition" }
+        },
+        "tags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/kebabId" }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "decorative": { "const": true } },
+            "required": ["decorative"]
+          },
+          "then": { "properties": { "alt_text": { "maxLength": 0 } } },
+          "else": { "properties": { "alt_text": { "minLength": 1 } } }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "character" } },
+            "required": ["kind"]
+          },
+          "then": { "required": ["character"] },
+          "else": { "not": { "required": ["character"] } }
+        }
+      ]
+    },
+    "character": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["character_id", "character_type", "age_class", "office_role"],
+      "properties": {
+        "character_id": { "$ref": "#/$defs/kebabId" },
+        "character_type": { "enum": ["human", "robot", "other-fictional"] },
+        "age_class": { "enum": ["adult", "not-applicable"] },
+        "office_role": { "$ref": "#/$defs/kebabId" }
+      }
+    },
+    "rights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "expression",
+        "attribution",
+        "evidence_source_ids",
+        "notes"
+      ],
+      "properties": {
+        "status": { "enum": ["approved", "pending", "restricted", "unknown"] },
+        "expression": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "null" }
+          ]
+        },
+        "attribution": { "type": "string" },
+        "evidence_source_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/kebabId" }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "rendition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "purpose",
+        "file",
+        "media_type",
+        "width_px",
+        "height_px",
+        "pixel_ratio",
+        "has_alpha",
+        "byte_size",
+        "sha256",
+        "loading"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/kebabId" },
+        "purpose": { "enum": ["master", "runtime"] },
+        "file": { "$ref": "#/$defs/relativePath" },
+        "media_type": {
+          "enum": ["image/png", "image/webp", "image/avif", "image/svg+xml"]
+        },
+        "width_px": { "type": "integer", "minimum": 1 },
+        "height_px": { "type": "integer", "minimum": 1 },
+        "pixel_ratio": { "type": "number", "exclusiveMinimum": 0 },
+        "has_alpha": { "type": "boolean" },
+        "byte_size": { "type": "integer", "minimum": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "loading": { "enum": ["critical", "deferred", "authoring-only"] }
+      }
+    }
+  }
+}

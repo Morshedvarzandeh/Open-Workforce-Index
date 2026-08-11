@@ -1,0 +1,339 @@
+{
+  "$schema": "./manifest.schema.json",
+  "schema_version": 1,
+  "pack_id": "org.open-workforce-index.office",
+  "pack_version": "1.0.0-dev.2",
+  "status": "development",
+  "title": "OWI bright office",
+  "description": "Reusable, original, unbranded graphics for the bright OWI office interface.",
+  "default_skin": "bright-office",
+  "license_file": "LICENSE.md",
+  "sources_file": "SOURCES.json",
+  "design_space": {
+    "width_px": 1440,
+    "height_px": 900,
+    "safe_area": {
+      "top": 0.04,
+      "right": 0.04,
+      "bottom": 0.06,
+      "left": 0.04
+    }
+  },
+  "skins": [
+    {
+      "id": "bright-office",
+      "title": "Bright office",
+      "description": "Warm daylight, airy colors, readable characters, and cheerful professional energy.",
+      "status": "base",
+      "inherits": null
+    }
+  ],
+  "assets": [
+    {
+      "id": "background-bright-office-main",
+      "revision": "1.0.0",
+      "kind": "background",
+      "skin_ids": [
+        "bright-office"
+      ],
+      "title": "Bright office main room",
+      "alt_text": "",
+      "decorative": true,
+      "brand_status": "original-unbranded",
+      "embedded_text": [],
+      "placement": {
+        "scene": "office-main",
+        "slot": "room-background",
+        "layer": "background",
+        "anchor": "center",
+        "focal_point": [
+          0.5,
+          0.5
+        ],
+        "fit": "cover",
+        "z_index": 0
+      },
+      "source_record_ids": [
+        "source-bright-office-generation"
+      ],
+      "license": {
+        "status": "pending",
+        "expression": null,
+        "attribution": "",
+        "evidence_source_ids": [
+          "source-bright-office-generation"
+        ],
+        "notes": "Technical and visual review passed; maintainer rights review is still required before release."
+      },
+      "renditions": [
+        {
+          "id": "png-master",
+          "purpose": "master",
+          "file": "backgrounds/bright-office.png",
+          "media_type": "image/png",
+          "width_px": 1664,
+          "height_px": 936,
+          "pixel_ratio": 1,
+          "has_alpha": false,
+          "byte_size": 1778829,
+          "sha256": "9034711e3831ab46818da70e6cc7c10caaa9bd743febb0f03d73474ff0936549"
+        },
+        {
+          "id": "webp-runtime",
+          "purpose": "runtime",
+          "file": "backgrounds/bright-office.webp",
+          "media_type": "image/webp",
+          "width_px": 1280,
+          "height_px": 720,
+          "pixel_ratio": 1,
+          "has_alpha": false,
+          "byte_size": 48364,
+          "sha256": "b899af49ab403951759b167ff167ed47073b5661d5e9173fcd997fded00ea1f6"
+        }
+      ],
+      "tags": [
+        "bright",
+        "daytime",
+        "office",
+        "three-desk-bays"
+      ]
+    },
+    {
+      "id": "character-orbit-dispatcher-idle",
+      "revision": "1.0.0",
+      "kind": "character",
+      "skin_ids": [
+        "bright-office"
+      ],
+      "title": "Orbit office dispatcher",
+      "alt_text": "Orbit, a friendly blue bowl-shaped office robot dispatcher in a three-quarter standing pose.",
+      "decorative": false,
+      "brand_status": "original-unbranded",
+      "embedded_text": [],
+      "placement": {
+        "scene": "office-main",
+        "slot": "desk-left",
+        "layer": "character",
+        "anchor": "bottom-center",
+        "focal_point": [
+          0.5,
+          0.85
+        ],
+        "fit": "contain",
+        "z_index": 20
+      },
+      "character": {
+        "character_id": "orbit",
+        "character_type": "robot",
+        "age_class": "not-applicable",
+        "office_role": "dispatcher",
+        "pose": "standing-three-quarter",
+        "expression": "friendly",
+        "state": "idle",
+        "look_direction": "forward"
+      },
+      "source_record_ids": [
+        "source-orbit-generation"
+      ],
+      "license": {
+        "status": "pending",
+        "expression": null,
+        "attribution": "",
+        "evidence_source_ids": [
+          "source-orbit-generation"
+        ],
+        "notes": "Technical and visual review passed; maintainer rights review is still required before release."
+      },
+      "renditions": [
+        {
+          "id": "png-master",
+          "purpose": "master",
+          "file": "characters/orbit.png",
+          "media_type": "image/png",
+          "width_px": 1254,
+          "height_px": 1254,
+          "pixel_ratio": 1,
+          "has_alpha": true,
+          "byte_size": 837782,
+          "sha256": "64d58e7cb2364db6f03400606c29d1f1ae1e9bb6b21a2036d11976fa4e304ae1"
+        },
+        {
+          "id": "webp-runtime",
+          "purpose": "runtime",
+          "file": "characters/orbit.webp",
+          "media_type": "image/webp",
+          "width_px": 640,
+          "height_px": 640,
+          "pixel_ratio": 1,
+          "has_alpha": true,
+          "byte_size": 30706,
+          "sha256": "4ddcf7641b9eb6c40c1b30cfdd8b0ba603ce4666325b9e71cd6be5aea3c761d4"
+        }
+      ],
+      "tags": [
+        "blue-robot",
+        "dispatcher",
+        "friendly",
+        "idle"
+      ]
+    },
+    {
+      "id": "character-nova-researcher-idle",
+      "revision": "1.0.0",
+      "kind": "character",
+      "skin_ids": [
+        "bright-office"
+      ],
+      "title": "Nova coder and researcher",
+      "alt_text": "Nova, an adult coder and researcher with round glasses in a relaxed three-quarter standing pose.",
+      "decorative": false,
+      "brand_status": "original-unbranded",
+      "embedded_text": [],
+      "placement": {
+        "scene": "office-main",
+        "slot": "desk-center",
+        "layer": "character",
+        "anchor": "bottom-center",
+        "focal_point": [
+          0.5,
+          0.85
+        ],
+        "fit": "contain",
+        "z_index": 20
+      },
+      "character": {
+        "character_id": "nova",
+        "character_type": "human",
+        "age_class": "adult",
+        "office_role": "coder-researcher",
+        "pose": "standing-three-quarter",
+        "expression": "thoughtful",
+        "state": "idle",
+        "look_direction": "forward"
+      },
+      "source_record_ids": [
+        "source-nova-generation"
+      ],
+      "license": {
+        "status": "pending",
+        "expression": null,
+        "attribution": "",
+        "evidence_source_ids": [
+          "source-nova-generation"
+        ],
+        "notes": "Technical and visual review passed; maintainer rights review is still required before release."
+      },
+      "renditions": [
+        {
+          "id": "png-master",
+          "purpose": "master",
+          "file": "characters/nova.png",
+          "media_type": "image/png",
+          "width_px": 1254,
+          "height_px": 1254,
+          "pixel_ratio": 1,
+          "has_alpha": true,
+          "byte_size": 510201,
+          "sha256": "f8b850c21f5b7616ea004c114a2a811b5fe3eaa5be2dcc44afc03401881dc3b4"
+        },
+        {
+          "id": "webp-runtime",
+          "purpose": "runtime",
+          "file": "characters/nova.webp",
+          "media_type": "image/webp",
+          "width_px": 640,
+          "height_px": 640,
+          "pixel_ratio": 1,
+          "has_alpha": true,
+          "byte_size": 18332,
+          "sha256": "7ba869ee5fd0913878d4b2711233007d12290d37d9193bc6fb8323e7545f68fd"
+        }
+      ],
+      "tags": [
+        "adult",
+        "coder",
+        "researcher",
+        "idle"
+      ]
+    },
+    {
+      "id": "character-mira-designer-idle",
+      "revision": "1.0.0",
+      "kind": "character",
+      "skin_ids": [
+        "bright-office"
+      ],
+      "title": "Mira designer and writer",
+      "alt_text": "Mira, an adult designer and writer holding a plain sketchbook in a relaxed three-quarter standing pose.",
+      "decorative": false,
+      "brand_status": "original-unbranded",
+      "embedded_text": [],
+      "placement": {
+        "scene": "office-main",
+        "slot": "desk-right",
+        "layer": "character",
+        "anchor": "bottom-center",
+        "focal_point": [
+          0.5,
+          0.85
+        ],
+        "fit": "contain",
+        "z_index": 20
+      },
+      "character": {
+        "character_id": "mira",
+        "character_type": "human",
+        "age_class": "adult",
+        "office_role": "designer-writer",
+        "pose": "standing-three-quarter",
+        "expression": "warm-confident",
+        "state": "idle",
+        "look_direction": "forward"
+      },
+      "source_record_ids": [
+        "source-mira-generation"
+      ],
+      "license": {
+        "status": "pending",
+        "expression": null,
+        "attribution": "",
+        "evidence_source_ids": [
+          "source-mira-generation"
+        ],
+        "notes": "Technical and visual review passed; maintainer rights review is still required before release."
+      },
+      "renditions": [
+        {
+          "id": "png-master",
+          "purpose": "master",
+          "file": "characters/mira.png",
+          "media_type": "image/png",
+          "width_px": 1254,
+          "height_px": 1254,
+          "pixel_ratio": 1,
+          "has_alpha": true,
+          "byte_size": 434839,
+          "sha256": "7a22e1046328c71a51a7782314a9f82cca2d4b6c5479c5221c3ffeeaf537294e"
+        },
+        {
+          "id": "webp-runtime",
+          "purpose": "runtime",
+          "file": "characters/mira.webp",
+          "media_type": "image/webp",
+          "width_px": 640,
+          "height_px": 640,
+          "pixel_ratio": 1,
+          "has_alpha": true,
+          "byte_size": 14976,
+          "sha256": "d9553771e7ccb82b470602ab3049e5921898d42a304d6922484ea147df2b19d0"
+        }
+      ],
+      "tags": [
+        "adult",
+        "designer",
+        "writer",
+        "idle"
+      ]
+    }
+  ]
+}

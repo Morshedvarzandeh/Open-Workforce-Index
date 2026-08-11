@@ -43,11 +43,108 @@ pick. Reject a worker often enough and it stops being chosen. That is the
 entire idea, in one command.
 
 Prefer a page over a terminal? One more command serves the same experience at
-a local link, with a run button and learning recorded to the real ledger:
+a real local application and opens it in your browser. The default is a bright
+graphical office with four simple views: **Office** shows the exact roster,
+**Manager** brings selected GitHub work into one decision inbox, **Work** runs a
+persisted project workflow, and **Results** shows recorded feedback without
+inventing cash, savings, CO₂, or water values. In Work you
+create a goal, inspect or change the proposed task plan, explicitly staff the
+drafts through the Rust allocator, run only the saved assignments, inspect the
+real outputs and checks, then accept, reject, retry, or restaff them. Project
+state survives a browser reload in the private `workflow.sqlite`; verified
+outcomes still feed the OWI evidence ledger:
 
 ```bash
-tools/owi-serve        # open http://127.0.0.1:7787
+tools/owi-serve
 ```
+
+Orbit's seven-chapter **Training tour** opens on the first visit and can be
+paused, skipped, resumed, or replayed from the header. It guides the owner
+through the real Office → GitHub project → incoming work → tasks → staffing →
+run/review → Results
+path without clicking an action or spending on their behalf. On phones it uses
+a safe-area-aware game-style bottom sheet and bottom navigation; keyboard and
+reduced-motion modes are first-class. Static, unconfigured, sample, and live
+offices are identified honestly inside the tour.
+The [seven-pass visual review](docs/design/training-tour-iterations.md) records
+the desktop, tablet, phone, landscape, accessibility, and adversarial checks.
+
+Unlike `owi-do`, the application does **not** silently create the demo roster.
+With no configured index it opens an honest setup screen containing no models,
+abilities, recommendations, or costs. Point it at an existing OWI workspace,
+or request the labelled sample explicitly:
+
+```bash
+tools/owi-serve --home PATH_TO_EXISTING_OWI_WORKSPACE
+tools/owi-serve --demo
+```
+
+### GitHub Manager — no clone required
+
+For your public repositories, give the local server a fixed GitHub owner. The
+browser receives a bounded repository/work-item projection; it never receives a
+GitHub credential:
+
+```bash
+tools/owi-serve --github-owner Morshedvarzandeh
+```
+
+The Manager performs manual, on-demand GitHub REST reads for repository
+metadata, open issues, open pull requests, and failed Actions runs. It does not
+clone a repository, download source files, scan code, run a background sync, or
+write to GitHub. Selecting and refreshing are read-only. Explicitly importing
+an item creates one unassigned local draft and stops there—no planning model,
+staffing, provider call, runner, budget spend, review, or GitHub mutation.
+
+Private repositories require a server-only credential with the minimum read
+permissions needed for the views you enable. Store it in an owner-only token
+file and point the launcher at that file; do not paste it into the browser or
+commit it:
+
+```bash
+tools/owi-serve --github-token-file PATH_TO_0600_TOKEN_FILE
+```
+
+The current connector supports a fine-grained personal access token or GitHub
+App user token as a local bridge. A hosted release should use a selected-repo
+GitHub App installation and short-lived credentials. Private-source imports
+cannot be downgraded below `confidential_content`.
+
+Every bind, including localhost, uses a per-process access token. The launcher
+opens the tokenized URL and exchanges it for an HTTP-only cookie; non-JSON and
+cross-origin write requests are rejected. The browser never supplies a model,
+worker, command, or task text to the run endpoint: it names a persisted task,
+and the server resolves the recorded assignment. The old direct `/api/run`
+and `/api/outcome` endpoints are disabled. Use `--no-open` only when running
+headless—the terminal prints the one-time URL.
+
+Staffing needs the compiled `owi` CLI. The launcher looks for `OWI_BIN`, an
+installed `owi`, and repository release/debug binaries before using Cargo as a
+developer fallback. A configured provider runner is still required to execute
+an assigned model. Missing binaries, runners, model receipts, or environmental
+evidence are reported as unavailable—never as a zero cost or a completed run.
+
+A planning model is used only when the owner explicitly enables it. It is
+blocked for zero-budget, confidential, and secret projects. Its provider
+charge is currently not metered by the office, so the UI labels planning cost
+as unavailable. The project budget gate applies to the allocator's summed
+accepted-result forecasts for staffed tasks; it is not presented as a
+reconciled all-in invoice cap.
+
+Project execution requires a `runners.json` command keyed by the exact worker
+ID, for example `worker:claude-sonnet/reviewer`. A model-only key is displayed
+as a non-runnable fallback because it cannot prove the quoted provider,
+harness, skill pack, tools, or privacy identity.
+
+The reusable, manifest-driven game-art pack lives in
+[`ui/assets/office/v2`](ui/assets/office/v2/README.md), with responsive scenes
+in [`ui/scenes`](ui/scenes/README.md) and declarative training content in
+[`ui/tours`](ui/tours/README.md). Backgrounds and characters are separate,
+versioned assets with optimized runtime WebP renditions, source prompts,
+checksums, placement/state metadata, and a strict release gate. The generated
+artwork remains marked `pending` until a maintainer completes its rights
+review; development validation never silently turns that into an Apache-2.0
+approval.
 
 The complete workflow, every level from this link to real measurement, is
 written in [docs/WORKFLOW.md](docs/WORKFLOW.md).

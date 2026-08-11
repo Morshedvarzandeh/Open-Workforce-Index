@@ -1,0 +1,340 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:owi:schema:office-assets:v1:manifest",
+  "title": "OWI office asset pack manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "pack_id",
+    "pack_version",
+    "status",
+    "title",
+    "description",
+    "default_skin",
+    "license_file",
+    "sources_file",
+    "design_space",
+    "skins",
+    "assets"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "pack_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"
+    },
+    "pack_version": { "$ref": "#/$defs/semver" },
+    "status": {
+      "enum": ["development", "release-candidate", "released", "retired"]
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 1 },
+    "default_skin": { "$ref": "#/$defs/kebabId" },
+    "license_file": { "$ref": "#/$defs/relativePath" },
+    "sources_file": { "$ref": "#/$defs/relativePath" },
+    "design_space": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width_px", "height_px", "safe_area"],
+      "properties": {
+        "width_px": { "type": "integer", "minimum": 1 },
+        "height_px": { "type": "integer", "minimum": 1 },
+        "safe_area": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["top", "right", "bottom", "left"],
+          "properties": {
+            "top": { "$ref": "#/$defs/normalized" },
+            "right": { "$ref": "#/$defs/normalized" },
+            "bottom": { "$ref": "#/$defs/normalized" },
+            "left": { "$ref": "#/$defs/normalized" }
+          }
+        }
+      }
+    },
+    "skins": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/skin" }
+    },
+    "assets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/asset" }
+    }
+  },
+  "$defs": {
+    "normalized": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "kebabId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "skin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "description", "status", "inherits"],
+      "properties": {
+        "id": { "$ref": "#/$defs/kebabId" },
+        "title": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["base", "experimental", "available", "retired"] },
+        "inherits": {
+          "oneOf": [
+            { "$ref": "#/$defs/kebabId" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "revision",
+        "kind",
+        "skin_ids",
+        "title",
+        "alt_text",
+        "decorative",
+        "brand_status",
+        "embedded_text",
+        "placement",
+        "source_record_ids",
+        "license",
+        "renditions",
+        "tags"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/kebabId" },
+        "revision": { "$ref": "#/$defs/semver" },
+        "kind": {
+          "enum": [
+            "background",
+            "character",
+            "prop",
+            "effect",
+            "ui-decoration",
+            "skin-overlay"
+          ]
+        },
+        "skin_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/kebabId" }
+        },
+        "title": { "type": "string", "minLength": 1 },
+        "alt_text": { "type": "string" },
+        "decorative": { "type": "boolean" },
+        "brand_status": { "const": "original-unbranded" },
+        "embedded_text": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "placement": { "$ref": "#/$defs/placement" },
+        "character": { "$ref": "#/$defs/character" },
+        "source_record_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/kebabId" }
+        },
+        "license": { "$ref": "#/$defs/license" },
+        "renditions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/rendition" }
+        },
+        "tags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/kebabId" }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "decorative": { "const": true } },
+            "required": ["decorative"]
+          },
+          "then": { "properties": { "alt_text": { "maxLength": 0 } } },
+          "else": { "properties": { "alt_text": { "minLength": 1 } } }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "character" } },
+            "required": ["kind"]
+          },
+          "then": { "required": ["character"] },
+          "else": { "not": { "required": ["character"] } }
+        }
+      ]
+    },
+    "placement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scene",
+        "slot",
+        "layer",
+        "anchor",
+        "focal_point",
+        "fit",
+        "z_index"
+      ],
+      "properties": {
+        "scene": { "$ref": "#/$defs/kebabId" },
+        "slot": { "$ref": "#/$defs/kebabId" },
+        "layer": {
+          "enum": [
+            "background",
+            "room",
+            "behind-character",
+            "character",
+            "front-of-character",
+            "overlay"
+          ]
+        },
+        "anchor": {
+          "enum": [
+            "top-left",
+            "top-center",
+            "top-right",
+            "center-left",
+            "center",
+            "center-right",
+            "bottom-left",
+            "bottom-center",
+            "bottom-right"
+          ]
+        },
+        "focal_point": {
+          "type": "array",
+          "prefixItems": [
+            { "$ref": "#/$defs/normalized" },
+            { "$ref": "#/$defs/normalized" }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "fit": { "enum": ["contain", "cover", "fill", "none"] },
+        "z_index": { "type": "integer", "minimum": -1000, "maximum": 1000 }
+      }
+    },
+    "character": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "character_id",
+        "character_type",
+        "age_class",
+        "office_role",
+        "pose",
+        "expression",
+        "state",
+        "look_direction"
+      ],
+      "properties": {
+        "character_id": { "$ref": "#/$defs/kebabId" },
+        "character_type": { "enum": ["human", "robot", "other-fictional"] },
+        "age_class": { "enum": ["adult", "not-applicable"] },
+        "office_role": { "$ref": "#/$defs/kebabId" },
+        "pose": { "$ref": "#/$defs/kebabId" },
+        "expression": { "$ref": "#/$defs/kebabId" },
+        "state": { "$ref": "#/$defs/kebabId" },
+        "look_direction": {
+          "enum": ["left", "right", "forward", "away", "not-applicable"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "character_type": { "const": "human" } },
+            "required": ["character_type"]
+          },
+          "then": { "properties": { "age_class": { "const": "adult" } } },
+          "else": {
+            "properties": { "age_class": { "const": "not-applicable" } }
+          }
+        }
+      ]
+    },
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "expression",
+        "attribution",
+        "evidence_source_ids",
+        "notes"
+      ],
+      "properties": {
+        "status": { "enum": ["approved", "pending", "restricted", "unknown"] },
+        "expression": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "null" }
+          ]
+        },
+        "attribution": { "type": "string" },
+        "evidence_source_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/kebabId" }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "rendition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "purpose",
+        "file",
+        "media_type",
+        "width_px",
+        "height_px",
+        "pixel_ratio",
+        "has_alpha",
+        "byte_size",
+        "sha256"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/kebabId" },
+        "purpose": { "enum": ["master", "runtime"] },
+        "file": { "$ref": "#/$defs/relativePath" },
+        "media_type": {
+          "enum": ["image/png", "image/webp", "image/avif", "image/svg+xml"]
+        },
+        "width_px": { "type": "integer", "minimum": 1 },
+        "height_px": { "type": "integer", "minimum": 1 },
+        "pixel_ratio": { "type": "number", "exclusiveMinimum": 0 },
+        "has_alpha": { "type": "boolean" },
+        "byte_size": { "type": "integer", "minimum": 1 },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:owi:schema:office-scene:v1",
+  "title": "OWI Office scene composition v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "scene_id",
+    "version",
+    "title",
+    "description",
+    "asset_pack",
+    "design_space",
+    "layout_profiles",
+    "layers",
+    "instances",
+    "hotspots"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "scene_id": { "$ref": "#/$defs/id" },
+    "version": { "$ref": "#/$defs/semver" },
+    "title": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 1 },
+    "asset_pack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pack_id", "minimum_version"],
+      "properties": {
+        "pack_id": { "const": "org.open-workforce-index.office" },
+        "minimum_version": { "$ref": "#/$defs/semver" }
+      }
+    },
+    "design_space": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width_px", "height_px"],
+      "properties": {
+        "width_px": { "type": "integer", "minimum": 1 },
+        "height_px": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "layout_profiles": {
+      "type": "array",
+      "minItems": 4,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/profile" }
+    },
+    "layers": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/layer" }
+    },
+    "instances": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/instance" }
+    },
+    "hotspots": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/hotspot" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "normalized": { "type": "number", "minimum": 0, "maximum": 1 },
+    "point": {
+      "type": "array",
+      "prefixItems": [
+        { "$ref": "#/$defs/normalized" },
+        { "$ref": "#/$defs/normalized" }
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "bounds": {
+      "type": "array",
+      "prefixItems": [
+        { "$ref": "#/$defs/normalized" },
+        { "$ref": "#/$defs/normalized" },
+        { "$ref": "#/$defs/normalized" },
+        { "$ref": "#/$defs/normalized" }
+      ],
+      "items": false,
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "min_width_px", "max_width_px", "max_height_px", "scene_fit", "scene_aspect_ratio"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "min_width_px": { "type": "integer", "minimum": 0 },
+        "max_width_px": { "type": ["integer", "null"], "minimum": 1 },
+        "max_height_px": { "type": ["integer", "null"], "minimum": 1 },
+        "scene_fit": { "enum": ["contain", "cover"] },
+        "scene_aspect_ratio": {
+          "type": "array",
+          "prefixItems": [
+            { "type": "integer", "minimum": 1 },
+            { "type": "integer", "minimum": 1 }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+    "layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "z_min", "z_max"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "z_min": { "type": "integer", "minimum": 0, "maximum": 999 },
+        "z_max": { "type": "integer", "minimum": 0, "maximum": 999 }
+      }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visible", "anchor", "bounds", "fit", "focal_point"],
+      "properties": {
+        "visible": { "type": "boolean" },
+        "anchor": {
+          "enum": [
+            "top-left", "top-center", "top-right",
+            "center-left", "center", "center-right",
+            "bottom-left", "bottom-center", "bottom-right"
+          ]
+        },
+        "bounds": { "$ref": "#/$defs/bounds" },
+        "fit": { "enum": ["contain", "cover", "fill", "none"] },
+        "focal_point": { "$ref": "#/$defs/point" }
+      }
+    },
+    "layoutMap": {
+      "type": "object",
+      "minProperties": 4,
+      "additionalProperties": { "$ref": "#/$defs/layout" }
+    },
+    "instance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instance_id", "asset_id", "layer_id", "z_index", "decorative",
+        "state_binding", "reduced_motion", "layout_by_profile"
+      ],
+      "properties": {
+        "instance_id": { "$ref": "#/$defs/id" },
+        "asset_id": { "$ref": "#/$defs/id" },
+        "layer_id": { "$ref": "#/$defs/id" },
+        "z_index": { "type": "integer", "minimum": 0, "maximum": 999 },
+        "decorative": { "type": "boolean" },
+        "state_binding": { "type": ["string", "null"] },
+        "reduced_motion": { "enum": ["static", "hide", "use-idle"] },
+        "layout_by_profile": { "$ref": "#/$defs/layoutMap" }
+      }
+    },
+    "hotspot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hotspot_id", "target_anchor", "accessible_label", "bounds_by_profile"],
+      "properties": {
+        "hotspot_id": { "$ref": "#/$defs/id" },
+        "target_anchor": { "$ref": "#/$defs/id" },
+        "accessible_label": { "type": "string", "minLength": 1 },
+        "bounds_by_profile": {
+          "type": "object",
+          "minProperties": 4,
+          "additionalProperties": { "$ref": "#/$defs/bounds" }
+        }
+      }
+    }
+  }
+}

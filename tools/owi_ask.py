@@ -22,6 +22,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from owi_assets import inline_office_assets
+
 REPO = Path(__file__).resolve().parent.parent
 SKILLS = {
     "skill:text-editing": [],
@@ -135,7 +137,7 @@ def main() -> int:
     arguments = parser.parse_args()
 
     data = harvest()
-    template = arguments.template.read_text()
+    template = inline_office_assets(arguments.template.read_text())
     if "__DATA__" not in template:
         raise SystemExit("template is missing the __DATA__ placeholder")
     payload = json.dumps(data).replace("</", "<\\/")

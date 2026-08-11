@@ -1,0 +1,12 @@
+Use case: stylized-concept
+Asset type: reusable 2D mobile-game office environment background for a responsive web app
+Primary request: create a polished, bright, cozy office interior that feels like a premium casual mobile management game
+Scene/backdrop: airy light sky-blue and warm cream office; one large sunny window with soft blue sky and gentle daylight; a simple physical whiteboard that is completely blank; three clearly distinct desk bays arranged across the room; a few tasteful plants, books, shelves, cushions, stationery, and soft decorative props
+Subject: the office environment itself, with three unoccupied workstations ready for separate live HTML character overlays
+Style/medium: high-quality hand-painted 2D game background; clean rounded forms; subtle dimensional shading; friendly premium casual-game art; elegant and inviting; detailed enough to feel real but uncluttered
+Composition/framing: exact 16:9 wide landscape composition; straight-on, slightly elevated room view; preserve generous, clean foreground negative space around and in front of each of the three desk bays so full or half-body worker sprites can be overlaid without covering important props; keep the three character staging zones visually distinct; safe margins on all sides; no cropped furniture
+Lighting/mood: bright sunny daytime, soft warm bounce light, optimistic, calm, cozy
+Color palette: pale sky blue, warm ivory and cream, soft peach, gentle aqua, light natural wood, small fresh green accents; high readability and no dark dominant areas
+Materials/textures: painted wood, soft textiles, matte walls, subtle paper and ceramic details; smooth game-ready finish
+Constraints: background environment only; exactly zero people, zero characters, zero creatures, zero robots; no text anywhere; no letters, numbers, labels, logos, brands, watermarks, signs, charts, telemetry, dashboards, interface windows, buttons, menus, cards, or UI panels; the whiteboard must remain entirely blank; screens should be off or show only a featureless soft neutral glow; avoid any fake data; make the room usable as a compositing plate for live HTML worker overlays
+Avoid: dark cyberpunk, neon nightclub lighting, casino imagery, childish nursery art, chibi characters, photorealism, isometric dollhouse view, distorted perspective, excessive clutter, busy patterns, embedded interface elements, words, glyphs, or iconography

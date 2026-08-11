@@ -1,0 +1,107 @@
+{
+  "$schema": "./sources.schema.json",
+  "schema_version": 2,
+  "pack_id": "org.open-workforce-index.office",
+  "records": [
+    {
+      "id": "source-training-map-generation",
+      "kind": "generative-tool",
+      "description": "Original opaque onboarding-map illustration generated for the OWI bright-office training tour. The PNG master was converted to a smaller WebP runtime rendition. The image contains no factual telemetry or interface text.",
+      "created_at": null,
+      "created_by": null,
+      "tool": {
+        "name": "image_gen__imagegen",
+        "version": null,
+        "terms_url": null,
+        "terms_retrieved_at": null
+      },
+      "prompt": {
+        "file": "sources/prompts/training-map.txt",
+        "sha256": "758766ef30e4085da67d3a8349a42ab1442b8cfd03241db7292142c12909a392"
+      },
+      "input_files": [],
+      "output_asset_ids": ["background-training-map-first-project"],
+      "artifacts": [
+        {
+          "role": "generated-master",
+          "file": "backgrounds/training-map.png",
+          "byte_size": 383876,
+          "sha256": "bfa768b60934bddb715ac59059bf5866603306a4d1e6659910c0fa7002f0eb36"
+        },
+        {
+          "role": "runtime-output",
+          "file": "backgrounds/training-map.webp",
+          "byte_size": 98826,
+          "sha256": "58b6548e0e0077ca0f3972a932dde29f3d54a8c69dd427ad276a12211cdacc8a"
+        }
+      ],
+      "rights": {
+        "status": "pending",
+        "owner": null,
+        "license_expression": null,
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "notes": "Technical registration is complete. Maintainer review of generation terms and redistribution rights is still required; this record grants no license."
+      }
+    },
+    {
+      "id": "source-v1-runtime-import",
+      "kind": "internal-pack-import",
+      "description": "Byte-identical runtime renditions copied from the development v1 OWI Office pack so the v2 graphics contract remains self-contained. Their upstream generated-art rights remain pending and are not upgraded by the copy.",
+      "created_at": null,
+      "created_by": null,
+      "tool": null,
+      "prompt": null,
+      "input_files": [
+        {
+          "file": "ui/assets/office/v1/manifest.json",
+        "sha256": "99e66f254d4b2b18b8789824d9beb2f40105a07eddfd2a48e8ada9acb91f3d7c"
+        },
+        {
+          "file": "ui/assets/office/v1/SOURCES.json",
+        "sha256": "a4e510b2633428c59a7015a3ce68245bcfa8e566ff2ed0f00781ad4d433cb42a"
+        }
+      ],
+      "output_asset_ids": [
+        "background-bright-office-main",
+        "character-orbit-dispatcher-idle",
+        "character-nova-researcher-idle",
+        "character-mira-designer-idle"
+      ],
+      "artifacts": [
+        {
+          "role": "copied-runtime",
+          "file": "backgrounds/bright-office.webp",
+          "byte_size": 48364,
+          "sha256": "b899af49ab403951759b167ff167ed47073b5661d5e9173fcd997fded00ea1f6"
+        },
+        {
+          "role": "copied-runtime",
+          "file": "characters/orbit.webp",
+          "byte_size": 30706,
+          "sha256": "4ddcf7641b9eb6c40c1b30cfdd8b0ba603ce4666325b9e71cd6be5aea3c761d4"
+        },
+        {
+          "role": "copied-runtime",
+          "file": "characters/nova.webp",
+          "byte_size": 18332,
+          "sha256": "7ba869ee5fd0913878d4b2711233007d12290d37d9193bc6fb8323e7545f68fd"
+        },
+        {
+          "role": "copied-runtime",
+          "file": "characters/mira.webp",
+          "byte_size": 14976,
+          "sha256": "d9553771e7ccb82b470602ab3049e5921898d42a304d6922484ea147df2b19d0"
+        }
+      ],
+      "rights": {
+        "status": "pending",
+        "owner": null,
+        "license_expression": null,
+        "reviewed_by": null,
+        "reviewed_at": null,
+        "notes": "Inherited from the v1 development pack. Copying bytes does not establish ownership or permission to redistribute them."
+      }
+    }
+  ]
+}

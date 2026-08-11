@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:owi:schema:office-tour:v1",
+  "title": "OWI Office guided tour v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "tour_id", "version", "title", "steps"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "tour_id": { "$ref": "#/$defs/id" },
+    "version": { "const": 2 },
+    "title": { "type": "string", "minLength": 1 },
+    "steps": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": { "$ref": "#/$defs/step" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "step_id",
+        "view",
+        "target_anchor",
+        "fallback_anchor",
+        "coach_asset_id",
+        "title",
+        "body",
+        "placement",
+        "next_label"
+      ],
+      "properties": {
+        "step_id": { "$ref": "#/$defs/id" },
+        "view": { "enum": ["office", "manager", "work", "results"] },
+        "target_anchor": { "$ref": "#/$defs/id" },
+        "fallback_anchor": { "$ref": "#/$defs/id" },
+        "coach_asset_id": { "$ref": "#/$defs/id" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "body": { "type": "string", "minLength": 1, "maxLength": 420 },
+        "placement": { "enum": ["auto", "center"] },
+        "next_label": { "type": "string", "minLength": 1, "maxLength": 48 }
+      }
+    }
+  }
+}

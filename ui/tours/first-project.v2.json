@@ -1,0 +1,86 @@
+{
+  "$schema": "./tour.schema.json",
+  "schema_version": 1,
+  "tour_id": "first-project",
+  "version": 2,
+  "title": "Manage your first GitHub project in OWI",
+  "steps": [
+    {
+      "step_id": "meet-your-company",
+      "view": "office",
+      "target_anchor": "company-hq",
+      "fallback_anchor": "company-hq",
+      "coach_asset_id": "character-orbit-dispatcher-idle",
+      "title": "Welcome to your AI company",
+      "body": "You remain the owner. OWI helps turn one goal into reviewable tasks, proposes qualified workers, and keeps every important decision visible. The tour explains the workflow; it never spends money or runs a model for you.",
+      "placement": "center",
+      "next_label": "Choose a project"
+    },
+    {
+      "step_id": "choose-a-repository",
+      "view": "manager",
+      "target_anchor": "github-projects",
+      "fallback_anchor": "company-hq",
+      "coach_asset_id": "character-orbit-dispatcher-idle",
+      "title": "Choose a GitHub project",
+      "body": "The Manager reads an on-demand GitHub snapshot without cloning or scanning source code. Choose a server-discovered repository, then refresh its issues, pull requests, and failed Actions. If GitHub is not configured, this room shows the exact setup needed and does not invent projects.",
+      "placement": "auto",
+      "next_label": "Inspect incoming work"
+    },
+    {
+      "step_id": "promote-incoming-work",
+      "view": "manager",
+      "target_anchor": "manager-incoming",
+      "fallback_anchor": "github-projects",
+      "coach_asset_id": "character-orbit-dispatcher-idle",
+      "title": "Promote work deliberately",
+      "body": "GitHub items stay read-only until you explicitly import one. Import creates an unassigned local draft with source provenance; it never staffs a model, spends money, runs code, or writes back to GitHub. Private-source tasks keep a confidential privacy floor.",
+      "placement": "auto",
+      "next_label": "Inspect the tasks"
+    },
+    {
+      "step_id": "inspect-the-plan",
+      "view": "work",
+      "target_anchor": "task-board",
+      "fallback_anchor": "project-create",
+      "coach_asset_id": "character-orbit-dispatcher-idle",
+      "title": "Shape small, checkable tasks",
+      "body": "Review every draft before spending. Add, edit, or remove tasks, keep different kinds of work separate, and write acceptance checks that make the returned result easy to judge.",
+      "placement": "auto",
+      "next_label": "Staff the work"
+    },
+    {
+      "step_id": "approve-the-staffing",
+      "view": "work",
+      "target_anchor": "staffing",
+      "fallback_anchor": "task-board",
+      "coach_asset_id": "character-orbit-dispatcher-idle",
+      "title": "Compare the proposed staff",
+      "body": "Staffing evaluates capability, tools, privacy, quality evidence, and price for each task. Inspect the selected worker, qualified alternatives, exclusions, runner readiness, and accepted-result cost forecast before execution.",
+      "placement": "auto",
+      "next_label": "Run and review"
+    },
+    {
+      "step_id": "review-the-delivery",
+      "view": "work",
+      "target_anchor": "run-review",
+      "fallback_anchor": "task-board",
+      "coach_asset_id": "character-orbit-dispatcher-idle",
+      "title": "Run only the saved assignment",
+      "body": "The Run control uses the exact staffed worker and server-owned brief. When it finishes, inspect the real output and checks. Accept it, send it back, retry the same assignment, or restaff using new evidence.",
+      "placement": "auto",
+      "next_label": "See the evidence"
+    },
+    {
+      "step_id": "understand-the-results",
+      "view": "results",
+      "target_anchor": "results-evidence",
+      "fallback_anchor": "company-hq",
+      "coach_asset_id": "character-orbit-dispatcher-idle",
+      "title": "Manage with evidence",
+      "body": "Results keeps outcomes beside the exact worker and task. Forecasts remain forecasts; actual spend, savings, CO₂, and water stay unknown until receipts or measured evidence exist. You can restart this tour whenever you need it.",
+      "placement": "auto",
+      "next_label": "Finish tour"
+    }
+  ]
+}

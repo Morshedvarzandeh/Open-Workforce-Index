@@ -33,6 +33,31 @@ yet run a planner, reserve spend, call a provider, or execute a verifier.
 The planner therefore never controls the three high-impact decisions: worker
 identity, permission, or money.
 
+## GitHub Manager boundary
+
+The local graphical Manager is a read-only source adapter, not an execution
+authority. It discovers repositories through a fixed GitHub REST origin and
+stores bounded metadata, issues, pull requests, failed Actions runs, refresh
+coverage, and import provenance in a separate private `github-manager.sqlite`.
+The browser addresses only opaque server-discovered IDs and never supplies a
+GitHub URL or credential.
+
+The first connector is intentionally no-clone: it does not invoke Git, fetch
+archives or repository contents, scan source code, install a webhook, or write
+to GitHub. Refresh is manual and reports partial, stale, truncated, permission,
+and rate-limit states. Import is a separate owner action that atomically creates
+or reuses one unassigned local draft in `workflow.sqlite`. It does not call a
+planner, allocator, provider, runner, verifier, or GitHub mutation endpoint.
+Private GitHub provenance remains in private stores and imposes a
+`confidential_content` privacy floor.
+
+Public-owner mode needs no credential. Private access accepts only a
+server-side token or owner-only token file; the token is never serialized to
+the page, API response, log, or database. A future hosted boundary replaces
+this local bridge with GitHub App OAuth plus selected-repository installation
+access and short-lived tokens, without changing the source-item-to-draft
+contract.
+
 ## Data flow
 
 ```mermaid

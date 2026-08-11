@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import sqlite3
@@ -145,19 +146,104 @@ def builtin_runner(model: str) -> str | None:
     return None
 
 
+def configured_runners(home: Path) -> dict:
+    runners_path = home / "runners.json"
+    if runners_path.is_symlink():
+        raise OwiSetupError("runners.json may not be a symlink")
+    if not runners_path.exists():
+        return {}
+    if not runners_path.is_file():
+        raise OwiSetupError("runners.json must be a regular file")
+    data = json.loads(runners_path.read_text())
+    if not isinstance(data, dict):
+        raise OwiSetupError("runners.json must contain a JSON object")
+    return data
+
+
 def resolve_runner(home: Path, model: str) -> str | None:
     """The configured command for a model, or the built-in when unset."""
-    runners_path = home / "runners.json"
-    configured = ""
-    if runners_path.exists():
-        configured = (json.loads(runners_path.read_text()).get(model) or "").strip()
+    configured = str(configured_runners(home).get(model) or "").strip()
     return configured or builtin_runner(model)
 
 
+def resolve_worker_runner(
+    home: Path, worker_id: str, allow_model_fallback: bool = True
+) -> tuple[str | None, str | None]:
+    """Resolve an exact staffed worker before the legacy model-wide fallback.
+
+    ``runners.json`` may bind ``worker:model/role`` to a dedicated command.
+    Older workspaces bind only ``model``; that still works, but callers can
+    disclose that execution used a model-wide fallback rather than pretending
+    it was an exact worker binding.
+    """
+    model = (worker_id.removeprefix("worker:").split("/", 1)[0].strip()
+             if worker_id.startswith("worker:") and "/" in worker_id else "")
+    configured = configured_runners(home)
+    if configured:
+        exact = str(configured.get(worker_id) or "").strip()
+        if exact:
+            return exact, "worker"
+        if not allow_model_fallback:
+            return None, None
+        legacy = str(configured.get(model) or "").strip()
+        if legacy:
+            return legacy, "model_fallback"
+    if not allow_model_fallback:
+        return None, None
+    builtin = builtin_runner(model) if model else None
+    return (builtin, "model_fallback") if builtin else (None, None)
+
+
+class OwiSetupError(RuntimeError):
+    """The deterministic Rust engine is not installed or buildable here."""
+
+
+def resolve_owi_command() -> list[str]:
+    """Find the OWI engine without requiring a Rust toolchain in production.
+
+    An explicit ``OWI_BIN`` is authoritative. Installed/release binaries win
+    over development builds, with ``cargo run`` retained only as the final
+    developer fallback. The return value is argv, never shell text.
+    """
+    configured = (os.environ.get("OWI_BIN") or "").strip()
+    if configured:
+        found = shutil.which(configured)
+        candidate = Path(found) if found else Path(configured).expanduser()
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return [str(candidate.resolve())]
+        raise OwiSetupError(
+            f"OWI_BIN points to an executable that cannot be run: {configured}"
+        )
+
+    installed = shutil.which("owi")
+    if installed:
+        return [installed]
+
+    executable = "owi.exe" if os.name == "nt" else "owi"
+    for profile in ("release", "debug"):
+        candidate = REPO / "target" / profile / executable
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return [str(candidate)]
+
+    cargo = shutil.which("cargo")
+    if cargo:
+        return [cargo, "run", "-q", "-p", "workforce-cli", "--"]
+    raise OwiSetupError(
+        "OWI engine unavailable. Install an OWI release binary on PATH, set "
+        "OWI_BIN to it, or install Rust/Cargo for the developer fallback."
+    )
+
+
 def owi(*args: str) -> dict:
-    completed = subprocess.run(
-        ["cargo", "run", "-q", "-p", "workforce-cli", "--", *args],
-        cwd=REPO, capture_output=True, text=True)
+    argv = [*resolve_owi_command(), *args]
+    try:
+        completed = subprocess.run(
+            argv, cwd=REPO, capture_output=True, text=True, shell=False
+        )
+    except OSError as error:
+        raise OwiSetupError(
+            f"OWI engine could not start ({argv[0]}): {error}"
+        ) from error
     if completed.returncode != 0:
         sys.stderr.write(completed.stderr[-1500:])
         raise SystemExit(f"owi {args[0]} failed")
@@ -179,14 +265,28 @@ def bootstrap(home: Path) -> None:
     owi("database", "init", "--index", str(index), "--local", str(local))
     runners = home / "runners.json"
     if not runners.exists():
-        # Prefill anything runnable out of the box, visibly.
-        prefilled = {m: (builtin_runner(m) or "")
-                     for m in ["gpt-5-mini", "haiku-4-5", "gpt-5",
-                               "sonnet-5", "sonnet-4-5", "opus-5", "opus-4-5",
-                               "local-llama"]}
+        # Bind exact seeded worker identities. A model-wide command could hit a
+        # different provider/offering than the allocator priced.
+        seed = json.loads(
+            (REPO / "examples/manager-scenario-seed.json").read_text()
+        )
+        models = ["gpt-5-mini", "haiku-4-5", "gpt-5", "sonnet-5",
+                  "sonnet-4-5", "opus-5", "opus-4-5", "local-llama"]
+        # Model keys remain for the terminal's legacy model-oriented flow.
+        prefilled = {model: (builtin_runner(model) or "") for model in models}
+        for worker in seed.get("worker_profiles", []):
+            worker_id = str(worker.get("id") or "")
+            model = (worker_id.removeprefix("worker:").split("/", 1)[0]
+                     if worker_id.startswith("worker:") and "/" in worker_id
+                     else "")
+            if worker_id:
+                prefilled[worker_id] = builtin_runner(model) or ""
         runners.write_text(json.dumps({
             "_comment": [
-                "model -> the command that runs it. The task text arrives on",
+                "exact worker id -> the command that runs it. Model-only keys",
+                "are not executable in the graphical workflow because they can",
+                "silently change the provider/offering that was priced.",
+                "The task text arrives on",
                 "stdin. Your CLI, your key -- owi-do never sees credentials.",
                 "Anthropic models prefill when the `claude` CLI is on PATH;",
                 "OpenAI models when `llm` is (pip install llm; llm keys set",
@@ -269,7 +369,12 @@ def log_root_cause(home: Path, task: str, worker: str, skill: str,
         entry["confidential"] = True
     elif checklist:
         entry["checklist"] = checklist
-    with (home / "root-causes.jsonl").open("a", encoding="utf-8") as handle:
+    path = home / "root-causes.jsonl"
+    if path.is_symlink():
+        raise OwiSetupError("root-causes.jsonl may not be a symlink")
+    if path.exists() and not path.is_file():
+        raise OwiSetupError("root-causes.jsonl must be a regular file")
+    with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(entry) + "\n")
 
 
@@ -321,21 +426,51 @@ def record_outcome(home: Path, worker: str, skill: str, accepted: bool,
                    cause: str | None = None, task: str = "",
                    detail: str = "", checklist: list | None = None,
                    inspection: str = "",
-                   privacy: str = "private_metadata") -> None:
+                   privacy: str = "private_metadata",
+                   task_id: str | None = None,
+                   validation_kind: str = "human",
+                   actual_cash_micros: int | None = None,
+                   actual_quota_milliunits: int | None = None,
+                   latency_ms: int | None = None) -> None:
     """Record a verified outcome. On rejection, `cause` names the root cause;
     only 'worker' (the default) counts against the model's evidence, and the
     failure is appended to root-causes.jsonl for prevention. When a checklist
     produced the verdict, every item's labelled result rides along in the
     event metadata — pass and fail alike, so no evidence is lost."""
+    allowed_validation = {
+        "deterministic", "human", "independent_model", "self_reported"
+    }
+    if validation_kind not in allowed_validation:
+        raise ValueError(f"unknown validation kind: {validation_kind}")
+    for name, value in (
+        ("actual_cash_micros", actual_cash_micros),
+        ("actual_quota_milliunits", actual_quota_milliunits),
+        ("latency_ms", latency_ms),
+    ):
+        if value is not None and (
+            isinstance(value, bool) or not isinstance(value, int) or value < 0
+        ):
+            raise ValueError(f"{name} must be a non-negative integer or unknown")
     event = {
         "id": f"outcome:do-{time.time_ns()}",
-        "task_id": f"task:do-{time.time_ns()}",
+        "task_id": task_id or f"task:do-{time.time_ns()}",
         "worker_id": worker, "skill_id": skill, "accepted": accepted,
-        "validation_kind": "human",
-        "actual_cash_micros": 0, "actual_quota_milliunits": 0,
-        "latency_ms": 0,
+        "validation_kind": validation_kind,
+        # The v0.1 Rust DTO is numeric-only. Zero remains its compatibility
+        # sentinel, while measurement_coverage below makes it impossible for
+        # reports to mistake an unknown for a measured zero.
+        "actual_cash_micros": actual_cash_micros or 0,
+        "actual_quota_milliunits": actual_quota_milliunits or 0,
+        "latency_ms": latency_ms or 0,
         "observed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
-    metadata: dict = {}
+    metadata: dict = {
+        "measurement_coverage": {
+            "cash": "measured" if actual_cash_micros is not None else "unknown",
+            "quota": ("measured" if actual_quota_milliunits is not None
+                      else "unknown"),
+            "latency": "measured" if latency_ms is not None else "unknown",
+        }
+    }
     if inspection:
         metadata["inspection"] = inspection[:20]
     if checklist:
@@ -355,9 +490,20 @@ def record_outcome(home: Path, worker: str, skill: str, accepted: bool,
                        metadata.get("checklist"), privacy=privacy)
     if metadata:
         event["metadata"] = metadata
-    path = home / "last-outcome.json"
-    path.write_text(json.dumps({"event": event}, indent=2))
-    owi("outcome", "--local", str(home / "local.sqlite"), "--input", str(path))
+    local_ledger = home / "local.sqlite"
+    if local_ledger.is_symlink():
+        raise OwiSetupError("local.sqlite may not be a symlink")
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".json", prefix="outcome-", dir=home,
+        encoding="utf-8", delete=False
+    ) as handle:
+        json.dump({"event": event}, handle, indent=2)
+        path = Path(handle.name)
+    try:
+        owi("outcome", "--local", str(local_ledger),
+            "--input", str(path))
+    finally:
+        path.unlink(missing_ok=True)
     blame = "" if accepted else (
         " (held against the model)" if cause == "worker"
         else f" (root cause: {cause} — not held against the model)")
@@ -462,7 +608,8 @@ def qc_history(home: Path, worker: str, skill: str) -> tuple[int, int]:
             cause = (json.loads(metadata_json or "{}") or {}).get("root_cause")
         except json.JSONDecodeError:
             cause = None
-        if cause in ("task_spec", "harness", "environment"):
+        # Missing/legacy cause is unknown, not proof of worker failure.
+        if cause != "worker":
             continue
         counting = False
     return streak, total
@@ -517,6 +664,22 @@ def run_command(home: Path, model: str, payload: str,
     with tempfile.TemporaryDirectory(prefix="owi-run-") as scratch:
         completed = subprocess.run(
             resolve_runner(home, model), shell=True, input=payload, text=True,
+            capture_output=True, timeout=timeout, cwd=scratch)
+    return completed.stdout or "", completed.stderr or "", completed.returncode
+
+
+def run_worker_command(home: Path, worker_id: str, payload: str,
+                       timeout: int = 600,
+                       allow_model_fallback: bool = True) -> tuple[str, str, int]:
+    """Run an exact worker from a fresh directory with no inherited repo rules."""
+    command, _ = resolve_worker_runner(
+        home, worker_id, allow_model_fallback=allow_model_fallback
+    )
+    if not command:
+        raise OwiSetupError(f"no runner is configured for {worker_id}")
+    with tempfile.TemporaryDirectory(prefix="owi-run-") as scratch:
+        completed = subprocess.run(
+            command, shell=True, input=payload, text=True,
             capture_output=True, timeout=timeout, cwd=scratch)
     return completed.stdout or "", completed.stderr or "", completed.returncode
 
@@ -620,6 +783,9 @@ Available skills — use ONLY these ids:
 - skill:structured-extraction — pulling structured data (JSON, tables) out of text
 - skill:python-numerical-implementation — writing or fixing code
 - skill:parametric-cad — 3D parts and geometry
+- skill:planning-decomposition — architecture, roadmaps, milestones, strategy
+- skill:code-review-debugging — code review, diagnosis, regressions, root causes
+- skill:ui-design — interface layouts, interaction design, CSS, wireframes
 
 REQUEST:
 {task}
