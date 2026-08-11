@@ -305,6 +305,22 @@ def run(no_cargo: bool) -> int:
                 suite.check("the block still defines the whole rule",
                             not missing, f"missing: {missing}")
 
+        extraction = frozen.get("bench_extraction_expectations")
+        if extraction:
+            print("\nbench extraction (a nested helper is not a restated "
+                  "signature)")
+            adapter_loader = importlib.machinery.SourceFileLoader(
+                "bench_chat_adapter", str(TOOLS / "bench_chat_adapter.py"))
+            adapter_spec = importlib.util.spec_from_loader(
+                "bench_chat_adapter", adapter_loader)
+            adapter = importlib.util.module_from_spec(adapter_spec)
+            adapter_loader.exec_module(adapter)
+            for fixture in extraction["fixtures"]:
+                got = adapter.extract_body(fixture["reply"], "    ",
+                                           fixture["qualified_name"])
+                suite.check(fixture["name"], got == fixture["expect"],
+                            f"got {got!r}")
+
         bench_rules = frozen.get("bench_blame_expectations")
         if bench_rules:
             print("\nbench blame (a broken adapter is not a failed model)")

@@ -497,5 +497,59 @@
     "files_that_must_not_spawn": [
       "tools/owi-serve"
     ]
+  },
+  "bench_extraction_expectations": {
+    "_why": [
+      "The chat adapter turns a model's reply into a function body. It used",
+      "to drop everything through the first `def` line found at ANY",
+      "indentation, meaning to strip a restated signature. A body that opens",
+      "with a nested helper \u2014 `def _to_float_array(...)` inside the function",
+      "\u2014 lost that header and kept its indented block, so the spliced file",
+      "would not even import. Pytest said 'errors during collection', the",
+      "runner scored it as a failed implementation, and the ledger learned",
+      "that the model cannot code.",
+      "",
+      "It was really measuring which models avoid nested helpers. That is a",
+      "style, not a capability. worker:opus-5/code scored 3/11 under the",
+      "broken rule, with 5 of its 8 failures being collection errors rather",
+      "than wrong answers; nothing from that run was recorded.",
+      "",
+      "The rule now strips a restated signature only when it sits at column",
+      "zero AND names the function under test. Everything a body needs to",
+      "define for itself survives.",
+      "",
+      "A second defect surfaced while freezing the first: extract_body called",
+      "reply.strip(), and leading whitespace on the first line IS the body's",
+      "indentation. Stripping it made the min-indent calculation see column",
+      "zero and shift every deeper line four spaces further in. Fenced replies",
+      "took an rstrip path and were unaffected, so the same answer normalised",
+      "differently depending on whether the model wrapped it in a code fence."
+    ],
+    "fixtures": [
+      {
+        "name": "a restated signature at column zero is stripped",
+        "qualified_name": "f",
+        "reply": "def f(x):\n    return x + 1\n",
+        "expect": "    return x + 1"
+      },
+      {
+        "name": "a nested helper keeps its own def",
+        "qualified_name": "f",
+        "reply": "    def helper(v):\n        return v * 2\n\n    return helper(x)\n",
+        "expect": "    def helper(v):\n        return v * 2\n\n    return helper(x)"
+      },
+      {
+        "name": "a bare body at column zero is indented in",
+        "qualified_name": "f",
+        "reply": "return x + 1\n",
+        "expect": "    return x + 1"
+      },
+      {
+        "name": "a different function keeps its header, indented in",
+        "qualified_name": "f",
+        "reply": "def other(v):\n    return v\n",
+        "expect": "    def other(v):\n        return v"
+      }
+    ]
   }
 }

@@ -43,21 +43,43 @@ INSTRUCTION:
 {instruction}"""
 
 
-def extract_body(reply: str, indent: str) -> str:
-    text = reply.strip()
+def extract_body(reply: str, indent: str, name: str = "") -> str:
+    # rstrip, never strip: leading whitespace on the first line IS the body's
+    # indentation. Removing it made the min-indent shift below see column zero
+    # and push every deeper line four spaces further in, breaking the block
+    # structure of any reply that was not fenced. Fenced replies already took
+    # the rstrip path, so the two shapes of the same answer were normalised
+    # differently — one of them wrongly.
+    text = reply.rstrip()
     fenced = re.findall(r"```(?:python)?\s*\n(.*?)```", text, re.S)
     if fenced:
         text = max(fenced, key=len).rstrip()
     lines = text.splitlines()
-    # Drop a repeated signature: everything through the first line that ends
-    # the `def ...:` header.
+    # Drop a repeated signature: everything through the line that ends the
+    # `def ...:` header — but ONLY when the model restated THIS function at
+    # column zero.
+    #
+    # The earlier rule matched any `def` at any indentation, which silently
+    # decapitated a nested helper: a body opening with `def _to_float(...)`
+    # lost that header and kept its indented block, so the spliced file could
+    # not even be imported. Pytest reported "errors during collection", the
+    # runner scored it as a failed implementation, and the bench was really
+    # measuring which models avoid nested helpers. That is a style, not a
+    # capability, and it was being written into the ledger as one.
     for position, line in enumerate(lines):
-        if line.lstrip().startswith(("def ", "async def ")):
-            for end in range(position, len(lines)):
-                if lines[end].rstrip().endswith(":"):
-                    lines = lines[end + 1:]
-                    break
-            break
+        stripped = line.lstrip()
+        if not stripped.startswith(("def ", "async def ")):
+            continue
+        if line != stripped:
+            break                      # indented: a helper the body needs
+        if name and not re.match(rf"(async\s+)?def\s+{re.escape(name)}\s*\(",
+                                 stripped):
+            break                      # a different function: leave it alone
+        for end in range(position, len(lines)):
+            if lines[end].rstrip().endswith(":"):
+                lines = lines[end + 1:]
+                break
+        break
     body = [line for line in lines]
     while body and not body[0].strip():
         body.pop(0)
@@ -86,7 +108,8 @@ def main() -> int:
     if completed.returncode != 0:
         sys.stderr.write(completed.stderr[-1000:])
         return completed.returncode
-    body = extract_body(completed.stdout, task.get("indent", "    "))
+    body = extract_body(completed.stdout, task.get("indent") or "    ",
+                        task.get("qualified_name", ""))
     if not body:
         sys.stderr.write("adapter: reply contained no usable body\n")
         return 1
