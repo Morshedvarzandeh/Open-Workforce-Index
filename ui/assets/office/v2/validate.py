@@ -26,8 +26,8 @@ SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
 PROFILE_IDS = {"phone-portrait", "phone-landscape", "tablet", "desktop"}
 TOUR_ANCHORS = [
     "company-hq",
-    "office-roster",
-    "project-create",
+    "github-projects",
+    "manager-incoming",
     "task-board",
     "staffing",
     "run-review",
@@ -518,11 +518,11 @@ def validate_scenes(asset_ids: set[str], report: Report) -> set[str]:
 
 
 def validate_tour(asset_ids: set[str], scene_anchors: set[str], report: Report) -> None:
-    path = TOURS / "first-project.v1.json"
+    path = TOURS / "first-project.v2.json"
     tour = read_json(path, report)
     where = str(path.relative_to(REPO))
-    if tour.get("schema_version") != 1 or tour.get("version") != 1:
-        report.error(f"{where}: schema_version and version must both be 1")
+    if tour.get("schema_version") != 1 or tour.get("version") != 2:
+        report.error(f"{where}: expected schema_version 1 and content version 2")
     if tour.get("tour_id") != "first-project":
         report.error(f"{where}.tour_id: expected 'first-project'")
     steps = tour.get("steps")
@@ -547,14 +547,14 @@ def validate_tour(asset_ids: set[str], scene_anchors: set[str], report: Report) 
             if step_id in step_ids:
                 report.error(f"{s_where}.step_id: duplicate {step_id!r}")
             step_ids.add(step_id)
-        if step.get("view") not in {"office", "work", "results"}:
+        if step.get("view") not in {"office", "manager", "work", "results"}:
             report.error(f"{s_where}.view: invalid view")
         anchor = step.get("target_anchor")
         actual_anchors.append(anchor)
         if anchor not in scene_anchors:
             report.error(f"{s_where}.target_anchor: no scene hotspot for {anchor!r}")
-        if step.get("fallback_anchor") not in TOUR_ANCHORS:
-            report.error(f"{s_where}.fallback_anchor: unknown anchor")
+        if step.get("fallback_anchor") not in scene_anchors:
+            report.error(f"{s_where}.fallback_anchor: no scene hotspot for fallback")
         if step.get("coach_asset_id") != "character-orbit-dispatcher-idle":
             report.error(f"{s_where}.coach_asset_id: Orbit must coach the v1 tour")
         if step.get("coach_asset_id") not in asset_ids:
@@ -564,9 +564,6 @@ def validate_tour(asset_ids: set[str], scene_anchors: set[str], report: Report) 
         for field in ("title", "body", "next_label"):
             if not isinstance(step.get(field), str) or not step[field].strip():
                 report.error(f"{s_where}.{field}: expected non-empty text")
-        copy = " ".join(str(step.get(key, "")) for key in ("title", "body")).lower()
-        if "github" in copy:
-            report.error(f"{s_where}: current-feature tour must not claim GitHub integration")
     if actual_anchors != TOUR_ANCHORS:
         report.error(f"{where}.steps: anchors/order must be {TOUR_ANCHORS}")
 

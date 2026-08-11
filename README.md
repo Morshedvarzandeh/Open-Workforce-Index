@@ -44,9 +44,10 @@ entire idea, in one command.
 
 Prefer a page over a terminal? One more command serves the same experience at
 a real local application and opens it in your browser. The default is a bright
-graphical office with three simple views: **Office** shows the exact roster,
-**Work** runs a persisted project workflow, and **Results** shows recorded
-feedback without inventing cash, savings, CO₂, or water values. In Work you
+graphical office with four simple views: **Office** shows the exact roster,
+**Manager** brings selected GitHub work into one decision inbox, **Work** runs a
+persisted project workflow, and **Results** shows recorded feedback without
+inventing cash, savings, CO₂, or water values. In Work you
 create a goal, inspect or change the proposed task plan, explicitly staff the
 drafts through the Rust allocator, run only the saved assignments, inspect the
 real outputs and checks, then accept, reject, retry, or restaff them. Project
@@ -59,7 +60,8 @@ tools/owi-serve
 
 Orbit's seven-chapter **Training tour** opens on the first visit and can be
 paused, skipped, resumed, or replayed from the header. It guides the owner
-through the real Office → project → tasks → staffing → run/review → Results
+through the real Office → GitHub project → incoming work → tasks → staffing →
+run/review → Results
 path without clicking an action or spending on their behalf. On phones it uses
 a safe-area-aware game-style bottom sheet and bottom navigation; keyboard and
 reduced-motion modes are first-class. Static, unconfigured, sample, and live
@@ -76,6 +78,37 @@ or request the labelled sample explicitly:
 tools/owi-serve --home PATH_TO_EXISTING_OWI_WORKSPACE
 tools/owi-serve --demo
 ```
+
+### GitHub Manager — no clone required
+
+For your public repositories, give the local server a fixed GitHub owner. The
+browser receives a bounded repository/work-item projection; it never receives a
+GitHub credential:
+
+```bash
+tools/owi-serve --github-owner Morshedvarzandeh
+```
+
+The Manager performs manual, on-demand GitHub REST reads for repository
+metadata, open issues, open pull requests, and failed Actions runs. It does not
+clone a repository, download source files, scan code, run a background sync, or
+write to GitHub. Selecting and refreshing are read-only. Explicitly importing
+an item creates one unassigned local draft and stops there—no planning model,
+staffing, provider call, runner, budget spend, review, or GitHub mutation.
+
+Private repositories require a server-only credential with the minimum read
+permissions needed for the views you enable. Store it in an owner-only token
+file and point the launcher at that file; do not paste it into the browser or
+commit it:
+
+```bash
+tools/owi-serve --github-token-file PATH_TO_0600_TOKEN_FILE
+```
+
+The current connector supports a fine-grained personal access token or GitHub
+App user token as a local bridge. A hosted release should use a selected-repo
+GitHub App installation and short-lived credentials. Private-source imports
+cannot be downgraded below `confidential_content`.
 
 Every bind, including localhost, uses a per-process access token. The launcher
 opens the tokenized URL and exchanges it for an HTTP-only cookie; non-JSON and

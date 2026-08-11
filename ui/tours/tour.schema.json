@@ -9,7 +9,7 @@
     "$schema": { "type": "string" },
     "schema_version": { "const": 1 },
     "tour_id": { "$ref": "#/$defs/id" },
-    "version": { "const": 1 },
+    "version": { "const": 2 },
     "title": { "type": "string", "minLength": 1 },
     "steps": {
       "type": "array",
@@ -39,7 +39,7 @@
       ],
       "properties": {
         "step_id": { "$ref": "#/$defs/id" },
-        "view": { "enum": ["office", "work", "results"] },
+        "view": { "enum": ["office", "manager", "work", "results"] },
         "target_anchor": { "$ref": "#/$defs/id" },
         "fallback_anchor": { "$ref": "#/$defs/id" },
         "coach_asset_id": { "$ref": "#/$defs/id" },

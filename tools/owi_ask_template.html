@@ -384,6 +384,165 @@
   .empty-board { padding:28px 18px; text-align:center; border:1px dashed var(--rule);
     border-radius:16px; color:var(--ink-3); font-size:12px; }
 
+  /* GitHub Manager room -------------------------------------------------
+   * All numbers and cards are painted from /api/v1/github responses. The
+   * playful scenery is decoration only; it never carries business data.
+   */
+  .manager-shell { display:grid; gap:18px; }
+  .manager-hero { min-width:0; display:grid;
+    grid-template-columns:minmax(0,1.35fr) minmax(250px,.65fr); gap:18px;
+    border:1px solid #CFE1EC; border-radius:26px; overflow:hidden;
+    background:linear-gradient(135deg,#FDFEFF 0 55%,#E6F5FF 55% 100%);
+    box-shadow:var(--shadow); }
+  .manager-intro { min-width:0; padding:clamp(24px,4vw,42px); }
+  .manager-intro h2 { margin:10px 0; max-width:15ch; font-size:clamp(30px,4vw,50px);
+    line-height:1; letter-spacing:-.05em; }
+  .manager-intro > p { max-width:62ch; margin:0; color:var(--ink-2);
+    font-size:14px; line-height:1.6; }
+  .manager-connection { display:flex; align-items:center; gap:9px; flex-wrap:wrap;
+    margin-top:18px; }
+  .manager-status { display:inline-flex; align-items:center; min-height:44px;
+    gap:8px; padding:7px 11px; border:1px solid var(--rule); border-radius:999px;
+    color:var(--ink-2); background:var(--paper); font-size:12px; font-weight:820; }
+  .manager-status::before { content:""; width:9px; height:9px; border-radius:50%;
+    background:var(--yellow); box-shadow:0 0 0 4px rgba(255,200,87,.18); }
+  .manager-status.connected::before { background:var(--green);
+    box-shadow:0 0 0 4px rgba(53,184,140,.16); }
+  .manager-safety { color:var(--ink-3); font-size:12px; line-height:1.45; }
+  .manager-scene { position:relative; min-height:250px; overflow:hidden;
+    background:linear-gradient(#93D8FF 0 48%,#BFE7A8 48% 61%,#F2D6A4 61%); }
+  .manager-scene::before { content:""; position:absolute; left:8%; right:8%; bottom:8%;
+    height:42%; border:6px solid #fff; border-bottom-width:14px; border-radius:24px 24px 12px 12px;
+    background:linear-gradient(90deg,#79A8F8 0 31%,#F9FCFF 31% 34%,#FFD77A 34% 66%,#F9FCFF 66% 69%,#EF8BB7 69%);
+    box-shadow:0 14px 0 rgba(86,102,126,.14); }
+  .manager-scene::after { content:""; position:absolute; width:46px; height:46px;
+    right:13%; top:12%; border-radius:50%; background:var(--yellow);
+    box-shadow:0 0 0 11px rgba(255,200,87,.2); }
+  .manager-orbit { position:absolute; z-index:2; left:50%; bottom:11%; width:150px;
+    max-height:190px; object-fit:contain; transform:translateX(-50%);
+    filter:drop-shadow(0 13px 10px rgba(45,67,101,.2)); }
+  .manager-console { min-width:0; display:grid;
+    grid-template-columns:minmax(250px,.72fr) minmax(0,1.28fr); gap:18px; }
+  .manager-panel { min-width:0; padding:22px; border:1px solid var(--rule);
+    border-radius:22px; background:var(--paper); box-shadow:var(--shadow); }
+  .manager-panel h3 { margin:5px 0 7px; font-size:20px; letter-spacing:-.03em; }
+  .manager-panel > p { margin:0; color:var(--ink-2); font-size:12px; line-height:1.55; }
+  .repo-search { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px;
+    margin-top:16px; }
+  .repo-search input,.repo-picker select { width:100%; min-width:0; min-height:48px;
+    padding:11px 12px; border:1px solid var(--rule); border-radius:12px;
+    color:var(--ink); background:var(--paper-2); }
+  .repo-search button,.repo-load { min-height:48px; padding:10px 14px;
+    border-radius:12px; color:#fff; background:var(--blue); font-weight:820; }
+  .repo-picker { margin-top:12px; }
+  .repo-picker label { display:block; margin-bottom:6px; color:var(--ink-2);
+    font-size:12px; font-weight:820; }
+  .repo-load { width:100%; margin-top:9px; }
+  .repo-load:disabled { color:var(--ink-3); background:var(--rule); }
+  .manager-inline-state { min-height:20px; margin-top:10px; color:var(--ink-3);
+    font-size:12px; line-height:1.45; }
+  .manager-inline-state.error { color:var(--bad); }
+  #managerRetry { min-height:44px; margin-top:8px; }
+  .selected-repo { margin-top:13px; padding:12px; border:1px solid #BFD7FF;
+    border-radius:14px; background:var(--blue-soft); }
+  .selected-repo strong,.selected-repo span { display:block; overflow-wrap:anywhere; }
+  .selected-repo strong { font-size:12px; }
+  .selected-repo span { margin-top:4px; color:var(--ink-2); font-size:11px; }
+  .manager-evidence { display:grid; grid-template-columns:repeat(5,minmax(0,1fr));
+    gap:9px; margin-top:15px; }
+  .manager-metric { min-width:0; min-height:102px; padding:13px; border:1px solid var(--rule);
+    border-radius:15px; background:var(--paper-2); }
+  .manager-metric span,.manager-metric strong,.manager-metric small { display:block; }
+  .manager-metric span { color:var(--ink-3); font-size:11px; font-weight:850;
+    letter-spacing:.06em; text-transform:uppercase; }
+  .manager-metric strong { margin-top:7px; font-size:24px; letter-spacing:-.04em; }
+  .manager-metric small { margin-top:5px; color:var(--ink-3); font-size:11px;
+    line-height:1.35; }
+  .manager-board-head { display:flex; align-items:flex-end; justify-content:space-between;
+    gap:12px; margin-bottom:13px; }
+  .manager-board-head h3 { margin:4px 0 0; font-size:23px; letter-spacing:-.035em; }
+  .manager-board-head p { max-width:58ch; margin:0; color:var(--ink-3);
+    font-size:12px; line-height:1.45; text-align:right; }
+  .manager-lanes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:11px; }
+  .manager-lane { min-width:0; padding:12px; border:1px solid var(--rule);
+    border-radius:17px; background:var(--paper-2); }
+  .manager-lane[data-lane="incoming"] { background:#F0F7FF; }
+  .manager-lane[data-lane="draft"] { background:#FFF8E9; }
+  .manager-lane[data-lane="staffing"] { background:#F0FBF7; }
+  .manager-lane[data-lane="running"] { background:#EEF4FF; }
+  .manager-lane[data-lane="review"] { background:#F6F1FF; }
+  .manager-lane[data-lane="done"] { background:#ECF9F3; }
+  .manager-lane[data-lane="blocked"] { background:#FFF2F2; }
+  .manager-lane-head { display:flex; align-items:center; justify-content:space-between;
+    gap:8px; margin-bottom:10px; }
+  .manager-lane-head strong { font-size:12px; }
+  .manager-lane-count { min-width:25px; height:25px; display:grid; place-items:center;
+    border-radius:9px; color:var(--ink-2); background:rgba(255,255,255,.78);
+    border:1px solid rgba(117,139,169,.18); font-size:11px; font-weight:900; }
+  .manager-lane-items { display:grid; gap:8px; }
+  .manager-work-item { min-width:0; padding:11px; border:1px solid rgba(132,154,184,.24);
+    border-radius:13px; background:color-mix(in srgb,var(--paper) 94%,transparent); }
+  .manager-work-item-top { display:flex; align-items:center; justify-content:space-between;
+    gap:8px; }
+  .manager-source { padding:4px 6px; border-radius:7px; color:var(--blue);
+    background:var(--blue-soft); font:800 11px var(--mono); text-transform:uppercase; }
+  .manager-work-item time { color:var(--ink-3); font-size:11px; }
+  .manager-work-item h4 { margin:8px 0 5px; font-size:13px; line-height:1.35;
+    overflow-wrap:anywhere; }
+  .manager-item-meta { color:var(--ink-3); font-size:11px; line-height:1.4;
+    overflow-wrap:anywhere; }
+  .manager-item-actions { display:grid; grid-template-columns:1fr auto; gap:7px; margin-top:9px; }
+  .manager-item-actions button,.manager-item-actions a { min-width:0; min-height:44px;
+    display:flex; align-items:center; justify-content:center; padding:8px 10px;
+    border-radius:10px; font-size:11px; font-weight:820; text-decoration:none; }
+  .manager-item-actions button { color:#fff; background:var(--blue); }
+  .manager-item-actions a { color:var(--ink-2); background:var(--paper-2);
+    border:1px solid var(--rule); }
+  .manager-lane-empty { min-height:70px; display:grid; place-items:center; padding:10px;
+    border:1px dashed rgba(132,154,184,.35); border-radius:12px; color:var(--ink-3);
+    font-size:11px; line-height:1.4; text-align:center; }
+  .manager-board-empty { padding:32px 16px; border:1px dashed var(--rule);
+    border-radius:16px; color:var(--ink-3); text-align:center; font-size:12px; }
+  .manager-drawer { position:fixed; z-index:880; inset:0; display:grid; place-items:stretch end;
+    background:rgba(23,35,59,.4); backdrop-filter:blur(2px); }
+  body.manager-modal-open { overflow:hidden; }
+  .manager-drawer[hidden] { display:none; }
+  .manager-drawer-card { width:min(480px,100%); height:100%; max-height:100dvh; overflow:auto;
+    padding:var(--game-safe-top) var(--game-safe-right) var(--game-safe-bottom) 24px;
+    color:var(--ink); background:var(--paper); box-shadow:-24px 0 70px rgba(25,46,79,.22); }
+  .manager-drawer-head { display:flex; align-items:flex-start; justify-content:space-between;
+    gap:12px; padding-top:12px; }
+  .manager-drawer-head h3 { margin:7px 0 0; font-size:24px; letter-spacing:-.035em; }
+  .manager-drawer-close { flex:0 0 44px; width:44px; height:44px; border-radius:13px;
+    color:var(--ink-2); background:var(--paper-2); font-size:20px; }
+  .manager-detail-source { margin-top:18px; padding:13px; border:1px solid var(--rule);
+    border-radius:14px; background:var(--paper-2); }
+  .manager-detail-source span,.manager-detail-source a { display:block; overflow-wrap:anywhere; }
+  .manager-detail-source span { color:var(--ink-2); font-size:12px; line-height:1.5; }
+  .manager-detail-source a { margin-top:7px; color:var(--blue); font-size:12px; }
+  .manager-import-truth { margin:16px 0; padding:12px; border:1px solid #E9CF79;
+    border-radius:13px; color:#665526; background:#FFF8DF; font-size:12px; line-height:1.5; }
+  .manager-import-form { display:grid; gap:12px; }
+  .manager-import-form .field { display:grid; gap:6px; }
+  .manager-import-form .field span { color:var(--ink-2); font-size:12px; font-weight:820; }
+  .manager-import-form .field small { color:var(--ink-3); font-size:11px; line-height:1.45; }
+  .manager-import-form .choice-field small { font-size:11px; line-height:1.45; }
+  .manager-import-form select,.manager-import-form textarea { width:100%; min-width:0;
+    min-height:48px; padding:11px 12px; border:1px solid var(--rule); border-radius:12px;
+    color:var(--ink); background:var(--paper-2); }
+  .manager-import-form textarea { min-height:100px; resize:vertical; }
+  .manager-import-actions { position:sticky; bottom:calc(-1 * var(--game-safe-bottom));
+    display:grid; grid-template-columns:1fr auto; gap:8px; padding:13px 0 var(--game-safe-bottom);
+    background:linear-gradient(transparent,var(--paper) 15%); }
+  .manager-import-actions button { min-height:48px; padding:11px 14px; border-radius:12px;
+    font-weight:850; }
+  .manager-import-submit { color:#fff; background:var(--blue); }
+  .manager-import-cancel { color:var(--ink-2); background:var(--paper-2);
+    border:1px solid var(--rule); }
+  .manager-import-result { margin-top:12px; color:var(--good); font-size:12px;
+    line-height:1.5; }
+  .manager-import-result.error { color:var(--bad); }
+
   .results-layout { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
   .metric { padding:22px; background:var(--paper); border:1px solid var(--rule);
     border-radius:20px; box-shadow:var(--shadow); }
@@ -420,6 +579,10 @@
     .welcome { min-height:auto; padding:28px; }
     .welcome h2 { max-width:12ch; }
     .side-card { position:static; }
+    .manager-hero,.manager-console { grid-template-columns:1fr; }
+    .manager-scene { min-height:220px; }
+    .manager-lanes { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .manager-evidence { grid-template-columns:repeat(3,minmax(0,1fr)); }
   }
   @media (max-width:620px) {
     .app { width:min(100% - 18px,1240px); padding-top:9px; }
@@ -442,7 +605,7 @@
       max-height:190px; bottom:20px; }
     form { flex-direction:column; }
     form button { min-height:48px; }
-    input[type=text],textarea { font-size:16px; }
+    input[type=text],textarea,select { font-size:16px; }
     .results-layout { grid-template-columns:1fr; }
     .results-card { grid-column:1; }
     .result-row { grid-template-columns:1fr; gap:4px; }
@@ -454,6 +617,24 @@
     .task-head { padding:14px 13px 10px; }
     .task-content { padding:0 13px 14px; }
     .task-actions button { min-height:42px; }
+    .manager-intro { padding:24px 18px; }
+    .manager-scene { min-height:200px; }
+    .manager-console { gap:12px; }
+    .manager-panel { padding:17px 13px; border-radius:19px; }
+    .repo-search { grid-template-columns:1fr; }
+    .repo-search button { width:100%; }
+    .manager-evidence { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .manager-metric { min-height:96px; }
+    .manager-board-head { display:block; }
+    .manager-board-head p { margin-top:7px; text-align:left; }
+    .manager-lanes { grid-template-columns:1fr; }
+    .manager-drawer { align-items:end; }
+    .manager-drawer-card { width:100%; height:auto; max-height:88dvh;
+      padding:17px var(--game-safe-right) var(--game-safe-bottom) var(--game-safe-left);
+      border-radius:24px 24px 0 0; }
+    .manager-item-actions { grid-template-columns:1fr 48px; }
+    .nav { gap:3px; }
+    .nav button { min-width:0; padding:8px 5px; font-size:11px; }
   }
   @media (prefers-reduced-motion:reduce) {
     *,*::before,*::after { animation:none !important; transition:none !important; }
@@ -471,6 +652,7 @@
     </div>
     <nav class="nav" aria-label="Main views">
       <button type="button" class="on" data-view="office">Office</button>
+      <button type="button" data-view="manager">Manager</button>
       <button type="button" data-view="work">Work</button>
       <button type="button" data-view="results">Results</button>
     </nav>
@@ -502,6 +684,72 @@
           <div class="board"><strong>Today in the office</strong><span>Describe the work. OWI staffs each part independently.</span><i class="scribble"></i></div>
           <div class="crew-grid" id="crewGrid"></div><div class="plant" aria-hidden="true"></div>
         </div>
+      </div>
+    </section>
+
+    <section id="view-manager" class="view" aria-labelledby="manager-title">
+      <div class="manager-shell">
+        <section class="manager-hero">
+          <div class="manager-intro">
+            <span class="eyebrow">GitHub Manager room</span>
+            <h2 id="manager-title">See the work before you staff it.</h2>
+            <p>Select one repository from the server-visible catalog, observe its issues, pull requests and recent failed Actions runs, then explicitly turn a source item into an unassigned local draft task.</p>
+            <div class="manager-connection">
+              <span class="manager-status" id="managerStatus">Checking local GitHub setup</span>
+              <span class="manager-safety" id="managerSafety">Read-only on-demand snapshots · source code is not downloaded or scanned · no automatic action</span>
+            </div>
+          </div>
+          <div class="manager-scene" aria-hidden="true">
+            <img class="manager-orbit" src="__ART_ORBIT__" alt="">
+          </div>
+        </section>
+
+        <div class="manager-console">
+          <section class="manager-panel" data-tour-id="github-projects" aria-labelledby="repo-control-title">
+            <span class="eyebrow">Repository control</span>
+            <h3 id="repo-control-title">Choose what Orbit observes</h3>
+            <p>Only repositories returned by the local server appear here. Credentials are configured outside the browser.</p>
+            <form class="repo-search" id="managerRepoSearch">
+              <input type="text" id="managerRepoQuery" maxlength="120" autocomplete="off" placeholder="Filter visible repositories" aria-label="Filter visible repositories">
+              <button type="submit" id="managerRepoSearchButton">Find</button>
+            </form>
+            <div class="repo-picker">
+              <label for="managerRepoSelect">Server-visible repositories</label>
+              <select id="managerRepoSelect" disabled>
+                <option value="">No repository catalog loaded</option>
+              </select>
+              <button type="button" class="repo-load" id="managerRepoLoad" disabled>Observe selected repository</button>
+            </div>
+            <div class="manager-inline-state" id="managerRepoState" role="status" aria-live="polite"></div>
+            <button type="button" class="quiet" id="managerRetry" hidden>Retry local Manager</button>
+            <div class="selected-repo" id="managerSelectedRepo" hidden>
+              <strong id="managerSelectedRepoName"></strong>
+              <span id="managerSelectedRepoMeta"></span>
+            </div>
+          </section>
+
+          <section class="manager-panel" aria-labelledby="manager-overview-title">
+            <span class="eyebrow">Observed evidence</span>
+            <h3 id="manager-overview-title">Repository overview</h3>
+            <p id="managerObservationNote">Choose a repository to request an on-demand observation. No zero is shown until the server reports zero.</p>
+            <div class="manager-evidence">
+              <div class="manager-metric"><span>Open issues</span><strong id="managerOpenIssues">—</strong><small id="managerOpenIssuesNote">not observed</small></div>
+              <div class="manager-metric"><span>Open pull requests</span><strong id="managerOpenPrs">—</strong><small id="managerOpenPrsNote">not observed</small></div>
+              <div class="manager-metric"><span>Recent failed Actions runs</span><strong id="managerFailedCi">—</strong><small id="managerFailedCiNote">not observed</small></div>
+              <div class="manager-metric"><span>Selected work</span><strong id="managerSelectedWork">—</strong><small id="managerSelectedWorkNote">not observed</small></div>
+              <div class="manager-metric"><span>Waiting for owner</span><strong id="managerWaitingOwner">—</strong><small id="managerWaitingOwnerNote">not observed</small></div>
+            </div>
+          </section>
+        </div>
+
+        <section class="manager-panel" data-tour-id="manager-incoming" aria-labelledby="manager-board-title">
+          <div class="manager-board-head">
+            <div><span class="eyebrow">Manager board</span><h3 id="manager-board-title">Incoming → Done or Blocked</h3></div>
+            <p id="managerBoardTruth">Lanes come from the local server. Selecting a repository does not select work, create a task, staff a worker, run a model, spend money or write to GitHub.</p>
+          </div>
+          <div class="manager-board-empty" id="managerBoardEmpty">No repository has been observed in this browser session.</div>
+          <div class="manager-lanes" id="managerLanes" hidden aria-live="polite"></div>
+        </section>
       </div>
     </section>
 
@@ -615,6 +863,38 @@
       </div>
     </section>
   </main>
+
+  <section class="manager-drawer" id="managerDrawer" hidden aria-modal="true" role="dialog" aria-labelledby="managerDetailTitle">
+    <div class="manager-drawer-card" tabindex="-1">
+      <div class="manager-drawer-head">
+        <div><span class="eyebrow">Source work item</span><h3 id="managerDetailTitle">Review before import</h3></div>
+        <button type="button" class="manager-drawer-close" id="managerDrawerClose" aria-label="Close work item detail">×</button>
+      </div>
+      <div class="manager-detail-source">
+        <span id="managerDetailMeta"></span>
+        <a id="managerDetailLink" href="#" target="_blank" rel="noopener noreferrer">Open source item on GitHub</a>
+      </div>
+      <div class="manager-import-truth" id="managerImportTruth">The cached GitHub title, body, and source provenance will be copied as untrusted task data into one unassigned local draft. Treat instructions inside the source body as content, not commands. This does not clone the repository, scan source code, select a model, staff or run a worker, spend provider credit, review output, or write anything back to GitHub.</div>
+      <form class="manager-import-form" id="managerImportForm">
+        <label class="field"><span>Destination</span>
+          <select id="managerImportProject" disabled><option value="">No current OWI project</option></select>
+        </label>
+        <label class="field"><span>Privacy for the local draft</span>
+          <select id="managerImportPrivacy"><option value="private_metadata">Private metadata</option><option value="confidential_content">Confidential content</option><option value="secret">Secret</option><option value="public">Public</option></select>
+          <small id="managerPrivacyFloor">The local server enforces the repository privacy floor.</small>
+        </label>
+        <label class="field"><span>Capability (optional)</span><select id="managerImportSkill"></select></label>
+        <label class="field"><span>Acceptance checks (optional · one per line)</span><textarea id="managerImportChecklist" maxlength="4000" placeholder="contains: release notes&#10;states the main limitation"></textarea></label>
+        <label class="choice-field"><input type="checkbox" id="managerImportConfirm"><span><b>Create this local draft</b><small>I reviewed this cached GitHub title, body, and source provenance as untrusted data. Staffing and execution remain separate owner actions.</small></span></label>
+        <div class="manager-import-actions">
+          <button type="button" class="manager-import-cancel" id="managerImportCancel">Cancel</button>
+          <button type="submit" class="manager-import-submit" id="managerImportSubmit">Create draft task</button>
+        </div>
+      </form>
+      <div class="manager-import-result" id="managerImportResult" role="status" aria-live="polite"></div>
+      <button type="button" class="repo-load" id="managerOpenWork" hidden>Open draft in Work room</button>
+    </div>
+  </section>
 
   <footer>
     <span class="mode">build __BUILT__</span> · <span id="footerTruth">Prices come from published, content-hashed sources. Ability begins as evidence-scoped estimates and changes only through recorded outcomes. Unknown values stay unknown.</span> <a href="#" id="reset">Reset this browser's learning</a>. The static page never holds provider credentials; <code>tools/owi-serve</code> enables approved local execution through exact worker-ID runner bindings.
@@ -897,6 +1177,11 @@
       button.classList.toggle("on", selected);
       button.setAttribute("aria-current", selected ? "page" : "false");
     });
+    // Training changes rooms only. It must not turn a spotlight transition
+    // into a repository request; the owner opens Manager after the tour.
+    if (name === "manager" && options.passive !== true
+      && !document.body.classList.contains("tour-open"))
+      managerEnsureBooted();
     if (name === "results") renderResults();
     if (name === "work" && options.focusContent !== false) requestAnimationFrame(() => {
       const target = document.getElementById("projectGoal");
@@ -1020,6 +1305,699 @@
     }
     return payload;
   }
+
+  // ---------------------------------------------------------------------
+  // GitHub Manager: read-only observation -> explicit local draft import
+  // ---------------------------------------------------------------------
+  // GitHub credentials never enter this page. The local server owns auth,
+  // repository visibility, lane classification and every reported count.
+  const MANAGER_BASE = "/api/v1/github";
+  const MANAGER_LANE_ORDER = [
+    ["incoming", "Incoming"], ["draft", "Draft"],
+    ["staffing", "Staffing"], ["running", "Running"],
+    ["review", "Review"], ["done", "Done"], ["blocked", "Blocked"],
+  ];
+  let MANAGER_BOOTED = false;
+  let MANAGER_BUSY = false;
+  let MANAGER_STATUS = null;
+  let MANAGER_REPOSITORIES = [];
+  let MANAGER_SELECTED_REPOSITORY = null;
+  let MANAGER_ITEMS = [];
+  let MANAGER_DETAIL = null;
+  let MANAGER_LAST_FOCUS = null;
+
+  async function managerRequest(path, options) {
+    const request = { method: "GET", credentials: "same-origin", ...(options || {}) };
+    if (request.body !== undefined) {
+      request.headers = { "Content-Type": "application/json", ...(request.headers || {}) };
+      if (typeof request.body !== "string") request.body = JSON.stringify(request.body);
+    }
+    const response = await fetch(path, request);
+    let payload = {};
+    try { payload = await response.json(); }
+    catch (_) { payload = {}; }
+    if (!response.ok) {
+      const error = new Error(payload.error || payload.message ||
+        `OWI returned ${response.status} ${response.statusText}`);
+      error.httpStatus = response.status;
+      error.managerCode = payload.code || "";
+      error.resetAt = payload.resetAt || payload.rateLimitResetAt || null;
+      throw error;
+    }
+    return payload;
+  }
+
+  function managerSafeUrl(value) {
+    try {
+      const url = new URL(String(value || ""));
+      const trustedHost = url.hostname === "github.com";
+      const trustedPort = url.port === "" || url.port === "443";
+      return url.protocol === "https:" && trustedHost && trustedPort
+        && !url.username && !url.password ? url.href : "";
+    } catch (_) { return ""; }
+  }
+
+  function managerWhen(value) {
+    if (!value) return "time not reported";
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return "time not reported";
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium", timeStyle: "short",
+    }).format(date);
+  }
+
+  function managerErrorText(error) {
+    if (!error) return "The local GitHub Manager did not complete the request.";
+    const reset = error.resetAt ? ` Try again after ${managerWhen(error.resetAt)}.` : "";
+    if (error.httpStatus === 429 || error.managerCode === "github_rate_limited")
+      return `GitHub rate limit reached.${reset}`;
+    if (error.httpStatus === 403 || error.managerCode === "github_permission_denied")
+      return "GitHub permission denied for this repository. Change server-side credential permissions; no credential belongs in this page.";
+    if (error.httpStatus === 401 || error.managerCode === "github_auth_failed")
+      return "The server-side GitHub credential was rejected. Replace it outside the browser, then retry.";
+    if (error.httpStatus === 502)
+      return "GitHub is unavailable. The last observed local snapshot, if any, has not been replaced.";
+    return error.message || "The local GitHub Manager did not complete the request.";
+  }
+
+  function managerRepoNotice(message, error) {
+    const state = document.getElementById("managerRepoState");
+    state.textContent = message || "";
+    state.classList.toggle("error", Boolean(error));
+  }
+
+  function managerOfferRetry(show) {
+    document.getElementById("managerRetry").hidden = !show;
+  }
+
+  function managerShowFailureState(error) {
+    const badge = document.getElementById("managerStatus");
+    if (error && (error.httpStatus === 401 || error.managerCode === "github_auth_failed"))
+      badge.textContent = "GitHub credential rejected";
+    else if (error && (error.httpStatus === 429 || error.managerCode === "github_rate_limited"))
+      badge.textContent = "GitHub rate limited";
+    else if (error && error.httpStatus === 403)
+      badge.textContent = "GitHub permission denied";
+    else badge.textContent = LIVE
+      ? "Local GitHub Manager unavailable" : "Static preview · Manager unavailable";
+    badge.classList.remove("connected");
+    if (MANAGER_SELECTED_REPOSITORY) {
+      document.getElementById("managerObservationNote").textContent =
+        `Stale cached snapshot · new observation failed · last observed ${managerWhen(MANAGER_STATUS && MANAGER_STATUS.lastSyncAt)}. Retained values have not been presented as current.`;
+      for (const id of ["managerOpenIssues", "managerOpenPrs", "managerFailedCi",
+        "managerSelectedWork", "managerWaitingOwner"]) {
+        if (document.getElementById(id).textContent !== "—")
+          document.getElementById(`${id}Note`).textContent = "stale cached server count";
+      }
+    }
+    managerOfferRetry(true);
+  }
+
+  function managerSetBusy(busy, label) {
+    MANAGER_BUSY = Boolean(busy);
+    const search = document.getElementById("managerRepoSearchButton");
+    const select = document.getElementById("managerRepoSelect");
+    const load = document.getElementById("managerRepoLoad");
+    search.disabled = MANAGER_BUSY;
+    select.disabled = MANAGER_BUSY || !MANAGER_REPOSITORIES.length;
+    load.disabled = MANAGER_BUSY || !select.value;
+    load.textContent = MANAGER_BUSY ? (label || "Observing…") : "Observe selected repository";
+  }
+
+  function managerAuthLabel(status) {
+    if (LIVE && data().mode === "demo") return "Explicit demo · GitHub not simulated";
+    switch (status && status.authMode) {
+      case "fine_grained_pat": return status.credentialVerified === true
+        ? "Credential verified · fine-grained read access"
+        : status.credentialConfigured === true
+          ? "Credential configured · verification pending"
+          : "Fine-grained credential missing";
+      case "github_app_user_token": return status.credentialVerified === true
+        ? "Credential verified · GitHub App read access"
+        : status.credentialConfigured === true
+          ? "GitHub App credential configured · verification pending"
+          : "GitHub App credential missing";
+      case "public_only": return "Public repository read access";
+      default: return "GitHub setup required";
+    }
+  }
+
+  function managerApplyStatus(status) {
+    MANAGER_STATUS = status || null;
+    const badge = document.getElementById("managerStatus");
+    const safety = document.getElementById("managerSafety");
+    const safeContract = Boolean(status && status.version === "v1"
+      && status.readOnly === true && status.githubWriteEnabled === false);
+    badge.textContent = managerAuthLabel(status);
+    const accessVerified = status && (status.authMode === "public_only"
+      || status.credentialVerified === true);
+    badge.classList.toggle("connected", safeContract && accessVerified
+      && !(LIVE && data().mode === "demo"));
+    safety.textContent = safeContract
+      ? "Read-only on-demand snapshots · source code is not downloaded or scanned · no automatic action"
+      : "Manager disabled: the local server did not confirm the read-only v1 safety contract";
+    const selected = status && status.selectedRepository;
+    const privateAccessVerified = Boolean(status && status.credentialVerified === true
+      && status.privateRepositoriesAvailable === true);
+    const selectedMayBeShown = Boolean(selected
+      && (selected.private !== true || privateAccessVerified));
+    if (!safeContract || selected && !selectedMayBeShown) {
+      managerHideObservation(selected
+        ? "A cached private selection is hidden until the current server credential is verified."
+        : "No repository observation is available.");
+    } else if (status && status.summary) {
+      managerPaintSummary(status.summary, "last server-reported observation");
+    }
+    if (selectedMayBeShown) {
+      MANAGER_SELECTED_REPOSITORY = status.selectedRepository;
+      managerPaintSelectedRepository(status.selectedRepository, status.lastSyncAt);
+    }
+    return safeContract;
+  }
+
+  function managerHideObservation(message) {
+    MANAGER_SELECTED_REPOSITORY = null;
+    MANAGER_ITEMS = [];
+    document.getElementById("managerSelectedRepo").hidden = true;
+    document.getElementById("managerSelectedRepoName").textContent = "";
+    document.getElementById("managerSelectedRepoMeta").textContent = "";
+    document.getElementById("managerLanes").hidden = true;
+    const empty = document.getElementById("managerBoardEmpty");
+    empty.hidden = false;
+    empty.textContent = message || "No repository has been observed in this browser session.";
+    managerPaintSummary({}, "not available");
+  }
+
+  function managerPaintMetric(id, value, evidence) {
+    const number = Number(value);
+    const known = value !== null && value !== undefined && Number.isFinite(number);
+    document.getElementById(id).textContent = known ? String(number) : "—";
+    document.getElementById(`${id}Note`).textContent = known ? evidence : "unknown · not reported";
+  }
+
+  function managerPaintSummary(summary, evidence) {
+    const values = summary || {};
+    managerPaintMetric("managerOpenIssues", values.openIssues, evidence);
+    managerPaintMetric("managerOpenPrs", values.openPullRequests, evidence);
+    managerPaintMetric("managerFailedCi",
+      values.failedActionRuns ?? values.failedCi, evidence);
+    managerPaintMetric("managerSelectedWork", values.selectedWork, evidence);
+    managerPaintMetric("managerWaitingOwner", values.waitingForOwner, evidence);
+  }
+
+  function managerPaintSelectedRepository(repository, observedAt) {
+    const box = document.getElementById("managerSelectedRepo");
+    box.hidden = false;
+    document.getElementById("managerSelectedRepoName").textContent =
+      repository.fullName || repository.name || "Selected repository";
+    const visibility = repository.private === true ? "private" : "public";
+    const archived = repository.archived === true ? " · archived" : "";
+    document.getElementById("managerSelectedRepoMeta").textContent =
+      `${visibility}${archived} · default branch ${repository.defaultBranch || "not reported"} · last observed ${managerWhen(observedAt)}`;
+  }
+
+  function managerFilterRepositories() {
+    const query = document.getElementById("managerRepoQuery").value.trim().toLowerCase();
+    const select = document.getElementById("managerRepoSelect");
+    const previous = select.value;
+    const visible = MANAGER_REPOSITORIES.filter(repository =>
+      !query || String(repository.fullName || repository.name || "").toLowerCase().includes(query));
+    select.replaceChildren();
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = visible.length
+      ? "Select a repository" : "No server-visible repository matches";
+    select.append(placeholder);
+    for (const repository of visible) {
+      const option = document.createElement("option");
+      option.value = String(repository.id);
+      option.textContent = `${repository.fullName || repository.name}${repository.private ? " · private" : " · public"}${repository.archived ? " · archived" : ""}`;
+      select.append(option);
+    }
+    if (visible.some(repository => String(repository.id) === previous)) select.value = previous;
+    else if (MANAGER_SELECTED_REPOSITORY
+      && visible.some(repository => String(repository.id) === String(MANAGER_SELECTED_REPOSITORY.id)))
+      select.value = String(MANAGER_SELECTED_REPOSITORY.id);
+    select.disabled = MANAGER_BUSY || !visible.length;
+    document.getElementById("managerRepoLoad").disabled = MANAGER_BUSY || !select.value;
+    managerRepoNotice(visible.length
+      ? `${visible.length} server-returned repositor${visible.length === 1 ? "y" : "ies"} shown. Filtering does not contact GitHub.`
+      : "No matching repository was returned by the local server.");
+  }
+
+  async function managerLoadRepositories() {
+    const payload = await managerRequest(`${MANAGER_BASE}/repositories`);
+    MANAGER_REPOSITORIES = Array.isArray(payload.repositories) ? payload.repositories : [];
+    try { managerApplyStatus(await managerRequest(`${MANAGER_BASE}/status`)); }
+    catch (_) { /* Repository response remains authoritative for this catalog. */ }
+    managerFilterRepositories();
+    if (payload.truncated === true)
+      managerRepoNotice(`${MANAGER_REPOSITORIES.length} repositories loaded from a partial catalog. The server safety cap omitted additional repositories; this list is not presented as complete.`);
+    else if (payload.nextPage !== null && payload.nextPage !== undefined)
+      managerRepoNotice(`${MANAGER_REPOSITORIES.length} repositories loaded; the server reports an additional catalog page.`);
+    return payload;
+  }
+
+  function managerSummaryFromObservation(sync, items) {
+    return {
+      openIssues: sync && sync.openIssues !== undefined ? sync.openIssues : null,
+      openPullRequests: sync && sync.openPullRequests !== undefined ? sync.openPullRequests : null,
+      failedActionRuns: sync && sync.failedActionRuns !== undefined
+        ? sync.failedActionRuns
+        : sync && sync.failedCi !== undefined ? sync.failedCi : null,
+      selectedWork: sync && sync.selectedWork !== undefined ? sync.selectedWork : null,
+      waitingForOwner: sync && sync.waitingForOwner !== undefined ? sync.waitingForOwner : null,
+    };
+  }
+
+  function managerItemById(id) {
+    return MANAGER_ITEMS.find(item => String(item.id) === String(id));
+  }
+
+  function managerSourceLabel(item) {
+    const type = ({ issue: "issue", pull_request: "pull request",
+      action_failure: "failed Actions run" })[item.sourceType] || "source item";
+    return item.sourceNumber === null || item.sourceNumber === undefined
+      ? type : `${type} #${item.sourceNumber}`;
+  }
+
+  function managerWorkItemCard(item) {
+    const url = managerSafeUrl(item.url);
+    const labels = Array.isArray(item.labels) ? item.labels.slice(0, 3) : [];
+    const flags = [item.selectedForWork === true ? "selected work" : "",
+      item.waitingForOwner === true ? "waiting for owner" : "",
+      item.stale === true ? "stale cached item" : "",
+      item.observedAt ? `observed ${managerWhen(item.observedAt)}` : "observation time unknown",
+      item.importedTaskId ? "local draft imported" : ""].filter(Boolean);
+    const metadata = [String(item.state || "state not reported"), ...labels, ...flags].join(" · ");
+    return `<article class="manager-work-item">
+      <div class="manager-work-item-top"><span class="manager-source">${esc(managerSourceLabel(item))}</span><time datetime="${esc(item.updatedAt || "")}">${esc(managerWhen(item.updatedAt))}</time></div>
+      <h4>${esc(item.title || "Untitled source item")}</h4>
+      <div class="manager-item-meta">${esc(metadata)}</div>
+      <div class="manager-item-actions"><button type="button" data-manager-detail="${esc(item.id)}">${item.importedTaskId ? "View imported draft" : "Review & create draft"}</button>${url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="Open ${esc(managerSourceLabel(item))} on GitHub">↗</a>` : ""}</div>
+    </article>`;
+  }
+
+  function managerRenderLanes(items, repository, observedAt, stale, partial, cached) {
+    MANAGER_ITEMS = Array.isArray(items) ? items : [];
+    MANAGER_SELECTED_REPOSITORY = repository || MANAGER_SELECTED_REPOSITORY;
+    if (MANAGER_SELECTED_REPOSITORY)
+      managerPaintSelectedRepository(MANAGER_SELECTED_REPOSITORY, observedAt);
+    const lanes = document.getElementById("managerLanes");
+    const empty = document.getElementById("managerBoardEmpty");
+    lanes.hidden = false;
+    empty.hidden = true;
+    const allowed = new Set(MANAGER_LANE_ORDER.map(([key]) => key));
+    const unclassified = MANAGER_ITEMS.filter(item => !allowed.has(item.lane));
+    lanes.innerHTML = MANAGER_LANE_ORDER.map(([key, label]) => {
+      const rows = MANAGER_ITEMS.filter(item => item.lane === key);
+      return `<section class="manager-lane" data-lane="${key}" aria-labelledby="manager-lane-${key}">
+        <div class="manager-lane-head"><strong id="manager-lane-${key}">${label}</strong><span class="manager-lane-count" aria-label="${rows.length} loaded items">${rows.length}</span></div>
+        <div class="manager-lane-items">${rows.length ? rows.map(managerWorkItemCard).join("") : `<div class="manager-lane-empty">No server-returned items in this lane.</div>`}</div>
+      </section>`;
+    }).join("");
+    const note = document.getElementById("managerObservationNote");
+    const time = managerWhen(observedAt);
+    const hasStaleItems = MANAGER_ITEMS.some(item => item.stale === true);
+    const snapshotState = stale && partial
+      ? cached ? "Partial stale cached snapshot"
+        : hasStaleItems ? "Partial on-demand snapshot with stale retained items"
+          : "Partial on-demand snapshot"
+      : stale ? "Stale cached snapshot"
+        : partial ? `${cached ? "Partial cached" : "Partial on-demand"} snapshot`
+          : cached ? "Cached snapshot" : "On-demand snapshot";
+    note.textContent = `${snapshotState} · last observed ${time} · ${MANAGER_ITEMS.length} work item${MANAGER_ITEMS.length === 1 ? "" : "s"} returned by the server. Source code was not downloaded or scanned. Repository totals above remain server-reported.`;
+    document.getElementById("managerBoardTruth").textContent = unclassified.length
+      ? `${unclassified.length} item${unclassified.length === 1 ? " was" : "s were"} not placed because the server did not return a recognized lane. No client-side lane was invented.`
+      : "Lanes come from the local server. Selecting a repository does not select work, create a task, staff a worker, run a model, spend money or write to GitHub.";
+  }
+
+  async function managerLoadObservedItems(repositoryId, observedAt, cached) {
+    const payload = await managerRequest(`${MANAGER_BASE}/work-items?repositoryId=${encodeURIComponent(repositoryId)}`);
+    const repository = payload.repository || MANAGER_SELECTED_REPOSITORY;
+    managerPaintSummary(payload.summary || {}, "server-reported repository count");
+    const coverage = payload.coverage && Object.values(payload.coverage);
+    const partial = payload.partial === true || Boolean(MANAGER_STATUS && MANAGER_STATUS.partial)
+      || Boolean(coverage && coverage.some(value => value.status !== "observed"
+        || value.truncated === true));
+    managerRenderLanes(payload.workItems, repository, observedAt,
+      payload.stale === true,
+      partial, Boolean(cached));
+    managerOfferRetry(false);
+    return payload;
+  }
+
+  function managerObservationTruth(payload, cached) {
+    const sync = payload && payload.sync || {};
+    const coverage = payload && payload.coverage || sync.coverage || {};
+    const warning = payload && payload.warning || {};
+    const outcome = payload && payload.outcome;
+    const labels = {
+      issue: "issues", pull_request: "pull requests",
+      action_failure: "failed Actions run history",
+    };
+    const problems = Object.entries(coverage).filter(([, value]) => value
+      && (value.error || value.status === "unknown" || value.status === "partial"
+        || value.truncated === true));
+    const names = problems.map(([kind]) => labels[kind]).filter(Boolean).join(", ");
+    const warningProblems = Array.isArray(warning.problems) ? warning.problems : [];
+    const values = [...problems.map(([, value]) => value),
+      ...warningProblems.map(value => ({ ...value, error: value.code }))];
+    const rate = values.find(value => value.error === "rate_limited");
+    const permission = values.find(value => value.error === "permission_denied");
+    const resetAt = rate && rate.resetAt
+      || sync.rateLimit && sync.rateLimit.resetAt
+      || MANAGER_STATUS && MANAGER_STATUS.rateLimit && MANAGER_STATUS.rateLimit.resetAt;
+    const retrySeconds = rate && Number(rate.retryAfterSeconds);
+    const retryInstruction = resetAt ? ` until ${managerWhen(resetAt)}`
+      : Number.isFinite(retrySeconds) && retrySeconds >= 0
+        ? `; retry manually after ${retrySeconds} seconds` : "";
+    const partial = Boolean(payload && payload.partial === true || sync.partial === true
+      || problems.length);
+    const stale = Boolean(payload && payload.stale === true);
+    const hasStaleItems = Boolean(payload && Array.isArray(payload.workItems)
+      && payload.workItems.some(item => item.stale === true));
+    const retainedTruth = hasStaleItems
+      ? "Any retained items shown are stale."
+      : "No retained item is implied for unavailable categories.";
+    const prefix = cached ? "Cached snapshot" : "On-demand snapshot";
+    if (rate) return {
+      problem: true,
+      message: `${prefix} is partial. ${retainedTruth} GitHub rate limited ${names || "repository evidence"}${retryInstruction}; unavailable totals remain unknown, never zero.`,
+    };
+    if (permission) return {
+      problem: true,
+      message: `${prefix} is partial. ${retainedTruth} GitHub permission is unavailable for ${names || "some repository evidence"}; those totals remain unknown, never zero.`,
+    };
+    if (!cached && outcome === "failed") return {
+      problem: true,
+      message: "On-demand snapshot failed. No new complete repository observation was recorded; retained values are stale and unavailable totals remain unknown, never zero.",
+    };
+    if (partial || stale) return {
+      problem: true,
+      message: `${prefix} is ${partial ? "partial" : "stale"}${names ? ` for ${names}` : ""}. Cached items may be retained and unavailable totals remain unknown, never zero.`,
+    };
+    if (!cached && outcome !== "complete") return {
+      problem: true,
+      message: "The server did not confirm a complete on-demand snapshot. No result is presented as current.",
+    };
+    return { problem: false, message: cached
+      ? "Cached snapshot loaded. Use Observe to request a new on-demand snapshot."
+      : "On-demand snapshot observed. Review a source item before creating any local draft." };
+  }
+
+  async function managerObserveSelectedRepository() {
+    if (MANAGER_BUSY) return;
+    const select = document.getElementById("managerRepoSelect");
+    const repositoryId = select.value;
+    if (!repositoryId) return;
+    managerSetBusy(true, "Observing…");
+    managerRepoNotice("Requesting an on-demand read-only GitHub observation. No repository content is cloned or scanned.");
+    try {
+      const payload = await managerRequest(
+        `${MANAGER_BASE}/repositories/${encodeURIComponent(repositoryId)}/sync`,
+        { method: "POST", body: {} });
+      const observedAt = payload.sync && payload.sync.syncedAt;
+      MANAGER_SELECTED_REPOSITORY = payload.repository || null;
+      if (MANAGER_STATUS) MANAGER_STATUS = { ...MANAGER_STATUS,
+        selectedRepository: payload.repository || null, lastSyncAt: observedAt || null,
+        stale: payload.stale === true,
+        partial: payload.partial === true || Boolean(payload.sync && payload.sync.partial) };
+      managerPaintSummary(managerSummaryFromObservation(payload.sync, payload.workItems),
+        "server-reported repository count");
+      managerRenderLanes(payload.workItems, payload.repository, observedAt,
+        payload.stale === true,
+        Boolean(payload.sync && payload.sync.partial));
+      let observed = null;
+      try { observed = await managerLoadObservedItems(repositoryId, observedAt, false); }
+      catch (_) { /* The explicit observation remains visible with unknown optional counts. */ }
+      managerOfferRetry(false);
+      const truth = managerObservationTruth(observed
+        ? { ...payload, ...observed, sync: payload.sync,
+            partial: payload.partial === true || observed.partial === true,
+            stale: payload.stale === true || observed.stale === true }
+        : payload, false);
+      managerRepoNotice(truth.message, truth.problem);
+    } catch (error) {
+      managerRepoNotice(managerErrorText(error), true);
+      managerShowFailureState(error);
+    } finally { managerSetBusy(false); }
+  }
+
+  async function managerEnsureBooted() {
+    if (MANAGER_BOOTED) return;
+    MANAGER_BOOTED = true;
+    managerRepoNotice("Loading the local server safety contract and repository catalog.");
+    try {
+      const status = await managerRequest(`${MANAGER_BASE}/status`);
+      managerOfferRetry(false);
+      if (!managerApplyStatus(status)) {
+        managerRepoNotice("Manager is disabled until the server reports readOnly=true and githubWriteEnabled=false.", true);
+        managerOfferRetry(true);
+        return;
+      }
+      if (!status.configured || status.authMode === "unconfigured") {
+        managerRepoNotice(LIVE && data().mode === "demo"
+          ? "Explicit demo mode contains no simulated GitHub repository. Configure GitHub on a real local OWI server."
+          : "Restart the local Office with --github-owner OWNER for public repositories, or --github-token-file PATH plus --github-auth-mode fine_grained_pat for private read access. The credential file stays server-side; this page has no token field.");
+        managerOfferRetry(true);
+        return;
+      }
+      await managerLoadRepositories();
+      const currentStatus = MANAGER_STATUS || status;
+      if (currentStatus.selectedRepository) {
+        const select = document.getElementById("managerRepoSelect");
+        select.value = String(currentStatus.selectedRepository.id);
+        managerSetBusy(false);
+        try {
+          const observed = await managerLoadObservedItems(currentStatus.selectedRepository.id,
+            currentStatus.lastSyncAt, true);
+          const truth = managerObservationTruth(observed, true);
+          managerRepoNotice(truth.message, truth.problem);
+        } catch (error) {
+          managerRepoNotice(managerErrorText(error), true);
+          managerShowFailureState(error);
+        }
+      }
+    } catch (error) {
+      managerShowFailureState(error);
+      document.getElementById("managerSafety").textContent =
+        "Open the local OWI server to use repository observation; the published page has no GitHub credentials";
+      managerRepoNotice(managerErrorText(error), true);
+      MANAGER_BOOTED = false;
+    }
+  }
+
+  function managerUpdateImportAction() {
+    const confirm = document.getElementById("managerImportConfirm").checked;
+    const hasDestination = Boolean(document.getElementById("managerImportProject").value);
+    const alreadyImported = Boolean(MANAGER_DETAIL && MANAGER_DETAIL.importedTaskId);
+    document.getElementById("managerImportSubmit").disabled =
+      MANAGER_BUSY || !confirm || !hasDestination || alreadyImported;
+  }
+
+  function managerApplyPrivacyFloor() {
+    const privacy = document.getElementById("managerImportPrivacy");
+    const privateRepository = Boolean(MANAGER_SELECTED_REPOSITORY
+      && MANAGER_SELECTED_REPOSITORY.private === true);
+    for (const option of privacy.options) {
+      const tooWeak = option.value === "public" || option.value === "private_metadata";
+      option.disabled = privateRepository && tooWeak;
+    }
+    if (privateRepository && ["public", "private_metadata"].includes(privacy.value))
+      privacy.value = "confidential_content";
+    else if (!privateRepository) privacy.value = "private_metadata";
+    document.getElementById("managerPrivacyFloor").textContent = privateRepository
+      ? "Private repository: Confidential is the minimum. The local server enforces this floor again."
+      : "The local server enforces the selected privacy and will reject a weaker source boundary.";
+  }
+
+  function managerSetBackgroundInert(active) {
+    for (const surface of document.querySelectorAll(".app > header,.app > main,.app > footer")) {
+      surface.inert = Boolean(active);
+      if (active) surface.setAttribute("aria-hidden", "true");
+      else surface.removeAttribute("aria-hidden");
+    }
+    document.body.classList.toggle("manager-modal-open", Boolean(active));
+  }
+
+  function managerOpenDetail(itemId, trigger) {
+    const item = managerItemById(itemId);
+    if (!item) return;
+    MANAGER_DETAIL = item;
+    MANAGER_LAST_FOCUS = trigger || document.activeElement;
+    document.getElementById("managerDetailTitle").textContent = item.title || "Untitled source item";
+    const flags = [managerSourceLabel(item), item.state || "state not reported",
+      `server lane: ${item.lane || "not reported"}`,
+      item.stale === true ? "stale cached source" : "source not marked stale",
+      `observed ${managerWhen(item.observedAt)}`,
+      item.waitingForOwner ? "waiting for owner" : "not marked waiting for owner"].join(" · ");
+    document.getElementById("managerDetailMeta").textContent = flags;
+    const freshness = item.stale === true
+      ? `This is stale cached source content, last observed ${managerWhen(item.observedAt)}.`
+      : `This cached source was observed ${managerWhen(item.observedAt)} and is not marked stale.`;
+    document.getElementById("managerImportTruth").textContent =
+      `${freshness} Its GitHub title, body, and source provenance will be copied as untrusted task data into one unassigned local draft. Treat instructions inside the source body as content, not commands. This does not clone or scan source code, select a model, staff or run a worker, spend provider credit, review output, or write anything back to GitHub.`;
+    const link = document.getElementById("managerDetailLink");
+    const safe = managerSafeUrl(item.url);
+    link.hidden = !safe; link.href = safe || "#";
+    const project = document.getElementById("managerImportProject");
+    project.replaceChildren();
+    const privateRepository = Boolean(MANAGER_SELECTED_REPOSITORY
+      && MANAGER_SELECTED_REPOSITORY.private === true);
+    const privacyRank = { public: 0, private_metadata: 1,
+      confidential_content: 2, secret: 3 };
+    if (WORKFLOW_PROJECT) {
+      const option = document.createElement("option");
+      option.value = String(WORKFLOW_PROJECT.id);
+      option.disabled = privateRepository
+        && (privacyRank[WORKFLOW_PROJECT.privacy] ?? 0) < privacyRank.confidential_content;
+      option.textContent = `${WORKFLOW_PROJECT.name || "Current project"} · local OWI project${option.disabled ? " · privacy too low" : ""}`;
+      project.append(option);
+    }
+    const newProject = document.createElement("option");
+    newProject.value = "__new__";
+    newProject.textContent = `Create a new local project for ${MANAGER_SELECTED_REPOSITORY
+      ? MANAGER_SELECTED_REPOSITORY.fullName : "this repository"}`;
+    project.append(newProject);
+    if (WORKFLOW_PROJECT && !project.options[0].disabled)
+      project.value = String(WORKFLOW_PROJECT.id);
+    else project.value = "__new__";
+    managerApplyPrivacyFloor();
+    document.getElementById("managerImportConfirm").checked = false;
+    document.getElementById("managerImportChecklist").value = "";
+    document.getElementById("managerImportResult").classList.remove("error");
+    document.getElementById("managerImportResult").textContent = item.importedTaskId
+      ? `Already imported as local draft ${item.importedTaskId}. No new task will be created.`
+      : WORKFLOW_PROJECT ? "" : "The local server will create a draft-only project and this unassigned task together.";
+    document.getElementById("managerOpenWork").hidden = !(item.importedTaskId
+      && WORKFLOW_PROJECT && String(item.importedProjectId) === String(WORKFLOW_PROJECT.id));
+    document.getElementById("managerDrawer").hidden = false;
+    managerSetBackgroundInert(true);
+    managerUpdateImportAction();
+    requestAnimationFrame(() => document.getElementById("managerDrawerClose").focus());
+  }
+
+  function managerCloseDetail() {
+    document.getElementById("managerDrawer").hidden = true;
+    managerSetBackgroundInert(false);
+    MANAGER_DETAIL = null;
+    if (MANAGER_LAST_FOCUS && MANAGER_LAST_FOCUS.isConnected
+      && typeof MANAGER_LAST_FOCUS.focus === "function")
+      MANAGER_LAST_FOCUS.focus();
+    else {
+      const fallback = document.querySelector('[data-view="manager"]');
+      if (fallback) fallback.focus();
+    }
+    MANAGER_LAST_FOCUS = null;
+  }
+
+  async function managerImportDraft(event) {
+    event.preventDefault();
+    const destination = document.getElementById("managerImportProject").value;
+    if (MANAGER_BUSY || !MANAGER_DETAIL || !destination
+      || !document.getElementById("managerImportConfirm").checked) return;
+    const button = document.getElementById("managerImportSubmit");
+    MANAGER_BUSY = true; button.disabled = true; button.textContent = "Creating local draft…";
+    const result = document.getElementById("managerImportResult");
+    result.classList.remove("error");
+    result.textContent = "Creating one unassigned local draft. No worker or GitHub write is being requested.";
+    const body = {
+      privacy: document.getElementById("managerImportPrivacy").value,
+      checklist: workflowChecklist(document.getElementById("managerImportChecklist").value),
+    };
+    if (destination !== "__new__") body.projectId = destination;
+    const skill = document.getElementById("managerImportSkill").value;
+    if (skill) body.skill = skill;
+    try {
+      const payload = await managerRequest(
+        `${MANAGER_BASE}/work-items/${encodeURIComponent(MANAGER_DETAIL.id)}/import`,
+        { method: "POST", body });
+      if (payload.project) WORKFLOW_PROJECT = payload.project;
+      const created = Boolean(payload.import && payload.import.created);
+      const importedProjectId = payload.project && payload.project.id;
+      const importedTaskId = payload.task && payload.task.id;
+      const itemId = MANAGER_DETAIL.id;
+      MANAGER_DETAIL = { ...MANAGER_DETAIL, importedProjectId, importedTaskId };
+      MANAGER_ITEMS = MANAGER_ITEMS.map(item => String(item.id) === String(itemId)
+        ? MANAGER_DETAIL : item);
+      workflowRenderProject();
+      result.textContent = created
+        ? "Draft created in the local OWI project. It is still unassigned and has not run."
+        : "This source item was already imported. The existing local draft is shown; no duplicate was created.";
+      document.getElementById("managerOpenWork").hidden = false;
+      if (MANAGER_SELECTED_REPOSITORY) {
+        try {
+          const refreshed = await managerLoadObservedItems(MANAGER_SELECTED_REPOSITORY.id,
+            MANAGER_STATUS && MANAGER_STATUS.lastSyncAt, true);
+          const current = (refreshed.workItems || []).find(item => String(item.id) === String(itemId));
+          if (current) MANAGER_DETAIL = current;
+        } catch (_) { managerRenderLanes(MANAGER_ITEMS, MANAGER_SELECTED_REPOSITORY,
+          MANAGER_STATUS && MANAGER_STATUS.lastSyncAt, true, true, true); }
+      }
+    } catch (error) {
+      result.textContent = managerErrorText(error); result.classList.add("error");
+    }
+    finally {
+      MANAGER_BUSY = false; button.textContent = "Create draft task";
+      managerUpdateImportAction();
+    }
+  }
+
+  document.getElementById("managerRepoSearch").addEventListener("submit", event => {
+    event.preventDefault(); managerFilterRepositories();
+  });
+  document.getElementById("managerRepoQuery").addEventListener("input", managerFilterRepositories);
+  document.getElementById("managerRepoSelect").addEventListener("change", event => {
+    document.getElementById("managerRepoLoad").disabled = MANAGER_BUSY || !event.target.value;
+    managerRepoNotice(event.target.value
+      ? "Repository chosen in the selector. Nothing has been observed or imported yet."
+      : "Choose a server-visible repository.");
+  });
+  document.getElementById("managerRepoLoad").addEventListener("click", managerObserveSelectedRepository);
+  document.getElementById("managerRetry").addEventListener("click", async () => {
+    managerOfferRetry(false);
+    if (!MANAGER_STATUS || !MANAGER_STATUS.configured) {
+      MANAGER_BOOTED = false;
+      MANAGER_STATUS = null;
+      await managerEnsureBooted();
+      return;
+    }
+    const selected = document.getElementById("managerRepoSelect").value;
+    if (selected) await managerObserveSelectedRepository();
+    else {
+      try { await managerLoadRepositories(); }
+      catch (error) { managerRepoNotice(managerErrorText(error), true); managerShowFailureState(error); }
+    }
+  });
+  document.getElementById("managerLanes").addEventListener("click", event => {
+    const button = event.target.closest("[data-manager-detail]");
+    if (button) managerOpenDetail(button.dataset.managerDetail, button);
+  });
+  document.getElementById("managerImportForm").addEventListener("submit", managerImportDraft);
+  document.getElementById("managerImportConfirm").addEventListener("change", managerUpdateImportAction);
+  document.getElementById("managerDrawerClose").addEventListener("click", managerCloseDetail);
+  document.getElementById("managerImportCancel").addEventListener("click", managerCloseDetail);
+  document.getElementById("managerOpenWork").addEventListener("click", () => {
+    managerCloseDetail(); switchView("work");
+  });
+  document.getElementById("managerDrawer").addEventListener("click", event => {
+    if (event.target.id === "managerDrawer") managerCloseDetail();
+  });
+  document.getElementById("managerDrawer").addEventListener("keydown", event => {
+    if (event.key === "Escape") { event.preventDefault(); managerCloseDetail(); return; }
+    if (event.key !== "Tab") return;
+    const focusable = [...event.currentTarget.querySelectorAll(
+      'button:not([disabled]),a[href]:not([hidden]),select:not([disabled]),textarea:not([disabled]),input:not([disabled])')]
+      .filter(control => control.offsetParent !== null);
+    if (!focusable.length) return;
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault(); last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault(); first.focus();
+    }
+  });
 
   function workflowSetBusy(button, label) {
     if (WORKFLOW_BUSY) return false;
@@ -1565,6 +2543,7 @@
 
   async function workflowBoot() {
     document.getElementById("taskSkill").innerHTML = workflowSkillOptions("");
+    document.getElementById("managerImportSkill").innerHTML = workflowSkillOptions("");
     try {
       const runtime = await workflowRequest("/api/data");
       if (runtime && runtime.local) LIVE = runtime;

@@ -21,6 +21,7 @@ import argparse
 import importlib.machinery
 import importlib.util
 import json
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -210,14 +211,45 @@ def run(no_cargo: bool) -> int:
 
     cwd_rule = frozen.get("runner_cwd_expectations")
     if cwd_rule:
-        print("\nrunner working directory (neutral home, never the caller's)")
+        print("\nrunner working directory (a scratch dir that inherits nothing)")
         with tempfile.TemporaryDirectory() as scratch:
-            home = Path(scratch).resolve()
-            (home / "runners.json").write_text('{"gpt-5-mini": "pwd"}')
-            stdout, _, code = owi_do.run_command(home, "gpt-5-mini", "")
-            suite.check("workers execute from the home directory",
-                        code == 0 and Path(stdout.strip()) == home,
-                        f"got {stdout.strip()!r}")
+            # The hazard, reproduced exactly: standing instructions sitting
+            # above the owi home, as this repo's own CLAUDE.md sits above
+            # .owi-quick. A worker that inherits them stops being a worker.
+            root = Path(scratch).resolve()
+            for name in cwd_rule["forbidden_instruction_files"]:
+                (root / name).write_text("# you are the router, not the worker\n")
+            home = root / ".owi-quick"
+            home.mkdir()
+            (home / "runners.json").write_text(json.dumps({
+                "gpt-5-mini": "pwd",
+                "worker:gpt-5-mini/editor": "pwd",
+            }))
+            cases = (
+                ("model runner", lambda: owi_do.run_command(
+                    home, "gpt-5-mini", "")),
+                ("exact worker", lambda: owi_do.run_worker_command(
+                    home, "worker:gpt-5-mini/editor", "",
+                    allow_model_fallback=False)),
+            )
+            for label, invoke in cases:
+                stdout, _, code = invoke()
+                where = Path(stdout.strip()) if stdout.strip() else None
+                suite.check(f"{label} reports where it ran",
+                            code == 0 and where is not None,
+                            f"got {stdout.strip()!r}")
+                if where is not None:
+                    suite.check(f"{label} does not execute from the owi home",
+                                where.resolve() != home,
+                                f"ran in the home directory: {where}")
+                    inherited = owi_do.instruction_files_above(where)
+                    suite.check(f"{label} inherits no standing instructions",
+                                not inherited,
+                                f"would obey: {inherited[:2]}")
+            suite.check("the fixture reproduces the real hazard",
+                        bool(owi_do.instruction_files_above(home)),
+                        "the home under test has no instructions above it, "
+                        "so this proves nothing")
 
     privacy_rules = frozen.get("privacy_expectations")
     if privacy_rules:
@@ -321,6 +353,58 @@ def run(no_cargo: bool) -> int:
                            and f"const {name}" not in block]
                 suite.check("the block still defines the whole rule",
                             not missing, f"missing: {missing}")
+
+        bench_rules = frozen.get("bench_blame_expectations")
+        if bench_rules:
+            print("\nbench blame (a broken adapter is not a failed model)")
+            with tempfile.TemporaryDirectory() as scratch:
+                # A one-task corpus over a trivial repo, run with an adapter
+                # that cannot work. The model never wrote a line; nothing may
+                # be recorded against it.
+                area = Path(scratch)
+                repo, out = area / "repo", area / "out"
+                repo.mkdir()
+                (repo / "unit.py").write_text("def f():\n    return 1\n")
+                subprocess.run(["git", "init", "-q", str(repo)], check=True)
+                corpus = {
+                    "corpus_id": "corpus:selftest", "commit": "HEAD",
+                    "skill_id": "skill:python-numerical-implementation",
+                    "verify_command": ["python3", "-c", "raise SystemExit(0)"],
+                    "tasks": [{
+                        "task_id": "task:selftest:f",
+                        "qualified_name": "f", "source_path": "unit.py",
+                        "instruction": "implement f", "signature": "def f():",
+                        "docstring": "one", "indent": "    ",
+                        "patch": {"file": "unit.py", "start_line": 2,
+                                  "end_line": 2},
+                    }],
+                }
+                corpus_path = area / "corpus.json"
+                corpus_path.write_text(json.dumps(corpus))
+                completed = subprocess.run(
+                    [sys.executable, str(TOOLS / "run_bench.py"),
+                     "--corpus", str(corpus_path), "--repo", str(repo),
+                     "--worker-id", "worker:selftest/code",
+                     "--adapter", "command",
+                     "--command", str(TOOLS / "no-such-adapter-exists"),
+                     "--observed-at", "2026-01-01T00:00:00Z",
+                     "--outcome-dir", str(out),
+                     "--report", str(area / "report.json")],
+                    capture_output=True, text=True)
+                written = list(out.glob("*.json")) if out.exists() else []
+                suite.check("a failed adapter records nothing against the "
+                            "worker", not written,
+                            f"wrote {len(written)} outcome record(s)")
+                report = json.loads((area / "report.json").read_text())
+                suite.check("the harness failure is reported, not hidden",
+                            report.get("unscored_harness_failures") == 1
+                            and report.get("scored") == 0,
+                            f"report says {report.get('scored')} scored, "
+                            f"{report.get('unscored_harness_failures')} "
+                            f"unscored")
+                suite.check("a run that measured nothing exits non-zero",
+                            completed.returncode != 0,
+                            "it exited 0, so CI would call it a pass")
 
         blame = frozen.get("blame_expectations")
         if blame:

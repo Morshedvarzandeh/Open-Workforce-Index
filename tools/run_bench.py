@@ -42,6 +42,13 @@ class Attempt:
     output_tokens: int
     cash_micros: int
     failure_detail: str
+    # Who failed. "worker" means the model wrote a body and the tests
+    # rejected it — real evidence. "harness" means no body ever reached the
+    # repository: the adapter crashed, timed out, or was never found. The
+    # tests never ran, so there is nothing to hold against the model, and a
+    # harness attempt is reported but never written as an outcome. Same rule
+    # the front door applies to empty stdout: plumbing is not performance.
+    blame: str = "worker"
 
 
 def read_file_at_commit(repo: Path, commit: str, relative_path: str) -> str:
@@ -132,7 +139,8 @@ def run_task(
         elapsed_ms = int((time.monotonic() - started) * 1000)
         if not body.strip():
             return Attempt(
-                task["task_id"], False, elapsed_ms, 0, 0, 0, "adapter produced no body"
+                task["task_id"], False, elapsed_ms, 0, 0, 0,
+                "adapter produced no body", blame="harness"
             )
         path.write_text(
             splice(
@@ -156,7 +164,16 @@ def run_task(
             accepted, detail = False, "verify command timed out"
     except subprocess.TimeoutExpired:
         elapsed_ms = int((time.monotonic() - started) * 1000)
-        return Attempt(task["task_id"], False, elapsed_ms, 0, 0, 0, "adapter timed out")
+        return Attempt(task["task_id"], False, elapsed_ms, 0, 0, 0,
+                       "adapter timed out", blame="harness")
+    except OSError as error:
+        # The adapter program does not exist, is not executable, or the
+        # working tree could not be written. None of that is the model's
+        # doing, and crashing here would lose the whole run's report.
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        return Attempt(task["task_id"], False, elapsed_ms, 0, 0, 0,
+                       f"adapter could not be started: {error}",
+                       blame="harness")
     finally:
         # Always restore, so one failed task cannot corrupt the next.
         path.write_text(original)
@@ -234,14 +251,18 @@ def main() -> int:
             arguments.verify_timeout,
         )
         attempts.append(attempt)
-        mark = "PASS" if attempt.accepted else "FAIL"
+        mark = ("PASS" if attempt.accepted
+                else "FAIL" if attempt.blame == "worker" else "HARNESS")
+        detail = f"  {attempt.failure_detail}" if attempt.blame != "worker" else ""
         print(
             f"[{index}/{len(corpus['tasks'])}] {mark} {task['qualified_name']} "
-            f"({attempt.latency_ms} ms)",
+            f"({attempt.latency_ms} ms){detail}",
             file=sys.stderr,
         )
 
-    accepted = sum(1 for attempt in attempts if attempt.accepted)
+    scored = [a for a in attempts if a.blame == "worker"]
+    unscored = [a for a in attempts if a.blame != "worker"]
+    accepted = sum(1 for attempt in scored if attempt.accepted)
     report = {
         "corpus_id": corpus["corpus_id"],
         "commit": commit,
@@ -249,8 +270,10 @@ def main() -> int:
         "adapter": arguments.adapter,
         "skill_id": corpus["skill_id"],
         "attempted": len(attempts),
+        "scored": len(scored),
+        "unscored_harness_failures": len(unscored),
         "accepted": accepted,
-        "pass_rate": accepted / len(attempts) if attempts else 0.0,
+        "pass_rate": accepted / len(scored) if scored else 0.0,
         "total_cash_micros": sum(a.cash_micros for a in attempts),
         "attempts": [asdict(a) for a in attempts],
     }
@@ -259,7 +282,7 @@ def main() -> int:
 
     if arguments.outcome_dir:
         arguments.outcome_dir.mkdir(parents=True, exist_ok=True)
-        for attempt in attempts:
+        for attempt in scored:
             slug = attempt.task_id.replace("/", "_").replace(":", "_")
             record = {
                 "event": {
@@ -282,10 +305,21 @@ def main() -> int:
 
     print(
         f"\n{arguments.worker_id} via {arguments.adapter}: "
-        f"{accepted}/{len(attempts)} accepted "
+        f"{accepted}/{len(scored)} accepted "
         f"({report['pass_rate']:.1%})",
         file=sys.stderr,
     )
+    if unscored:
+        print(
+            f"{len(unscored)} task(s) never reached the tests and were NOT "
+            f"recorded — the harness failed, not the model: "
+            f"{unscored[0].failure_detail}",
+            file=sys.stderr,
+        )
+        if not scored:
+            print("nothing was measured; fix the adapter and run again",
+                  file=sys.stderr)
+            return 1
     return 0
 
 

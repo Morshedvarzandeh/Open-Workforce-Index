@@ -411,8 +411,8 @@ verify(value.status === "completed" && value.step === 6, "complete");
         not in {"application/json", "application/ld+json"}
     ]
     require(application_scripts, "no application JavaScript was found")
-    require("owi-office-tour-v1" in "\n".join(application_scripts),
-            "tour runtime must use the versioned owi-office-tour-v1 key")
+    require("owi-office-tour-v2" in "\n".join(application_scripts),
+            "tour runtime must use the versioned owi-office-tour-v2 key")
     for position, source in enumerate(application_scripts, start=1):
         checked = subprocess.run(
             ["node", "--check"], input=source, text=True,

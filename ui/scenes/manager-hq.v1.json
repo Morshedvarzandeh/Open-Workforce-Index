@@ -60,8 +60,8 @@
     },
     {
       "hotspot_id": "planning-station",
-      "target_anchor": "project-create",
-      "accessible_label": "Project planning table",
+      "target_anchor": "github-projects",
+      "accessible_label": "Read-only GitHub project selector",
       "bounds_by_profile": {
         "phone-portrait": [0.23, 0.34, 0.29, 0.40],
         "phone-landscape": [0.23, 0.34, 0.29, 0.40],
@@ -70,9 +70,9 @@
       }
     },
     {
-      "hotspot_id": "staffing-station",
-      "target_anchor": "staffing",
-      "accessible_label": "Worker staffing desks",
+      "hotspot_id": "incoming-work-station",
+      "target_anchor": "manager-incoming",
+      "accessible_label": "Incoming GitHub work board",
       "bounds_by_profile": {
         "phone-portrait": [0.51, 0.38, 0.25, 0.37],
         "phone-landscape": [0.51, 0.38, 0.25, 0.37],

@@ -41,6 +41,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from owi_assets import inline_office_assets
+from owi_github import GitHubConfig, GitHubManager, GitHubProblem
 from owi_workflow import WorkflowProblem, WorkflowService
 
 TOOLS = Path(__file__).resolve().parent
@@ -334,6 +335,7 @@ class Handler(BaseHTTPRequestHandler):
     # from driving a paid runner through a cross-origin form/fetch.
     token: str | None = None
     workflow: WorkflowService | None = None
+    github: GitHubManager | None = None
 
     def _send(self, code: int, body: bytes, kind: str,
               set_cookie: bool = False) -> None:
@@ -389,14 +391,18 @@ class Handler(BaseHTTPRequestHandler):
     def _json(self, code: int, payload: dict) -> None:
         self._send(code, json.dumps(payload).encode(), "application/json")
 
-    def _body(self) -> dict:
-        length = int(self.headers.get("Content-Length") or 0)
-        if length <= 0 or length > 1_000_000:
-            return {}
+    def _body(self) -> dict | None:
         try:
-            return json.loads(self.rfile.read(length))
-        except json.JSONDecodeError:
-            return {}
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return None
+        if length <= 0 or length > 1_000_000:
+            return None
+        try:
+            body = json.loads(self.rfile.read(length))
+            return body if isinstance(body, dict) else None
+        except (UnicodeError, json.JSONDecodeError):
+            return None
 
     def _workflow_service(self) -> WorkflowService:
         if self.workflow is None or self.workflow.home != self.home:
@@ -411,6 +417,30 @@ class Handler(BaseHTTPRequestHandler):
             return
         except Exception as error:  # keep a malformed local workspace visible
             self._json(500, {"error": f"workflow failed: {error}"})
+            return
+        self._json(200, payload)
+
+    def _github_service(self) -> GitHubManager:
+        if self.github is None or self.github.home != self.home:
+            Handler.github = GitHubManager(self.home, GitHubConfig.load())
+        return Handler.github
+
+    def _github_reply(self, operation) -> None:
+        try:
+            payload = operation(self._github_service())
+        except GitHubProblem as error:
+            self._json(error.status, {
+                "error": str(error), "code": error.code, **error.details
+            })
+            return
+        except WorkflowProblem as error:
+            self._json(error.status, {"error": str(error),
+                                      "code": "workflow_problem"})
+            return
+        except Exception:
+            # Upstream bodies and credentials are deliberately never reflected.
+            self._json(500, {"error": "GitHub Manager failed safely",
+                             "code": "manager_failure"})
             return
         self._json(200, payload)
 
@@ -436,6 +466,16 @@ class Handler(BaseHTTPRequestHandler):
             self._workflow_reply(
                 lambda workflow: {"project": workflow.current()}
             )
+        elif route == "/api/v1/github/status":
+            self._github_reply(lambda manager: manager.status())
+        elif route == "/api/v1/github/repositories":
+            self._github_reply(lambda manager: manager.list_repositories())
+        elif route == "/api/v1/github/work-items":
+            query = parse_qs(urlparse(self.path).query)
+            repository_id = query.get("repositoryId", [None])[0]
+            self._github_reply(
+                lambda manager: manager.work_items(repository_id)
+            )
         else:
             self._json(404, {"error": "not found"})
 
@@ -451,8 +491,26 @@ class Handler(BaseHTTPRequestHandler):
             self._json(403, {"error": "cross-origin POST rejected"})
             return
         body = self._body()
+        if body is None:
+            self._json(400, {"error": "request body must be one JSON object"})
+            return
         route = self._route()
-        if route == "/api/projects":
+        if (match := re.fullmatch(
+                r"/api/v1/github/repositories/([0-9]+)/sync", route)):
+            if body:
+                self._json(400, {"error": "sync body must be an empty JSON object",
+                                 "code": "invalid_sync"})
+                return
+            repository_id = match.group(1)
+            # No Handler.lock: outbound GitHub reads must not block Office APIs.
+            self._github_reply(lambda manager: manager.sync(repository_id))
+        elif (match := re.fullmatch(
+                r"/api/v1/github/work-items/([^/]+)/import", route)):
+            item_id = unquote(match.group(1))
+            self._github_reply(lambda manager: manager.import_item(
+                item_id, body, self._workflow_service()
+            ))
+        elif route == "/api/projects":
             if not self.data.get("configured"):
                 self._json(409, {"error": "configure a real OWI workspace first"})
                 return
@@ -534,6 +592,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         project_id, task_id = (unquote(value) for value in match.groups())
         body = self._body()
+        if body is None:
+            self._json(400, {"error": "request body must be one JSON object"})
+            return
         with self.lock:
             self._workflow_reply(lambda workflow: dict(zip(
                 ("project", "task"),
@@ -588,6 +649,18 @@ def main() -> int:
                              "required, including on localhost)")
     parser.add_argument("--no-open", action="store_true",
                         help="do not open the graphical office in a browser")
+    parser.add_argument("--github-owner",
+                        help="fixed public GitHub owner to browse read-only; "
+                             "may also be set with OWI_GITHUB_OWNER")
+    parser.add_argument("--github-token-file", type=Path,
+                        help="0600 server-side token file; alternatively set "
+                             "OWI_GITHUB_TOKEN (never sent to the browser)")
+    parser.add_argument("--github-auth-mode", choices=(
+                            "fine_grained_pat", "github_app_user_token"),
+                        help="credential semantics; defaults to fine_grained_pat")
+    parser.add_argument("--allow-insecure-lan-github", action="store_true",
+                        help="explicitly allow private-repository metadata over "
+                             "this plain-HTTP app on a non-loopback bind")
     arguments = parser.parse_args()
 
     home = arguments.home or REPO / (".owi-demo" if arguments.demo
@@ -596,6 +669,18 @@ def main() -> int:
     Handler.token = arguments.token or secrets.token_urlsafe(24)
     Handler.data = prepare_workspace(home, arguments.demo)
     Handler.workflow = WorkflowService(home, owi_do, stored_catalog)
+    try:
+        github_config = GitHubConfig.load(
+            arguments.github_owner, arguments.github_token_file,
+            arguments.github_auth_mode,
+        )
+    except GitHubProblem as error:
+        parser.error(str(error))
+    if (arguments.host not in ("127.0.0.1", "localhost", "::1")
+            and github_config.token and not arguments.allow_insecure_lan_github):
+        parser.error("private GitHub Manager on a non-loopback plain-HTTP bind "
+                     "requires --allow-insecure-lan-github")
+    Handler.github = GitHubManager(home, github_config)
     recovered = Handler.workflow.recover_interrupted_runs()
     if recovered:
         print(f"recovered {recovered} interrupted workflow run(s)", file=sys.stderr)

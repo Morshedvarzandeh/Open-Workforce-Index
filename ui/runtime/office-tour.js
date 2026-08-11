@@ -9,7 +9,7 @@
   if (!node) return;
   const CONFIG = JSON.parse(node.textContent);
   const STEPS = Array.isArray(CONFIG.steps) ? CONFIG.steps : [];
-  const STORAGE_KEY = "owi-office-tour-v1";
+  const STORAGE_KEY = "owi-office-tour-v2";
 
   // >>> tour-state >>>
   function initialTourState(version) {
@@ -142,7 +142,8 @@
     if (!step) return;
     clearTarget();
     root.classList.toggle("is-map", step.placement === "center");
-    if (typeof switchView === "function") switchView(step.view, { focusContent: false });
+    if (typeof switchView === "function")
+      switchView(step.view, { focusContent: false, passive: true });
     requestAnimationFrame(() => {
       activeTarget = step.placement === "center" ? null : targetFor(step);
       root.classList.toggle("target-missing", step.placement !== "center" && !activeTarget);

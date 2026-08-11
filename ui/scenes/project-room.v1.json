@@ -93,6 +93,17 @@
   ],
   "hotspots": [
     {
+      "hotspot_id": "project-create",
+      "target_anchor": "project-create",
+      "accessible_label": "Create a local project or edit its goal",
+      "bounds_by_profile": {
+        "phone-portrait": [0.10, 0.02, 0.80, 0.24],
+        "phone-landscape": [0.26, 0.02, 0.48, 0.28],
+        "tablet": [0.26, 0.02, 0.48, 0.28],
+        "desktop": [0.26, 0.02, 0.48, 0.28]
+      }
+    },
+    {
       "hotspot_id": "crew-roster",
       "target_anchor": "office-roster",
       "accessible_label": "Exact worker roster",

@@ -21,6 +21,7 @@ import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable
+from urllib.parse import urlsplit
 
 
 PRIVACY_LEVELS = {
@@ -28,6 +29,12 @@ PRIVACY_LEVELS = {
     "private_metadata",
     "confidential_content",
     "secret",
+}
+PRIVACY_RANK = {
+    "public": 0,
+    "private_metadata": 1,
+    "confidential_content": 2,
+    "secret": 3,
 }
 EDITABLE_TASK_STATES = {
     "draft",
@@ -143,6 +150,30 @@ class WorkflowService:
             );
             CREATE INDEX IF NOT EXISTS workflow_tasks_project
               ON tasks(project_id, position);
+            CREATE TABLE IF NOT EXISTS source_imports (
+              source_system TEXT NOT NULL,
+              source_repository_id TEXT NOT NULL,
+              source_item_type TEXT NOT NULL,
+              source_item_id TEXT NOT NULL,
+              source_revision TEXT NOT NULL,
+              source_digest TEXT NOT NULL,
+              source_updated_at TEXT,
+              observed_at TEXT NOT NULL,
+              api_version TEXT NOT NULL,
+              observation_partial INTEGER NOT NULL,
+              observation_error TEXT,
+              source_repository_name TEXT NOT NULL,
+              source_url TEXT NOT NULL,
+              project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+              task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+              imported_at TEXT NOT NULL,
+              PRIMARY KEY (
+                source_system, source_repository_id,
+                source_item_type, source_item_id
+              )
+            );
+            CREATE INDEX IF NOT EXISTS workflow_source_import_task
+              ON source_imports(task_id);
                 """
             )
             columns = {
@@ -153,6 +184,23 @@ class WorkflowService:
                     "ALTER TABLE tasks ADD COLUMN attempt_count INTEGER "
                     "NOT NULL DEFAULT 0"
                 )
+            import_columns = {
+                row[1] for row in connection.execute(
+                    "PRAGMA table_info(source_imports)"
+                )
+            }
+            import_additions = {
+                "source_updated_at": "TEXT",
+                "observed_at": "TEXT NOT NULL DEFAULT 'unknown'",
+                "api_version": "TEXT NOT NULL DEFAULT 'unknown'",
+                "observation_partial": "INTEGER NOT NULL DEFAULT 0",
+                "observation_error": "TEXT",
+            }
+            for name, declaration in import_additions.items():
+                if name not in import_columns:
+                    connection.execute(
+                        f"ALTER TABLE source_imports ADD COLUMN {name} {declaration}"
+                    )
             with connection:
                 yield connection
         finally:
@@ -565,6 +613,202 @@ class WorkflowService:
             self._update_project_status(connection, project_id)
         project = self.get_project(project_id)
         return project, next(task for task in project["tasks"] if task["id"] == task_id)
+
+    def import_github_item(
+        self,
+        source: dict,
+        project_id: str | None = None,
+        privacy: str | None = None,
+        skill: str | None = None,
+        checklist: list[str] | None = None,
+    ) -> tuple[dict, dict, bool]:
+        """Atomically bind server-cached GitHub provenance to one draft task.
+
+        This deliberately bypasses planning, allocation and execution.  A repeat
+        import of the same stable GitHub repository/item identity returns the
+        original local task and never overwrites owner edits.
+        """
+        required = {
+            "repository_id", "repository_name", "repository_private",
+            "item_type", "item_id", "revision", "digest", "url", "title",
+        }
+        if not isinstance(source, dict) or not required.issubset(source):
+            raise WorkflowProblem("incomplete server-owned GitHub provenance")
+        item_type = str(source["item_type"])
+        if item_type not in {"issue", "pull_request", "action_failure"}:
+            raise WorkflowProblem("unknown GitHub source item type")
+        repository_id = str(source["repository_id"])
+        item_id = str(source["item_id"])
+        digest = str(source["digest"])
+        if (not repository_id.isdigit() or not item_id.isdigit()
+                or len(repository_id) > 30 or len(item_id) > 30
+                or not re.fullmatch(r"[0-9a-f]{64}", digest)):
+            raise WorkflowProblem("invalid stable GitHub source identity")
+        source_url = str(source["url"])
+        parsed_url = urlsplit(source_url)
+        try:
+            unsafe_port = parsed_url.port is not None
+        except ValueError as error:
+            raise WorkflowProblem("invalid canonical GitHub source URL") from error
+        if (parsed_url.scheme != "https" or parsed_url.hostname != "github.com"
+                or parsed_url.username or parsed_url.password
+                or unsafe_port or len(source_url) > 2000):
+            raise WorkflowProblem("invalid canonical GitHub source URL")
+        title = str(source["title"]).strip()
+        if not title or len(title) > 500:
+            raise WorkflowProblem("invalid GitHub source title")
+        source_observed_at = str(source.get("observed_at") or "").strip()
+        if not source_observed_at:
+            raise WorkflowProblem(
+                "GitHub source has no successful observation to import", 409
+            )
+        source_key = (
+            "github", repository_id, item_type, item_id,
+        )
+        requested_privacy = str(privacy) if privacy is not None else None
+        if requested_privacy is not None and requested_privacy not in PRIVACY_LEVELS:
+            raise WorkflowProblem(f"unknown privacy level: {requested_privacy}")
+        source_floor = (
+            "confidential_content" if bool(source["repository_private"])
+            else "public"
+        )
+
+        with self._connect() as connection:
+            # Serialize the stable source-key check and insert across server
+            # threads, not merely inside one Python service instance.
+            connection.execute("BEGIN IMMEDIATE")
+            existing = connection.execute(
+                "SELECT project_id, task_id FROM source_imports WHERE "
+                "source_system=? AND source_repository_id=? AND "
+                "source_item_type=? AND source_item_id=?",
+                source_key,
+            ).fetchone()
+            if existing is not None:
+                task_row = connection.execute(
+                    "SELECT * FROM tasks WHERE id=? AND project_id=?",
+                    (existing["task_id"], existing["project_id"]),
+                ).fetchone()
+                if task_row is not None:
+                    project_row = self._get_project_row(
+                        connection, existing["project_id"]
+                    )
+                    return (
+                        self._project_dict(connection, project_row),
+                        self._task_dict(task_row),
+                        False,
+                    )
+                # Compatibility with a prerelease table created before the FK.
+                connection.execute(
+                    "DELETE FROM source_imports WHERE source_system=? AND "
+                    "source_repository_id=? AND source_item_type=? AND "
+                    "source_item_id=?", source_key
+                )
+
+            timestamp = now()
+            if project_id:
+                project_row = self._get_project_row(connection, project_id)
+                project_privacy = project_row["privacy"]
+                if PRIVACY_RANK[project_privacy] < PRIVACY_RANK[source_floor]:
+                    raise WorkflowProblem(
+                        "a private GitHub item requires a confidential_content "
+                        "or secret project", 409
+                    )
+            else:
+                base_privacy = requested_privacy or (
+                    "confidential_content" if bool(source["repository_private"])
+                    else "private_metadata"
+                )
+                if PRIVACY_RANK[base_privacy] < PRIVACY_RANK[source_floor]:
+                    raise WorkflowProblem(
+                        "private GitHub content cannot be imported below "
+                        "confidential_content", 409
+                    )
+                project_id = new_id("project")
+                project_name = str(source["repository_name"]).strip()[:120]
+                goal = (
+                    f"Review and resolve selected work from "
+                    f"{source['repository_name']}."
+                )
+                connection.execute(
+                    "INSERT INTO projects VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (project_id, project_name, goal, base_privacy, None,
+                     "github_import", "draft", timestamp, timestamp),
+                )
+                self._event(connection, project_id, None, "project_created", {
+                    "taskCount": 1, "planningSource": "github_import"
+                })
+                project_row = self._get_project_row(connection, project_id)
+                project_privacy = base_privacy
+
+            task_privacy = requested_privacy or project_privacy
+            if PRIVACY_RANK[task_privacy] < PRIVACY_RANK[project_privacy]:
+                task_privacy = project_privacy
+            if PRIVACY_RANK[task_privacy] < PRIVACY_RANK[source_floor]:
+                raise WorkflowProblem(
+                    "private GitHub content cannot be imported below "
+                    "confidential_content", 409
+                )
+            label = {
+                "issue": "Issue",
+                "pull_request": "Pull request",
+                "action_failure": "Failed Actions run",
+            }.get(str(source["item_type"]), "Work item")
+            number = source.get("number")
+            number_text = f" #{number}" if number is not None else ""
+            body_text = str(source.get("body") or "").strip()[:16_000]
+            brief = (
+                f"{label}{number_text}: {title}\n\n"
+                f"Source: {source['url']}\n\n"
+                f"{body_text}"
+            ).strip()
+            raw_task = {"brief": brief, "privacy": task_privacy}
+            if skill is not None:
+                raw_task["skill"] = skill
+            if checklist is not None:
+                raw_task["checklist"] = checklist
+            task = self._normalise_task(raw_task, project_privacy)
+            task["title"] = f"[GitHub {label}{number_text}] {title}"[:120]
+            position = connection.execute(
+                "SELECT COALESCE(MAX(position), 0) + 1 FROM tasks "
+                "WHERE project_id=?", (project_id,)
+            ).fetchone()[0]
+            task_id = new_id("task")
+            connection.execute(
+                "INSERT INTO tasks "
+                "(id, project_id, position, title, brief, skill, privacy, "
+                "checklist_json, checklist_source, status, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?)",
+                (task_id, project_id, position, task["title"], task["brief"],
+                 task["skill"], task["privacy"], json.dumps(task["checklist"]),
+                 task["checklist_source"], timestamp, timestamp),
+            )
+            connection.execute(
+                "INSERT INTO source_imports "
+                "(source_system,source_repository_id,source_item_type,source_item_id,"
+                "source_revision,source_digest,source_updated_at,observed_at,"
+                "api_version,observation_partial,observation_error,"
+                "source_repository_name,source_url,project_id,task_id,imported_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (*source_key, str(source["revision"]), digest,
+                 source.get("source_updated_at"),
+                 source_observed_at,
+                 str(source.get("api_version") or "unknown"),
+                 int(bool(source.get("observation_partial"))),
+                 source.get("observation_error"),
+                 str(source["repository_name"]), source_url,
+                 project_id, task_id, timestamp),
+            )
+            self._event(connection, project_id, task_id, "task_created", {
+                "source": "github_import"
+            })
+            self._update_project_status(connection, project_id)
+            project_result = self._project_dict(
+                connection, self._get_project_row(connection, project_id)
+            )
+            task_result = next(
+                row for row in project_result["tasks"] if row["id"] == task_id
+            )
+            return project_result, task_result, True
 
     def edit_task(
         self, project_id: str, task_id: str, body: dict

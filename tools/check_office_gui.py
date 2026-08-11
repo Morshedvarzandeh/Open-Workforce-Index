@@ -49,6 +49,7 @@ def main() -> int:
     require(len(parser.ids) == len(set(parser.ids)), "HTML ids must be unique")
     required_ids = {
         "view-office",
+        "view-manager",
         "view-work",
         "view-results",
         "crewGrid",
@@ -67,6 +68,26 @@ def main() -> int:
         "resultAccepted",
         "resultRejected",
         "resultsList",
+        "managerStatus",
+        "managerRepoSearch",
+        "managerRepoSelect",
+        "managerRepoLoad",
+        "managerRetry",
+        "managerSelectedRepo",
+        "managerOpenIssues",
+        "managerOpenPrs",
+        "managerFailedCi",
+        "managerSelectedWork",
+        "managerWaitingOwner",
+        "managerLanes",
+        "managerDrawer",
+        "managerImportForm",
+        "managerImportProject",
+        "managerImportPrivacy",
+        "managerImportTruth",
+        "managerImportConfirm",
+        "managerImportSubmit",
+        "managerImportResult",
     }
     require(required_ids.issubset(parser.ids), "a core Office surface is missing")
     require(re.search(r'id="taskList"[^>]*aria-live="polite"', page) is not None,
@@ -159,6 +180,108 @@ def main() -> int:
             "environmental unknowns must remain visible")
     require("68%" not in page and "cost saved" not in page.lower(),
             "the interface contains a hard-coded savings claim")
+    require('data-view="manager">Manager</button>' in page
+            and 'data-tour-id="github-projects"' in page
+            and 'data-tour-id="manager-incoming"' in page,
+            "the GitHub Manager view or its stable tour anchors are missing")
+    for endpoint in (
+        '"/api/v1/github"',
+        '`${MANAGER_BASE}/status`',
+        '`${MANAGER_BASE}/repositories`',
+        '`${MANAGER_BASE}/work-items?repositoryId=',
+        '/repositories/${encodeURIComponent(repositoryId)}/sync',
+        '/work-items/${encodeURIComponent(MANAGER_DETAIL.id)}/import',
+    ):
+        require(endpoint in page,
+                f"the GitHub Manager lost real endpoint binding {endpoint}")
+    require('status.readOnly === true' in page
+            and 'status.githubWriteEnabled === false' in page,
+            "the Manager must fail closed without the read-only v1 contract")
+    require("status.credentialVerified === true" in page
+            and "Credential configured · verification pending" in page,
+            "configured and server-verified GitHub credentials must remain distinct")
+    require("source code is not downloaded or scanned" in page
+            and "does not clone the repository" in page
+            and "write anything back to GitHub" in page,
+            "repository observation/import boundaries must be explicit")
+    require("cached GitHub title, body, and source provenance" in page
+            and "untrusted task data" in page
+            and "content, not commands" in page
+            and "metadata only" not in page.lower(),
+            "draft import must truthfully describe copied untrusted title/body/provenance")
+    require("selecting a repository does not select work" in page.lower()
+            and "unassigned local draft" in page.lower()
+            and "staffing and execution remain separate owner actions" in page.lower(),
+            "selected, imported, staffed and run states must stay distinct")
+    require('url.protocol === "https:"' in page
+            and 'url.hostname === "github.com"' in page
+            and "!url.username && !url.password" in page
+            and 'rel="noopener noreferrer"' in page,
+            "external source links must be restricted to safe GitHub URLs")
+    require("managerSafeUrl(item.url)" in page
+            and "esc(item.title" in page
+            and "option.textContent" in page,
+            "server-returned GitHub content needs inert escaped/DOM rendering")
+    require('value="confidential_content">Confidential content' in page
+            and "managerApplyPrivacyFloor" in page
+            and 'option.disabled = privateRepository && tooWeak' in page
+            and 'privacy.value = "confidential_content"' in page,
+            "private repository imports need a Confidential-or-Secret floor")
+    require('newProject.value = "__new__"' in page
+            and 'if (destination !== "__new__") body.projectId = destination' in page,
+            "first-use import must let the server create a draft-only local project")
+    require('type="checkbox" id="managerImportConfirm"' in page
+            and "!document.getElementById(\"managerImportConfirm\").checked" in page,
+            "a source item may only be imported after explicit confirmation")
+    require("selectedWork: sync && sync.selectedWork" in page
+            and "waitingForOwner: sync && sync.waitingForOwner" in page
+            and "unknown · not reported" in page
+            and "rows.filter(item => item.selectedForWork" not in page,
+            "overview counts must stay unknown unless the server reports them")
+    require("Partial on-demand" in page
+            and "Stale cached snapshot" in page
+            and "GitHub rate limit reached" in page
+            and "GitHub credential rejected" in page
+            and "managerRetry" in page,
+            "partial, stale, rate-limited, auth-failed and retry states must be visible")
+    require("payload.stale === true" in page
+            and 'value.error === "rate_limited"' in page
+            and 'value.error === "permission_denied"' in page
+            and 'outcome !== "complete"' in page
+            and 'outcome === "failed"' in page
+            and "unavailable totals remain unknown, never zero" in page,
+            "partial 200 responses must preserve stale/rate/permission truth")
+    require("stale cached source" in page
+            and "managerWhen(item.observedAt)" in page
+            and "retryAfterSeconds" in page
+            and "retry manually after" in page,
+            "the import modal and rate state need freshness/retry evidence")
+    require("Recent failed Actions runs" in page
+            and 'action_failure: "failed Actions run"' in page
+            and "values.failedActionRuns ?? values.failedCi" in page,
+            "historical failed Actions runs must not be labelled current CI status")
+    require("status.privateRepositoriesAvailable === true" in page
+            and "A cached private selection is hidden" in page,
+            "private cached selections need current server credential verification")
+    require("options.passive !== true" in page
+            and 'document.body.classList.contains("tour-open")' in page,
+            "passive training navigation may not boot or fetch the Manager")
+    require('role="dialog" aria-labelledby="managerDetailTitle"' in page
+            and 'aria-modal="true"' in page
+            and 'event.key === "Escape"' in page
+            and "managerSetBackgroundInert(true)" in page
+            and "MANAGER_LAST_FOCUS.isConnected" in page,
+            "the Manager drawer needs modal semantics, trapping and focus restore")
+    require("MANAGER_LANE_ORDER" in page
+            and '["incoming", "Incoming"]' in page
+            and '["blocked", "Blocked"]' in page
+            and "No client-side lane was invented" in page,
+            "Manager lanes must be server-classified and fail visibly")
+    require(".manager-item-actions button,.manager-item-actions a" in page
+            and "min-height:44px" in page
+            and ".manager-lanes { grid-template-columns:1fr; }" in page
+            and "input[type=text],textarea,select { font-size:16px; }" in page,
+            "Manager actions and lanes need a phone-safe 44px layout")
     require("@media (max-width:620px)" in page,
             "the Office needs a compact-screen layout")
     require("prefers-reduced-motion:reduce" in page,
@@ -189,8 +312,8 @@ def main() -> int:
             "application JavaScript is invalid:\n" + checked.stderr[-1200:])
 
     print("office GUI verified: bright default, versioned game-art library, "
-          "real roster identities, truthful unknowns, responsive shell, "
-          "valid JavaScript")
+          "real roster identities, truthful unknowns, read-only GitHub Manager, "
+          "responsive shell, valid JavaScript")
     return 0
 
 

@@ -2,8 +2,8 @@
   "$schema": "./tour.schema.json",
   "schema_version": 1,
   "tour_id": "first-project",
-  "version": 1,
-  "title": "Your first project in OWI",
+  "version": 2,
+  "title": "Manage your first GitHub project in OWI",
   "steps": [
     {
       "step_id": "meet-your-company",
@@ -14,27 +14,27 @@
       "title": "Welcome to your AI company",
       "body": "You remain the owner. OWI helps turn one goal into reviewable tasks, proposes qualified workers, and keeps every important decision visible. The tour explains the workflow; it never spends money or runs a model for you.",
       "placement": "center",
-      "next_label": "Meet the team"
+      "next_label": "Choose a project"
     },
     {
-      "step_id": "read-the-roster",
-      "view": "office",
-      "target_anchor": "office-roster",
+      "step_id": "choose-a-repository",
+      "view": "manager",
+      "target_anchor": "github-projects",
       "fallback_anchor": "company-hq",
       "coach_asset_id": "character-orbit-dispatcher-idle",
-      "title": "Know who is working",
-      "body": "Each friendly character presents one stored worker record from the current mode. Read the exact worker ID, capability, and runner status below the artwork. A character name is presentation only and never hides the model identity; sample and read-only modes stay labelled.",
+      "title": "Choose a GitHub project",
+      "body": "The Manager reads an on-demand GitHub snapshot without cloning or scanning source code. Choose a server-discovered repository, then refresh its issues, pull requests, and failed Actions. If GitHub is not configured, this room shows the exact setup needed and does not invent projects.",
       "placement": "auto",
-      "next_label": "Create a project"
+      "next_label": "Inspect incoming work"
     },
     {
-      "step_id": "create-the-project",
-      "view": "work",
-      "target_anchor": "project-create",
-      "fallback_anchor": "company-hq",
+      "step_id": "promote-incoming-work",
+      "view": "manager",
+      "target_anchor": "manager-incoming",
+      "fallback_anchor": "github-projects",
       "coach_asset_id": "character-orbit-dispatcher-idle",
-      "title": "Give the office one clear goal",
-      "body": "Name the project, describe the deliverable, choose privacy, and set an optional task-forecast budget. Planning-model use stays off unless you explicitly enable it, and sensitive projects keep it disabled.",
+      "title": "Promote work deliberately",
+      "body": "GitHub items stay read-only until you explicitly import one. Import creates an unassigned local draft with source provenance; it never staffs a model, spends money, runs code, or writes back to GitHub. Private-source tasks keep a confidential privacy floor.",
       "placement": "auto",
       "next_label": "Inspect the tasks"
     },

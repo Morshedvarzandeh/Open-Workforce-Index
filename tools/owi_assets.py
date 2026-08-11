@@ -26,7 +26,7 @@ OFFICE_LAYERS = {
 }
 
 OFFICE_JSON = {
-    "__OFFICE_TOUR_DATA__": TOURS / "first-project.v1.json",
+    "__OFFICE_TOUR_DATA__": TOURS / "first-project.v2.json",
 }
 
 

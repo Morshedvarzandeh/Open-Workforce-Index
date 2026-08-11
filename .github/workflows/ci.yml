@@ -66,6 +66,9 @@ jobs:
       - name: Persisted project staffing workflow
         run: python3 tools/check_workflow_runtime.py
 
+      - name: Read-only GitHub Manager and draft import boundary
+        run: python3 tools/check_github_manager.py
+
       - name: Closed-loop vertical slice
         run: |
           INDEX="${RUNNER_TEMP}/loop-index.sqlite"

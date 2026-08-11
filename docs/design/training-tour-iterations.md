@@ -1,19 +1,24 @@
 # Training tour · seven-pass design record
 
 This record documents seven real review passes over the rendered OWI Office.
-The screenshot sheet uses a deterministic, read-only roster fixture. It is
-visual evidence only: no model was called, no project was created, and none of
-its names or counts are presented as user evidence.
+The screenshot sheet is the historical v1 graphics/responsiveness baseline;
+the v2 tour replaces its project-creation chapters with the working GitHub
+Manager and incoming-work views. It remains visual evidence for the shared art
+and layout only, not evidence of the current chapter copy or GitHub state. No
+model was called, no project was created, and none of its names or counts are
+presented as user evidence.
 
-![Seven Chromium-rendered tour chapters](training-tour-seven-pass.webp)
+![Historical v1 Chromium-rendered tour chapters](training-tour-seven-pass.webp)
 
 ## 1 · Workflow truth
 
-The first draft mentioned a future GitHub Manager. That was removed from this
-tour because the current application cannot yet connect a GitHub App or import
-work items. The shipped seven chapters cover only working surfaces: Office,
-project creation, task planning, staffing, exact-worker run/review, and Results.
-Every chapter is descriptive; advancing the tour sends no mutating request.
+The tour follows the current manager boundary: Office, an on-demand GitHub
+metadata snapshot, explicit draft import, task planning, staffing, exact-worker
+run/review, and Results. GitHub access is read-only and no-clone; it does not
+claim source-code analysis, background synchronization, or writeback. When the
+connector is unavailable, the same chapters explain setup instead of displaying
+fictional projects. Every chapter is descriptive; advancing the tour sends no
+mutating request.
 
 ## 2 · Scene composition
 
