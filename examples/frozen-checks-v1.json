@@ -551,5 +551,26 @@
         "expect": "    def other(v):\n        return v"
       }
     ]
+  },
+  "bench_identity_expectations": {
+    "_why": [
+      "A bench outcome's id was a pure function of (corpus, worker, task).",
+      "That made a worker measurable on a corpus exactly ONCE: every later",
+      "run produced identical ids, the append-only ledger answered UNIQUE",
+      "constraint failed, and the outcomes were rejected one file at a time",
+      "while an ingest loop reported nothing at all.",
+      "",
+      "It surfaced the day after the extraction bug was fixed. Re-benching",
+      "worker:haiku-4-5/code \u2014 retired from code on a 4/11 measured with the",
+      "broken harness \u2014 produced an honest 7/11 that the ledger silently",
+      "refused. Re-measurement is exactly what must work after a harness",
+      "fix, because every number taken before it is suspect.",
+      "",
+      "The id now carries the run's own identity (its observed_at). The",
+      "ledger stays append-only: a new measurement is added ALONGSIDE the",
+      "old one, never over it, and the posterior moves because evidence",
+      "accumulated rather than because history was edited."
+    ],
+    "id_carries_run_identity": true
   }
 }

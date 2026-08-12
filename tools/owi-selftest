@@ -305,6 +305,51 @@ def run(no_cargo: bool) -> int:
                 suite.check("the block still defines the whole rule",
                             not missing, f"missing: {missing}")
 
+        identity = frozen.get("bench_identity_expectations")
+        if identity and identity.get("id_carries_run_identity"):
+            print("\nbench identity (a worker can be measured more than once)")
+            with tempfile.TemporaryDirectory() as scratch:
+                area = Path(scratch)
+                repo = area / "repo"
+                repo.mkdir()
+                (repo / "unit.py").write_text("def f():\n    return 1\n")
+                corpus = {
+                    "corpus_id": "corpus:selftest", "commit": "HEAD",
+                    "skill_id": "skill:python-numerical-implementation",
+                    "verify_command": ["python3", "-c", "raise SystemExit(0)"],
+                    "tasks": [{
+                        "task_id": "task:selftest:f", "qualified_name": "f",
+                        "source_path": "unit.py", "instruction": "implement f",
+                        "signature": "def f():", "docstring": "one",
+                        "indent": "    ",
+                        "patch": {"file": "unit.py", "start_line": 2,
+                                  "end_line": 2, "stub": "    return 1"},
+                    }],
+                }
+                corpus_path = area / "corpus.json"
+                corpus_path.write_text(json.dumps(corpus))
+                ids = []
+                for stamp in ("2026-01-01T00:00:00Z", "2026-02-02T00:00:00Z"):
+                    out = area / f"out-{stamp[:10]}"
+                    subprocess.run(
+                        [sys.executable, str(TOOLS / "run_bench.py"),
+                         "--corpus", str(corpus_path), "--repo", str(repo),
+                         "--worker-id", "worker:selftest/code",
+                         "--adapter", "stub", "--observed-at", stamp,
+                         "--outcome-dir", str(out),
+                         "--report", str(area / f"r-{stamp[:10]}.json")],
+                        capture_output=True, text=True)
+                    written = sorted(out.glob("*.json"))
+                    ids.append({json.loads(w.read_text())["event"]["id"]
+                                for w in written})
+                suite.check("two runs of the same worker produce distinct ids",
+                            bool(ids[0]) and bool(ids[1])
+                            and not (ids[0] & ids[1]),
+                            f"overlap: {sorted(ids[0] & ids[1])[:1]}")
+                suite.check("the id names the run it came from",
+                            all("@2026-01-01T00:00:00Z" in i for i in ids[0]),
+                            f"got {sorted(ids[0])[:1]}")
+
         extraction = frozen.get("bench_extraction_expectations")
         if extraction:
             print("\nbench extraction (a nested helper is not a restated "

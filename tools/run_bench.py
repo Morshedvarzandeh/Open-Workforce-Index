@@ -284,9 +284,19 @@ def main() -> int:
         arguments.outcome_dir.mkdir(parents=True, exist_ok=True)
         for attempt in scored:
             slug = attempt.task_id.replace("/", "_").replace(":", "_")
+            # The run's own identity belongs in the id. Without it the id was
+            # a pure function of (corpus, worker, task), so a worker could be
+            # measured on a corpus exactly ONCE: every later run collided with
+            # UNIQUE constraint failed and was rejected, one file at a time,
+            # while a shell loop reported nothing. That made re-measurement
+            # impossible — and re-measurement is the whole point after a
+            # harness fix, because the earlier numbers were taken with the
+            # broken harness. The ledger stays append-only: a new run is added
+            # alongside the old one, never over it.
             record = {
                 "event": {
-                    "id": f"outcome:{corpus['corpus_id']}:{arguments.worker_id}:{slug}",
+                    "id": f"outcome:{corpus['corpus_id']}:{arguments.worker_id}"
+                          f":{slug}@{arguments.observed_at}",
                     "task_id": attempt.task_id,
                     "worker_id": arguments.worker_id,
                     "skill_id": corpus["skill_id"],
