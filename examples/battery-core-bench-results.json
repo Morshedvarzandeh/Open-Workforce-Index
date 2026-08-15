@@ -1,0 +1,32 @@
+{
+  "_comment": [
+    "A leaderboard export in the `leaderboard@1` shape, produced by THIS",
+    "project's own bench harness rather than fetched from a third party.",
+    "",
+    "Every number here was measured, not assumed. Each is one run of",
+    "corpus:battery-core-v1 (11 tasks extracted from a real repository at",
+    "commit ec7f0bf, each task being a documented function whose body was",
+    "removed) scored solely by the repository's own pytest suite. No model,",
+    "including the one under test, had any say in whether its output passed.",
+    "",
+    "The harness was calibrated immediately before every run: the oracle",
+    "adapter, which restores the original implementation, must score 11/11,",
+    "and the stub adapter, which leaves the body unimplemented, must score",
+    "0/11. A run that fails either check measures nothing and is discarded.",
+    "",
+    "These are release-level results and carry no worker_id: the measured",
+    "configuration was the bench chat adapter, not any rostered worker's",
+    "harness. They inform every worker on the release as a prior, capped, and",
+    "are outranked by your own lived outcomes the moment you have any.",
+    "",
+    "Scores are the most recent run per model, all taken after the extraction",
+    "defect of 2026-08-10 was fixed. Earlier runs measured whether a model",
+    "avoided nested helper functions and are deliberately not published."
+  ],
+  "results": [
+    {"model": "claude-opus-5", "raw_score": 72.7, "sample_count": 11},
+    {"model": "claude-sonnet-4-5", "raw_score": 63.6, "sample_count": 11},
+    {"model": "claude-haiku-4-5", "raw_score": 63.6, "sample_count": 11},
+    {"model": "claude-sonnet-5", "raw_score": 54.5, "sample_count": 11}
+  ]
+}

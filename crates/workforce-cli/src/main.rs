@@ -13,7 +13,9 @@ use workforce_allocator::{
 use workforce_domain::{DecisionId, TaskSpec};
 use workforce_engine::{BetaPosterior, QuoteRequest, RoutingPolicy, quote};
 use workforce_kg::{PublicGraph, validate_builtin_rdf};
-use workforce_sources::{PriceImportOptions, import_litellm_prices};
+use workforce_sources::{
+    EvidenceImportOptions, PriceImportOptions, import_leaderboard, import_litellm_prices,
+};
 use workforce_store::{
     ModelReleaseRecord, PrivateLedgerRead, PrivateLedgerWrite, PrivateLocalStore,
     PrivateOutcomeRecord, ProviderOfferingRecord, PublicEvidenceRecord, PublicIndexRead,
@@ -78,6 +80,37 @@ enum Command {
         #[arg(short, long)]
         input: PathBuf,
         /// PriceImportOptions JSON file with provenance and filters.
+        #[arg(long)]
+        options: PathBuf,
+        /// Print the derived records without writing to the index.
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// Snapshot whatever the index now holds, so newly imported facts become
+    /// visible to decisions. A snapshot is a closed dependency set, fixed when
+    /// it is written: prices or evidence appended afterwards are simply not
+    /// members of it, and a decision quoting the old snapshot will not see
+    /// them. This is how an import becomes staffable.
+    Snapshot {
+        #[arg(long, default_value = ".data/index.sqlite")]
+        index: PathBuf,
+        /// Identifier for the new snapshot. Snapshots are append-only, so this
+        /// must not name an existing one.
+        #[arg(long)]
+        id: String,
+        /// RFC 3339 timestamp for the manifest.
+        #[arg(long)]
+        created_at: String,
+    },
+    /// Import published benchmark results as public evidence, replacing
+    /// assumed ability with measured ability.
+    Evidence {
+        #[arg(long, default_value = ".data/index.sqlite")]
+        index: PathBuf,
+        /// Leaderboard export payload (`leaderboard@1`).
+        #[arg(short, long)]
+        input: PathBuf,
+        /// EvidenceImportOptions JSON file with provenance, tier and filters.
         #[arg(long)]
         options: PathBuf,
         /// Print the derived records without writing to the index.
@@ -226,6 +259,17 @@ fn main() -> Result<()> {
             options,
             dry_run,
         } => run_prices(&index, &input, &options, dry_run),
+        Command::Snapshot {
+            index,
+            id,
+            created_at,
+        } => run_snapshot(&index, &id, &created_at),
+        Command::Evidence {
+            index,
+            input,
+            options,
+            dry_run,
+        } => run_evidence(&index, &input, &options, dry_run),
         Command::Outcome { local, input } => run_outcome(&local, &input),
         Command::Learn { input } => run_learn(&input),
         Command::Ontology { command } => run_ontology(command),
@@ -383,6 +427,104 @@ fn run_allocate(index: &Path, local: &Path, input: &Path, record: bool) -> Resul
         recorded: record,
         request_fingerprint: quote_record_value.request_fingerprint.clone(),
     })
+}
+
+fn run_snapshot(index: &Path, id: &str, created_at: &str) -> Result<()> {
+    let resolved = resolve_target(index)?;
+    let store = PublicIndexStore::open(&resolved)
+        .with_context(|| format!("open {}", resolved.display()))?;
+
+    // Carry the ontology and source revision forward from the newest existing
+    // snapshot: this command re-cuts the same index, it does not re-describe
+    // where the index came from.
+    let previous = store
+        .snapshots()?
+        .into_iter()
+        .max_by(|left, right| left.created_at.cmp(&right.created_at));
+    let (ontology_version, source_revision) = previous
+        .as_ref()
+        .map(|record| {
+            (
+                record.ontology_version.clone(),
+                record.source_revision.clone(),
+            )
+        })
+        .unwrap_or_else(|| ("unknown".to_owned(), "unknown".to_owned()));
+
+    let snapshot = SnapshotRecord::new(
+        id.to_owned(),
+        created_at.to_owned(),
+        ontology_version,
+        source_revision,
+        store
+            .model_releases()?
+            .into_iter()
+            .map(|record| record.id)
+            .collect(),
+        store
+            .provider_offerings()?
+            .into_iter()
+            .map(|record| record.id)
+            .collect(),
+        store
+            .worker_profiles()?
+            .into_iter()
+            .map(|record| record.id)
+            .collect(),
+        store
+            .evidence()?
+            .into_iter()
+            .map(|record| record.id)
+            .collect(),
+    )
+    .context("build snapshot manifest")?;
+    store
+        .append_snapshot(&snapshot)
+        .context("append snapshot")?;
+
+    print_json(&serde_json::json!({
+        "snapshot_id": snapshot.id,
+        "content_sha256": snapshot.content_sha256,
+        "previous_snapshot_id": previous.map(|record| record.id),
+        "members": {
+            "model_releases": snapshot.model_release_ids.len(),
+            "provider_offerings": snapshot.provider_offering_ids.len(),
+            "worker_profiles": snapshot.worker_profile_ids.len(),
+            "evidence": snapshot.evidence_ids.len(),
+        },
+    }))
+}
+
+fn run_evidence(index: &Path, input: &Path, options: &Path, dry_run: bool) -> Result<()> {
+    let payload = fs::read_to_string(input).with_context(|| format!("read {}", input.display()))?;
+    let options: EvidenceImportOptions = read_json(options)?;
+    let import = import_leaderboard(&payload, &options).context("import evidence")?;
+
+    if !dry_run {
+        let resolved = resolve_target(index)?;
+        create_parent(&resolved)?;
+        let store = PublicIndexStore::open(&resolved)
+            .with_context(|| format!("open {}", resolved.display()))?;
+        for record in &import.evidence {
+            store
+                .append_evidence(record)
+                .with_context(|| format!("append evidence {}", record.id))?;
+        }
+    }
+
+    print_json(&serde_json::json!({
+        "adapter_version": options.adapter_version,
+        "source_url": options.source_url,
+        "retrieved_at": options.retrieved_at,
+        "evidence_tier": options.evidence_tier,
+        "benchmark_id": options.benchmark_id,
+        "skill_id": options.skill_id,
+        "artifact_sha256": import.artifact_sha256,
+        "imported_evidence": import.evidence.len(),
+        "skipped": import.skipped,
+        "dry_run": dry_run,
+        "evidence": import.evidence,
+    }))
 }
 
 fn run_prices(index: &Path, input: &Path, options: &Path, dry_run: bool) -> Result<()> {

@@ -6,6 +6,8 @@
 //! a plausible value — the index is worth exactly as much as its worst
 //! unjustified row.
 
+pub mod evidence;
+
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
@@ -13,6 +15,11 @@ use sha2::{Digest, Sha256};
 use thiserror::Error;
 use workforce_domain::{ModelReleaseId, OfferingId};
 use workforce_store::{ModelReleaseRecord, ProviderOfferingRecord};
+
+pub use crate::evidence::{
+    EvidenceImport, EvidenceImportOptions, EvidenceSkipReason, LeaderboardPayload,
+    LeaderboardResult, SkippedResult, import_leaderboard,
+};
 
 /// Micros of currency per million tokens, given a per-token cost in whole
 /// units. One token-unit cost of `1e-6` is `1_000_000` micros per million
@@ -312,7 +319,7 @@ impl PriceImportOptions {
     }
 }
 
-fn sha256_hex(bytes: &[u8]) -> String {
+pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     use std::fmt::Write as _;
     Sha256::digest(bytes)
         .iter()
@@ -324,10 +331,12 @@ fn sha256_hex(bytes: &[u8]) -> String {
 
 #[derive(Debug, Error)]
 pub enum SourceError {
-    #[error("could not parse the price payload as JSON: {0}")]
+    #[error("could not parse the source payload as JSON: {0}")]
     Parse(#[source] serde_json::Error),
     #[error("{0} must not be empty")]
     EmptyField(&'static str),
+    #[error("{field} is not a usable value")]
+    InvalidOptions { field: &'static str },
 }
 
 #[cfg(test)]

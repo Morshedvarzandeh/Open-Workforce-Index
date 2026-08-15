@@ -1,0 +1,36 @@
+{
+  "_comment": [
+    "Provenance and filters for one evidence import run — the same discipline",
+    "the price import applies to a claim about cost, applied to a claim about",
+    "ability.",
+    "",
+    "evidence_tier is stated here, never inferred from the payload. The",
+    "allocator weights project_reproduced (1.0) ten times a vendor_reported",
+    "claim (0.1), so this field decides how much a number is allowed to move",
+    "a staffing decision. It says project_reproduced because this project ran",
+    "the benchmark itself, against a deterministic verify command, with the",
+    "oracle and stub calibration passing on the same corpus immediately",
+    "before each run. A number taken from a vendor's own announcement would",
+    "be vendor_reported and would move almost nothing, which is correct.",
+    "",
+    "include_models is explicit for the same reason as in the price import: a",
+    "model appearing or vanishing upstream should be a visible diff, not a",
+    "silent change in who gets staffed."
+  ],
+  "adapter_version": "leaderboard@1",
+  "source_url": "https://github.com/morshedvarzandeh/open-workforce-index/blob/main/examples/battery-core-bench-results.json",
+  "retrieved_at": "2026-08-15T00:00:00Z",
+  "evidence_tier": "project_reproduced",
+  "license": "CC0-1.0",
+  "benchmark_id": "benchmark:battery-core-v1",
+  "skill_id": "skill:python-numerical-implementation",
+  "metric": "pass_rate",
+  "unit": "percent",
+  "score_scale": 100.0,
+  "include_models": [
+    "claude-opus-5",
+    "claude-sonnet-4-5",
+    "claude-haiku-4-5",
+    "claude-sonnet-5"
+  ]
+}

@@ -284,6 +284,42 @@ def run(no_cargo: bool) -> int:
                     offered <= set(offerings),
                     f"unpriced: {sorted(offered - set(offerings))[:3]}")
 
+        evidence_rules = frozen.get("evidence_import_expectations")
+        if evidence_rules:
+            print("\nevidence import (measured ability replacing assumed)")
+            completed = subprocess.run(
+                ["cargo", "run", "-q", "-p", "workforce-cli", "--", "evidence",
+                 "--input", str(REPO / evidence_rules["payload"]),
+                 "--options", str(REPO / evidence_rules["options"]),
+                 "--dry-run"],
+                cwd=REPO, capture_output=True, text=True)
+            imported = (json.loads(completed.stdout)
+                        if completed.returncode == 0 else {})
+            suite.check("the import runs", bool(imported),
+                        completed.stderr[-200:])
+            if imported:
+                suite.check(f"tier is {evidence_rules['expected_tier']}",
+                            imported["evidence_tier"]
+                            == evidence_rules["expected_tier"],
+                            f"got {imported.get('evidence_tier')!r}")
+                suite.check(f"{evidence_rules['expected_records']} records",
+                            imported["imported_evidence"]
+                            == evidence_rules["expected_records"],
+                            f"got {imported.get('imported_evidence')}")
+                by_release = {record["model_release_id"]: record
+                              for record in imported["evidence"]}
+                for release, want in \
+                        evidence_rules["exact_normalized"].items():
+                    got = by_release.get(release, {}).get("normalized_score")
+                    suite.check(f"  {release} normalizes to {want}",
+                                got is not None and abs(got - want) < 1e-9,
+                                f"got {got!r}")
+                if evidence_rules.get("worker_id_must_be_unset"):
+                    claimed = [record["id"] for record in imported["evidence"]
+                               if record.get("worker_id")]
+                    suite.check("a release-level score claims no worker",
+                                not claimed, f"claimed: {claimed[:2]}")
+
         page_rules = frozen.get("page_math_expectations")
         if page_rules:
             print("\npage math (the browser's copy stays verifiable)")

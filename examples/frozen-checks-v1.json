@@ -572,5 +572,41 @@
       "accumulated rather than because history was edited."
     ],
     "id_carries_run_identity": true
+  },
+  "evidence_import_expectations": {
+    "_why": [
+      "The roster shipped with assumed ability: every seeded evidence row",
+      "tagged vendor_reported, pointed at example.invalid, and discounted to",
+      "a tenth of its weight. The evidence importer is how measured numbers",
+      "replace them, and it mirrors the price importer because a claim about",
+      "ability deserves the same discipline as a claim about cost \u2014 the exact",
+      "bytes hashed before parsing, the models listed explicitly, provenance",
+      "on every record, and an append rather than an edit.",
+      "",
+      "Two rules are pinned here because getting either wrong misstaffs work",
+      "rather than merely mislabelling a row.",
+      "",
+      "Normalisation is explicit: a raw score is divided by a stated scale,",
+      "never guessed from its magnitude, and a score outside [0,1] after",
+      "scaling is skipped rather than clamped.",
+      "",
+      "worker_id stays unset unless the source names a full configuration. A",
+      "leaderboard measures a model release; a worker is a release plus a",
+      "harness, skill pack, toolset and execution policy. Left unset the",
+      "score informs every worker on that release \u2014 which is why importing",
+      "battery-core results moved worker:openhands-sonnet-5/code, a worker",
+      "that has never been benchmarked, from 0.500 to 0.536."
+    ],
+    "payload": "examples/battery-core-bench-results.json",
+    "options": "examples/evidence-import-options.json",
+    "expected_tier": "project_reproduced",
+    "expected_records": 4,
+    "exact_normalized": {
+      "model:claude-opus-5": 0.727,
+      "model:claude-sonnet-4-5": 0.636,
+      "model:claude-haiku-4-5": 0.636,
+      "model:claude-sonnet-5": 0.545
+    },
+    "worker_id_must_be_unset": true
   }
 }

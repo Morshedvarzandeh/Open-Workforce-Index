@@ -365,6 +365,64 @@ the page says so in its own footer.
 | `.owi/project.json` | a repo's work manifest (level 3) |
 | `examples/frozen-checks-v1.json` | the frozen suite: behaviour pinned against regression |
 
+## Replacing assumed ability with measured ability
+
+The roster ships with abilities that are *assumed*: every seeded evidence row
+is tagged `vendor_reported`, points at `example.invalid`, and is discounted to
+a tenth of its weight for exactly that reason. The evidence importer is how
+real numbers take their place.
+
+```bash
+owi evidence --index .owi-quick/index.sqlite \
+    --input  examples/battery-core-bench-results.json \
+    --options examples/evidence-import-options.json
+owi snapshot --index .owi-quick/index.sqlite \
+    --id snapshot:measured-v1 --created-at 2026-08-15T00:00:00Z
+```
+
+The second command is not optional. **A snapshot is a closed dependency set,
+fixed when it is written** — evidence appended afterwards is simply not a
+member, and a decision quoting the old snapshot will not see it. Import, then
+re-cut, then decide.
+
+Two things the importer refuses to infer:
+
+- **The tier is stated, never guessed.** `project_reproduced` counts ten times
+  a `vendor_reported` claim, so a source cannot be trusted to grade its own
+  trustworthiness. The bundled example says `project_reproduced` because this
+  project ran the benchmark itself, with oracle-11/11 and stub-0/11
+  calibration passing on the same corpus immediately before each run.
+- **A leaderboard measures a release, not a worker.** A worker is a release
+  *plus* a harness, a skill pack, a toolset and an execution policy, so the
+  importer leaves `worker_id` unset unless the source names a full
+  configuration. Left unset, the score informs every worker on that release —
+  which is why importing the battery-core results moved
+  `worker:openhands-sonnet-5/code`, a worker that has never been benchmarked
+  at all, from 0.500 to 0.536.
+
+One caution worth stating plainly: measuring *some* of the roster shifts the
+comparison in favour of whoever is still unmeasured, because an optimistic
+assumption survives until it is tested. In the bundled example the pick stays
+`deepseek-r/code` precisely because nobody has benchmarked it yet.
+
+## Which code may change casually, and which may not
+
+The Rust workspace owns what must be exact and auditable: the decision, the
+append-only ledger, worker identity, and the price math. That is not where
+the product moves week to week.
+
+The Python layer moves, but it is not all one thing, and treating it as
+"the scripting bit" is how a front door gets rewritten by accident:
+
+| tier | what it is | rule |
+|---|---|---|
+| **frozen Python** | `owi-do`, `owi-serve`, `owi_runner.py`, `run_bench.py`, `bench_chat_adapter.py` | carries behaviour the suite pins — blame rules, the runner contract, inspection schedule, ladders, redaction. Change it and the suite must stay green, or the change is wrong. |
+| **experimental Python** | scenario builders, extractors, one-off adapters, page generators | free to move; nothing depends on its shape. |
+
+The dividing line is not seniority or file size, it is whether
+`examples/frozen-checks-v1.json` has an opinion about it. If it does, the
+lesson in there was paid for by a real failure.
+
 ## What is real, what is assumed
 
 Real: prices (published, content-hashed import), every decision, every gate,
