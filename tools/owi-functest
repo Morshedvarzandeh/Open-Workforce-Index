@@ -1,0 +1,878 @@
+#!/usr/bin/env python3
+"""owi-functest — a broad functional sweep of everything the product does.
+
+    tools/owi-functest              # full sweep
+    tools/owi-functest --group cli  # one group
+
+Different job from `owi-selftest`. The frozen suite pins behaviour that was
+paid for by a real failure and must never regress. This sweep asks a wider,
+shallower question: does every surface still *work* — every CLI subcommand,
+every skill route, every checklist kind, every privacy level, every blame
+path, the team benchmark, the importers, the page's arithmetic, and the error
+paths that are supposed to refuse.
+
+No model is ever called. Execution paths are exercised with stub runners
+(`true`, `echo`, `cat`), so the sweep is free, deterministic, and safe to run
+as often as you like.
+"""
+
+from __future__ import annotations
+
+import argparse
+import importlib.machinery
+import importlib.util
+import json
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+TOOLS = Path(__file__).resolve().parent
+REPO = TOOLS.parent
+sys.path.insert(0, str(TOOLS))
+
+_loader = importlib.machinery.SourceFileLoader("owi_do", str(TOOLS / "owi-do"))
+_spec = importlib.util.spec_from_loader("owi_do", _loader)
+owi_do = importlib.util.module_from_spec(_spec)
+_loader.exec_module(owi_do)
+import owi_runner  # noqa: E402
+
+
+class Sweep:
+    def __init__(self) -> None:
+        self.results: list[tuple[str, str, bool, str]] = []
+        self.group = ""
+
+    def start(self, group: str) -> None:
+        self.group = group
+        print(f"\n{group}")
+
+    def check(self, name: str, ok: bool, note: str = "") -> bool:
+        self.results.append((self.group, name, bool(ok), note))
+        print(f"  [{'ok' if ok else 'FAIL'}] {name}"
+              + (f"  — {note}" if not ok and note else ""))
+        return bool(ok)
+
+    def expect(self, name: str, got, want) -> bool:
+        return self.check(name, got == want, f"got {got!r}, want {want!r}")
+
+    @property
+    def passed(self) -> int:
+        return sum(1 for *_, ok, _ in self.results if ok)
+
+    @property
+    def failed(self) -> list[tuple[str, str, str]]:
+        return [(g, n, note) for g, n, ok, note in self.results if not ok]
+
+
+def owi(*args: str, expect_ok: bool = True) -> tuple[int, str, str]:
+    done = subprocess.run(
+        ["cargo", "run", "-q", "-p", "workforce-cli", "--", *args],
+        cwd=REPO, capture_output=True, text=True)
+    return done.returncode, done.stdout, done.stderr
+
+
+def build_index(home: Path) -> tuple[Path, Path]:
+    index, local = home / "index.sqlite", home / "local.sqlite"
+    owi("prices", "--index", str(index),
+        "--input", str(REPO / "examples/litellm-prices-sample.json"),
+        "--options", str(REPO / "examples/price-import-options.json"))
+    owi("seed", "--index", str(index),
+        "--input", str(REPO / "examples/manager-scenario-seed.json"))
+    owi("database", "init", "--index", str(index), "--local", str(local))
+    return index, local
+
+
+# --------------------------------------------------------------------------
+def group_cli(sweep: Sweep) -> None:
+    sweep.start("CLI surface — every subcommand answers, and refuses correctly")
+    for command in ("quote", "seed", "allocate", "prices", "snapshot",
+                    "evidence", "outcome", "learn", "ontology", "database"):
+        code, _, _ = owi(command, "--help")
+        sweep.check(f"`owi {command} --help` exits 0", code == 0)
+
+    code, out, _ = owi("ontology", "validate")
+    sweep.check("ontology validates", code == 0)
+
+    with tempfile.TemporaryDirectory() as scratch:
+        home = Path(scratch)
+        index, local = home / "i.sqlite", home / "l.sqlite"
+        code, out, _ = owi("database", "init", "--index", str(index),
+                           "--local", str(local))
+        sweep.check("database init exits 0", code == 0)
+        sweep.check("database init creates the public index", index.exists())
+        sweep.check("database init creates the private ledger", local.exists())
+
+        code, out, _ = owi("prices", "--index", str(index), "--input",
+                           str(REPO / "examples/litellm-prices-sample.json"),
+                           "--options",
+                           str(REPO / "examples/price-import-options.json"))
+        sweep.check("prices import exits 0", code == 0)
+        priced = json.loads(out) if code == 0 else {}
+        sweep.check("prices import reports offerings",
+                    priced.get("imported_provider_offerings", 0) >= 16,
+                    f"got {priced.get('imported_provider_offerings')}")
+        sweep.check("prices import records a payload digest",
+                    len(priced.get("artifact_sha256", "")) == 64)
+
+        code, out, _ = owi("seed", "--index", str(index), "--input",
+                           str(REPO / "examples/manager-scenario-seed.json"))
+        sweep.check("seed exits 0", code == 0)
+        seeded = json.loads(out) if code == 0 else {}
+        sweep.check("seed names its snapshot",
+                    seeded.get("snapshot_id", "").startswith("snapshot:"))
+        sweep.check("seed content digest is a sha256",
+                    len(seeded.get("content_sha256", "")) == 64)
+
+        code, _, _ = owi("quote", "--input",
+                         str(REPO / "examples/quote-request.json"))
+        sweep.check("quote answers a text request", code == 0)
+        code, _, _ = owi("quote", "--input",
+                         str(REPO / "examples/cad-quote-request.json"))
+        sweep.check("quote answers a CAD request", code == 0)
+        code, _, _ = owi("learn", "--input",
+                         str(REPO / "examples/learning-request.json"))
+        sweep.check("learn demonstrates an update", code == 0)
+
+        # allocation-request.json quotes snapshot:example-v1, which belongs
+        # to index-seed.json — a decision names the snapshot it was made
+        # against, and the index must hold that exact one.
+        code, _, _ = owi("allocate", "--index", str(index), "--local",
+                         str(local), "--input",
+                         str(REPO / "examples/allocation-request.json"))
+        sweep.check("a decision quoting an unknown snapshot is refused",
+                    code != 0)
+        owi("seed", "--index", str(index),
+            "--input", str(REPO / "examples/index-seed.json"))
+        code, out, _ = owi("allocate", "--index", str(index), "--local",
+                           str(local), "--input",
+                           str(REPO / "examples/allocation-request.json"))
+        sweep.check("allocate answers once its snapshot exists", code == 0)
+        quoted = json.loads(out) if code == 0 else {}
+        sweep.check("allocate names a selected worker",
+                    (quoted.get("quote") or {}).get("selected_worker_id"))
+        sweep.check("allocate explains who was turned away",
+                    "rejected_candidates" in (quoted.get("quote") or {}))
+
+        # Error paths: the product must refuse, not guess.
+        code, _, err = owi("seed", "--index", str(index),
+                           "--input", str(home / "does-not-exist.json"))
+        sweep.check("a missing input file is refused", code != 0)
+        bad = home / "bad.json"
+        bad.write_text("{ not json")
+        code, _, _ = owi("quote", "--input", str(bad))
+        sweep.check("unparseable JSON is refused", code != 0)
+        code, _, _ = owi("evidence", "--input",
+                         str(REPO / "examples/battery-core-bench-results.json"),
+                         "--options", str(bad), "--dry-run")
+        sweep.check("unparseable options are refused", code != 0)
+
+
+def group_snapshot(sweep: Sweep) -> None:
+    sweep.start("snapshots — a closed set, cut on demand")
+    with tempfile.TemporaryDirectory() as scratch:
+        home = Path(scratch)
+        index, _ = build_index(home)
+        code, out, _ = owi("snapshot", "--index", str(index),
+                           "--id", "snapshot:functest-1",
+                           "--created-at", "2026-08-21T00:00:00Z")
+        sweep.check("snapshot exits 0", code == 0)
+        cut = json.loads(out) if code == 0 else {}
+        sweep.expect("snapshot keeps the id it was given",
+                     cut.get("snapshot_id"), "snapshot:functest-1")
+        sweep.check("snapshot carries the previous one forward",
+                    cut.get("previous_snapshot_id") is not None)
+        members = cut.get("members", {})
+        for kind, least in (("model_releases", 1), ("provider_offerings", 16),
+                            ("worker_profiles", 43), ("evidence", 40)):
+            sweep.check(f"snapshot holds {least}+ {kind}",
+                        members.get(kind, 0) >= least,
+                        f"got {members.get(kind)}")
+        # Append-only: the same id must never be re-cut.
+        code, _, _ = owi("snapshot", "--index", str(index),
+                         "--id", "snapshot:functest-1",
+                         "--created-at", "2026-08-21T00:00:00Z")
+        sweep.check("re-cutting an existing snapshot id is refused", code != 0)
+
+
+def group_classify(sweep: Sweep) -> None:
+    sweep.start("skill routing — plain words reach the right bench")
+    cases = [
+        ("Rewrite this email to the supplier", "skill:text-editing"),
+        ("Summarize these notes into a short update", "skill:text-editing"),
+        ("Extract the invoice fields into json", "skill:structured-extraction"),
+        ("Parse this csv table into structured records",
+         "skill:structured-extraction"),
+        ("Implement the python function and fix the failing test",
+         "skill:python-numerical-implementation"),
+        ("Refactor the rust module so cargo compiles",
+         "skill:python-numerical-implementation"),
+        ("Model a parametric bracket and export step",
+         "skill:parametric-cad"),
+        ("Design the enclosure geometry as a 3d model",
+         "skill:parametric-cad"),
+        ("Write the roadmap and decompose it into milestones",
+         "skill:planning-decomposition"),
+        ("Draft the architecture strategy and design doc",
+         "skill:planning-decomposition"),
+        ("Debug the failing regression from this stack trace",
+         "skill:code-review-debugging"),
+        ("Diagnose the root cause, why does it break",
+         "skill:code-review-debugging"),
+        ("Design the landing page layout and css", "skill:ui-design"),
+        ("Sketch a ux wireframe and mockup", "skill:ui-design"),
+    ]
+    for text, want in cases:
+        sweep.expect(f"{text[:44]!r}", owi_do.classify(text), want)
+    sweep.expect("an unrecognisable request falls back to text",
+                 owi_do.classify("zzz qqq"), owi_do.DEFAULT_SKILL)
+    sweep.check("every skill in the taxonomy is reachable",
+                {want for _, want in cases} == set(owi_do.SKILLS),
+                f"unreachable: {set(owi_do.SKILLS) - {w for _, w in cases}}")
+
+
+def group_checklist(sweep: Sweep) -> None:
+    sweep.start("checklist engine — every kind, both verdicts")
+    cases = [
+        ("contains:thermal", "the thermal margin held", "contains", True),
+        ("contains:thermal", "nothing relevant here", "contains", False),
+        ("contains:'quoted'", "a quoted word", "contains", True),
+        ('contains:"double"', "a double word", "contains", True),
+        ("regex:40\\s*A", "rated 40 A today", "regex", True),
+        ("regex:40\\s*A", "rated 12 V today", "regex", False),
+        ("regex:[unclosed", "anything", "regex", None),
+        ("json", '{"a": 1}', "json", True),
+        ("json", 'prose with {"a": 1} inside', "json", True),
+        ("json", "no object here", "json", False),
+        ("min-words:3", "one two three", "min-words", True),
+        ("min-words:5", "one two three", "min-words", False),
+        ("min-words:notanumber", "one two", "min-words", None),
+        ("python", "def f():\n    return 1\n", "python", True),
+        ("python", "def f(:\n", "python", False),
+        ("explains the tradeoff clearly", "anything", "judged", None),
+    ]
+    for item, output, want_kind, want_verdict in cases:
+        kind, verdict, _ = owi_do.check_item(item, output)
+        sweep.expect(f"{want_kind}: {item[:34]!r}", verdict, want_verdict)
+        sweep.expect(f"  labelled {want_kind}", kind, want_kind)
+
+    with tempfile.TemporaryDirectory() as scratch:
+        report = owi_do.run_checklist(
+            Path(scratch), "probe", "the thermal margin held",
+            ["contains:thermal", "min-words:3"], maker_model="none",
+            judge_enabled=False)
+        sweep.expect("all mechanical items passing accepts",
+                     report["verdict"], "accepted")
+        report = owi_do.run_checklist(
+            Path(scratch), "probe", "nothing",
+            ["contains:thermal"], maker_model="none", judge_enabled=False)
+        sweep.expect("a failed mechanical item rejects",
+                     report["verdict"], "rejected")
+
+
+def group_privacy(sweep: Sweep) -> None:
+    sweep.start("confidentiality — a gate, not a preference")
+    ladder = ["public", "private_metadata", "confidential_content", "secret"]
+    for plain, formal in owi_do.PRIVACY.items():
+        sweep.check(f"'{plain}' maps onto the domain ladder",
+                    formal in ladder, f"got {formal}")
+    with tempfile.TemporaryDirectory() as scratch:
+        home = Path(scratch)
+        index, local = build_index(home)
+        for level, expect_cleared_only in (("private_metadata", False),
+                                           ("confidential_content", True)):
+            request = home / f"req-{level}.json"
+            request.write_text(json.dumps({
+                "decision_id": f"decision:ft-{level}",
+                "snapshot_id": "snapshot:manager-scenario-v1",
+                "at_epoch_ms": owi_do.AT_EPOCH_MS,
+                "created_at": "2026-08-21T00:00:00Z",
+                "task": {"id": f"task:ft-{level}", "summary": "probe",
+                         "required_skills": [{
+                             "skill_id": "skill:text-editing",
+                             "minimum_success_probability": 0.24,
+                             "minimum_evidence_count": 0}],
+                         "required_tools": [], "privacy": level,
+                         "risk": "low", "verification": "deterministic",
+                         "minimum_success_probability": 0.24,
+                         "minimum_evidence_count": 0,
+                         "estimated_input_tokens": 2000,
+                         "estimated_output_tokens": 800},
+                "policy": {"policy_id": "policy:economy-v1",
+                           "currency": "USD",
+                           "quota_shadow_cash_micros_per_unit": 0,
+                           "failure_probability_basis": "mean",
+                           "max_attempts": 2},
+                "calibration": {"calibration_id": "calibration:v1",
+                                "confidence_tail_probability": 0.05,
+                                "prior_alpha": 1.0, "prior_beta": 1.0,
+                                "max_public_prior_weight": 8.0,
+                                "private_outcome_weight": 1.0},
+                "assumptions": {"default_p95_latency_ms": 30000},
+            }))
+            code, out, _ = owi("allocate", "--index", str(index),
+                               "--local", str(local), "--input", str(request))
+            staffed = {c["worker_id"] for c in
+                       json.loads(out)["quote"]["eligible_candidates"]} \
+                if code == 0 else set()
+            if expect_cleared_only:
+                sweep.expect("a confidential task staffs only cleared workers",
+                             staffed, {"worker:local-llama/text"})
+            else:
+                sweep.check("an ordinary task staffs the cloud roster",
+                            len(staffed) > 1, f"got {len(staffed)}")
+
+    # Redaction: a confidential failure leaves statistics, never content.
+    with tempfile.TemporaryDirectory() as scratch:
+        home = Path(scratch)
+        owi_do.log_root_cause(home, "the secret recipe", "worker:x/text",
+                              "skill:text-editing", "worker", "leaked detail",
+                              privacy="confidential_content")
+        entry = json.loads((home / "root-causes.jsonl").read_text())
+        sweep.expect("confidential task text is redacted",
+                     entry["task"], "[redacted]")
+        sweep.expect("confidential failure detail is dropped",
+                     entry["detail"], "")
+        sweep.check("the statistics survive redaction",
+                    entry["worker"] == "worker:x/text"
+                    and entry["cause"] == "worker")
+        sweep.expect("a redacted entry is never replayed as prevention",
+                     owi_do.prevention_notes(home, "skill:text-editing"), [])
+
+
+def group_runner(sweep: Sweep) -> None:
+    sweep.start("runner contract — whose failure was it")
+    cases = [
+        ("real output belongs to the worker", "echo hello",
+         owi_runner.WORKER, True),
+        ("silence is the environment", "true",
+         owi_runner.ENVIRONMENT, False),
+        ("whitespace-only output is still silence", "echo '   '",
+         owi_runner.ENVIRONMENT, False),
+        ("a non-zero exit is the environment", "echo out; exit 3",
+         owi_runner.ENVIRONMENT, False),
+        ("a missing program is the environment", "/no-such-runner-binary",
+         owi_runner.ENVIRONMENT, False),
+    ]
+    for name, command, want_blame, want_usable in cases:
+        result = owi_runner.run_worker(command, "task text", timeout=10)
+        sweep.expect(name, result.blame, want_blame)
+        sweep.expect(f"  usable={want_usable}", result.usable, want_usable)
+    timed = owi_runner.run_worker("sleep 30", "task", timeout=1)
+    sweep.expect("a timeout is the environment", timed.blame,
+                 owi_runner.ENVIRONMENT)
+    sweep.check("an unusable result carries no output", timed.output == "")
+
+    piped = owi_runner.run_worker("cat", "the whole task on stdin", timeout=10)
+    sweep.expect("the task travels on stdin", piped.output.strip(),
+                 "the whole task on stdin")
+
+    where = owi_runner.run_worker("pwd", "", timeout=10)
+    sweep.check("a worker runs somewhere real", where.usable)
+    sweep.expect("a worker inherits no standing instructions",
+                 owi_runner.instruction_files_above(Path(where.output.strip())),
+                 [])
+    sweep.check("this repo would otherwise impose instructions",
+                bool(owi_runner.instruction_files_above(REPO / ".owi-quick")))
+
+    with tempfile.TemporaryDirectory() as scratch:
+        home = Path(scratch)
+        (home / "runners.json").write_text('{"m": "echo configured"}')
+        sweep.expect("a configured runner wins",
+                     owi_runner.resolve(home, "m", {"m": "echo builtin"}),
+                     "echo configured")
+        sweep.expect("an unset model falls back to a built-in that exists",
+                     owi_runner.resolve(home, "n", {"n": "echo builtin"}),
+                     "echo builtin")
+        sweep.expect("a built-in whose CLI is absent is not offered",
+                     owi_runner.resolve(home, "p",
+                                        {"p": "no-such-cli --run"}), None)
+        sweep.expect("an unknown model has no runner",
+                     owi_runner.resolve(home, "q", {}), None)
+        (home / "runners.json").write_text("{ broken")
+        try:
+            owi_runner.load_runners(home)
+            sweep.check("a corrupt runners.json is reported", False,
+                        "it was silently ignored")
+        except SystemExit:
+            sweep.check("a corrupt runners.json is reported, not ignored", True)
+
+
+def group_blame_end_to_end(sweep: Sweep) -> None:
+    sweep.start("blame end to end — plumbing never becomes evidence")
+    with tempfile.TemporaryDirectory() as scratch:
+        home = Path(scratch)
+        owi_do.bootstrap(home)
+        import sqlite3
+
+        def last_outcome() -> dict:
+            connection = sqlite3.connect(home / "local.sqlite")
+            row = connection.execute(
+                "SELECT accepted, metadata_json FROM outcome_events "
+                "ORDER BY rowid DESC LIMIT 1").fetchone()
+            connection.close()
+            return {"accepted": row[0], "meta": json.loads(row[1] or "{}")}
+
+        for label, command, want_cause in (
+                ("empty output", "true", "environment"),
+                ("non-zero exit", "echo out; exit 4", "environment")):
+            (home / "runners.json").write_text(
+                json.dumps({"gpt-5-mini": command}))
+            verdict, _ = owi_do.attempt_run(
+                home, "worker:gpt-5-mini/text", "gpt-5-mini",
+                "skill:text-editing", f"functest {label}", "",
+                ["contains:anything"], None, None,
+                {"level": "full", "judge": False}, [])
+            record = last_outcome()
+            sweep.expect(f"{label} is rejected", verdict, "rejected")
+            sweep.expect(f"{label} blames the environment",
+                         record["meta"].get("root_cause"), want_cause)
+            sweep.check(f"{label} is never checked against a checklist",
+                        "checklist" not in record["meta"])
+
+        (home / "runners.json").write_text(
+            json.dumps({"gpt-5-mini": "echo the thermal margin held"}))
+        verdict, _ = owi_do.attempt_run(
+            home, "worker:gpt-5-mini/text", "gpt-5-mini",
+            "skill:text-editing", "functest real output", "",
+            ["contains:thermal"], None, None,
+            {"level": "full", "judge": False}, [])
+        sweep.expect("real output is checked and can be accepted",
+                     verdict, "accepted")
+        sweep.check("an accepted run records its checklist",
+                    "checklist" in last_outcome()["meta"])
+
+
+def group_inspection(sweep: Sweep) -> None:
+    sweep.start("lean inspection — full while qualifying, sampled once earned")
+    sweep.expect("clearance is 5 clean accepts", owi_do.QC["clearance"], 5)
+    sweep.expect("sampling is 1-in-3 once cleared",
+                 owi_do.QC["sample_every"], 3)
+    with tempfile.TemporaryDirectory() as scratch:
+        home = Path(scratch)
+        level = owi_do.inspection_for(home, "worker:x/text",
+                                      "skill:text-editing")
+        sweep.expect("a worker with no history is fully inspected",
+                     level["level"], "full")
+        sweep.check("full inspection uses a judge", level["judge"])
+        sweep.check("the reason is stated", bool(level.get("why")))
+
+
+def group_planner(sweep: Sweep) -> None:
+    sweep.start("planner validation — a split is refused unless it is real")
+    cases = [
+        ([{"summary": "write the note", "skill": "skill:text-editing",
+           "checks": ["contains:x"]},
+          {"summary": "extract the fields",
+           "skill": "skill:structured-extraction", "checks": []}], 2),
+        ([{"summary": "only one part", "skill": "skill:text-editing",
+           "checks": []}], 1),
+        ([{"summary": "good", "skill": "skill:text-editing"},
+          {"summary": "bad", "skill": "skill:not-a-real-skill"}], None),
+        ([{"summary": "good", "skill": "skill:text-editing"},
+          {"summary": "   ", "skill": "skill:text-editing"}], None),
+        ([], None),
+        (None, None),
+        ("not a list", None),
+        ([{"skill": "skill:text-editing"}], None),
+    ]
+    for raw, want in cases:
+        cleaned = owi_do.clean_parts(raw)
+        got = None if cleaned is None else len(cleaned)
+        sweep.expect(f"planner input {str(raw)[:38]!r}", got, want)
+
+    sweep.start("auto-checklist cleaning")
+    for raw, want in (
+            (["contains:x", "min-words:10"], ["contains:x", "min-words:10"]),
+            (["  spaced  "], ["spaced"]),
+            ([""], []),
+            ("not a list", []),
+            (None, []),
+            ([1, 2], []) if False else ([" a ", "", " b "], ["a", "b"])):
+        sweep.expect(f"checklist input {str(raw)[:38]!r}",
+                     owi_do.clean_checklist(raw), want)
+
+
+def group_escalation(sweep: Sweep) -> None:
+    sweep.start("escalation — who takes the next attempt")
+    eligible = [{"worker_id": "worker:cheap/text"},
+                {"worker_id": "worker:mid/text"},
+                {"worker_id": "worker:best/text"}]
+
+    def runnable(models):
+        return lambda model: model in models
+
+    got = owi_do.next_attempt_candidate(eligible, [],
+                                        runnable({"cheap", "mid", "best"}))
+    sweep.expect("the first attempt goes to the cheapest runnable",
+                 got["worker_id"], "worker:cheap/text")
+    got = owi_do.next_attempt_candidate(eligible, ["worker:cheap/text"],
+                                        runnable({"cheap", "mid", "best"}),
+                                        {"worker_id": "worker:best/text"})
+    sweep.expect("a retry escalates to the quality option",
+                 got["worker_id"], "worker:best/text")
+    got = owi_do.next_attempt_candidate(eligible, ["worker:cheap/text"],
+                                        runnable({"cheap", "mid"}),
+                                        {"worker_id": "worker:best/text"})
+    sweep.expect("an unrunnable quality option is skipped",
+                 got["worker_id"], "worker:mid/text")
+    got = owi_do.next_attempt_candidate(
+        eligible, ["worker:cheap/text", "worker:mid/text",
+                   "worker:best/text"], runnable({"cheap", "mid", "best"}))
+    sweep.check("when everyone has been tried, nobody is offered", got is None)
+    got = owi_do.next_attempt_candidate(eligible, [], runnable(set()))
+    sweep.check("with nothing runnable, nobody is offered", got is None)
+
+    sweep.start("role ladders — spec from the top, judging from the bottom")
+    sweep.expect("the smartest writer leads", owi_do.WRITER_ORDER[0], "opus-5")
+    sweep.expect("the cheapest judge leads", owi_do.JUDGE_ORDER[0], "gpt-5-mini")
+    sweep.check("the ladders are opposite ends of one roster",
+                set(owi_do.WRITER_ORDER) == set(owi_do.JUDGE_ORDER))
+    sweep.check("a judge is never the maker",
+                owi_do.judge_model_for(REPO / ".owi-quick", exclude="haiku-4-5")
+                != "haiku-4-5")
+
+
+def group_evidence(sweep: Sweep) -> None:
+    sweep.start("evidence import — measured ability, stated provenance")
+    payload = str(REPO / "examples/battery-core-bench-results.json")
+    options = str(REPO / "examples/evidence-import-options.json")
+    code, out, _ = owi("evidence", "--input", payload, "--options", options,
+                       "--dry-run")
+    sweep.check("a dry-run import exits 0", code == 0)
+    imported = json.loads(out) if code == 0 else {}
+    sweep.expect("the tier is carried through", imported.get("evidence_tier"),
+                 "project_reproduced")
+    sweep.expect("four rows import", imported.get("imported_evidence"), 4)
+    sweep.check("the payload digest is recorded",
+                len(imported.get("artifact_sha256", "")) == 64)
+    for record in imported.get("evidence", []):
+        sweep.check(f"{record['model_release_id']} normalizes into [0,1]",
+                    0.0 <= record["normalized_score"] <= 1.0)
+        sweep.check(f"{record['model_release_id']} claims no worker",
+                    record.get("worker_id") is None)
+        sweep.check(f"{record['model_release_id']} keeps its raw score",
+                    record["raw_score"] > 1.0)
+
+    with tempfile.TemporaryDirectory() as scratch:
+        home = Path(scratch)
+        skewed = home / "skewed.json"
+        skewed.write_text(json.dumps({"results": [
+            {"model": "claude-opus-5", "raw_score": 110.0},
+            {"model": "claude-sonnet-5", "raw_score": -5.0}]}))
+        code, out, _ = owi("evidence", "--input", str(skewed),
+                           "--options", options, "--dry-run")
+        result = json.loads(out) if code == 0 else {}
+        sweep.expect("an impossible score imports nothing",
+                     result.get("imported_evidence"), 0)
+        sweep.expect("and is reported as skipped",
+                     len(result.get("skipped", [])), 2)
+
+        narrowed = home / "narrow.json"
+        narrowed.write_text(json.dumps({
+            "adapter_version": "leaderboard@1",
+            "source_url": "https://example.test/board",
+            "retrieved_at": "2026-08-21T00:00:00Z",
+            "evidence_tier": "vendor_reported", "license": "CC0-1.0",
+            "benchmark_id": "benchmark:functest",
+            "skill_id": "skill:python-numerical-implementation",
+            "metric": "pass_rate", "unit": "percent", "score_scale": 100.0,
+            "include_models": ["claude-opus-5"]}))
+        code, out, _ = owi("evidence", "--input", payload,
+                           "--options", str(narrowed), "--dry-run")
+        narrow = json.loads(out) if code == 0 else {}
+        sweep.expect("include_models narrows the import",
+                     narrow.get("imported_evidence"), 1)
+        sweep.expect("an unrequested model is skipped, not imported",
+                     len(narrow.get("skipped", [])), 3)
+
+
+def group_bench(sweep: Sweep) -> None:
+    sweep.start("bench harness — calibration, blame, and identity")
+    adapter_loader = importlib.machinery.SourceFileLoader(
+        "bench_chat_adapter", str(TOOLS / "bench_chat_adapter.py"))
+    adapter_spec = importlib.util.spec_from_loader(
+        "bench_chat_adapter", adapter_loader)
+    adapter = importlib.util.module_from_spec(adapter_spec)
+    adapter_loader.exec_module(adapter)
+
+    for name, reply, want in (
+            ("a restated signature is stripped",
+             "def f(x):\n    return x + 1\n", "    return x + 1"),
+            ("a bare body is indented in", "return x\n", "    return x"),
+            ("a nested helper keeps its header",
+             "    def h(v):\n        return v\n\n    return h(x)\n",
+             "    def h(v):\n        return v\n\n    return h(x)"),
+            ("a fenced reply is unwrapped",
+             "```python\n    return x\n```", "    return x"),
+            ("prose around a fence is discarded",
+             "Sure:\n```python\n    return x\n```\nDone.", "    return x")):
+        sweep.expect(name, adapter.extract_body(reply, "    ", "f"), want)
+    sweep.expect("an empty reply yields no body",
+                 adapter.extract_body("", "    ", "f"), "")
+
+    with tempfile.TemporaryDirectory() as scratch:
+        area = Path(scratch)
+        repo, out = area / "repo", area / "out"
+        repo.mkdir()
+        (repo / "unit.py").write_text("def f():\n    return 1\n")
+        corpus = {
+            "corpus_id": "corpus:functest", "commit": "HEAD",
+            "skill_id": "skill:python-numerical-implementation",
+            "verify_command": [
+                "python3", "-c",
+                "import sys; sys.path.insert(0, '.'); import unit; "
+                "sys.exit(0 if unit.f() == 1 else 1)"],
+            "tasks": [{"task_id": "task:functest:f", "qualified_name": "f",
+                       "source_path": "unit.py", "instruction": "implement f",
+                       "signature": "def f():", "docstring": "one",
+                       "indent": "    ",
+                       "patch": {"file": "unit.py", "start_line": 2,
+                                 "end_line": 2,
+                                 "stub": "    raise NotImplementedError"}}]}
+        corpus_path = area / "corpus.json"
+        corpus_path.write_text(json.dumps(corpus))
+
+        def run_bench(*extra: str, outcome_dir: Path | None = None,
+                      report: Path | None = None):
+            argv = [sys.executable, str(TOOLS / "run_bench.py"),
+                    "--corpus", str(corpus_path), "--repo", str(repo),
+                    "--worker-id", "worker:functest/code",
+                    "--observed-at", "2026-08-21T00:00:00Z", *extra]
+            if outcome_dir:
+                argv += ["--outcome-dir", str(outcome_dir)]
+            argv += ["--report", str(report or (area / "r.json"))]
+            done = subprocess.run(argv, capture_output=True, text=True)
+            data = json.loads(report.read_text()) if report \
+                and report.exists() else {}
+            return done.returncode, data
+
+        code, data = run_bench("--adapter", "stub", outcome_dir=out,
+                               report=area / "stub.json")
+        sweep.expect("the stub adapter scores zero", data.get("accepted"), 0)
+        sweep.expect("and every stub task is scored", data.get("scored"), 1)
+        sweep.expect("a stub failure blames the worker",
+                     data.get("unscored_harness_failures"), 0)
+        sweep.check("a worker-blamed failure IS recorded",
+                    len(list(out.glob("*.json"))) == 1)
+
+        broken = area / "broken"
+        code, data = run_bench("--adapter", "command",
+                               "--command", "/no-such-adapter",
+                               outcome_dir=broken, report=area / "b.json")
+        sweep.expect("a missing adapter is a harness failure",
+                     data.get("unscored_harness_failures"), 1)
+        sweep.expect("and nothing is scored", data.get("scored"), 0)
+        sweep.check("a harness failure records NOTHING against the worker",
+                    not broken.exists() or not list(broken.glob("*.json")))
+        sweep.check("a run that measured nothing exits non-zero", code != 0)
+
+        first, second = area / "one", area / "two"
+        run_bench("--adapter", "stub", outcome_dir=first,
+                  report=area / "1.json")
+        argv_two = [sys.executable, str(TOOLS / "run_bench.py"),
+                    "--corpus", str(corpus_path), "--repo", str(repo),
+                    "--worker-id", "worker:functest/code",
+                    "--adapter", "stub",
+                    "--observed-at", "2026-09-09T00:00:00Z",
+                    "--outcome-dir", str(second), "--report",
+                    str(area / "2.json")]
+        subprocess.run(argv_two, capture_output=True, text=True)
+        ids_one = {json.loads(p.read_text())["event"]["id"]
+                   for p in first.glob("*.json")}
+        ids_two = {json.loads(p.read_text())["event"]["id"]
+                   for p in second.glob("*.json")}
+        sweep.check("two runs of one worker produce distinct ids",
+                    ids_one and ids_two and not (ids_one & ids_two))
+        sweep.check("an outcome id names the run it came from",
+                    all("@2026-08-21T00:00:00Z" in i for i in ids_one))
+
+
+def group_team(sweep: Sweep) -> None:
+    sweep.start("team benchmark — a hand-picked roster, priced")
+    done = subprocess.run(
+        [sys.executable, str(TOOLS / "owi_team.py"),
+         str(REPO / "examples/team-buzz-style.json"), "--json"],
+        cwd=REPO, capture_output=True, text=True)
+    sweep.check("the team benchmark runs", done.returncode == 0,
+                done.stderr[-160:])
+    report = json.loads(done.stdout) if done.returncode == 0 else {}
+    rows = report.get("rows", [])
+    sweep.expect("every seat is answered", len(rows), 6)
+    for row in rows:
+        sweep.check(f"{row['role']}: evidence pick is priced",
+                    row.get("evidence") and row.get("evidence_cost", 0) > 0)
+        sweep.check(f"{row['role']}: routed to a real skill",
+                    row.get("skill") in owi_do.SKILLS)
+    priced = [r for r in rows if r.get("hand_cost") is not None]
+    external = [r for r in rows if r.get("hand_status") == "external"]
+    sweep.expect("two hand picks are in the index", len(priced), 2)
+    sweep.expect("four hand picks are outside it", len(external), 4)
+
+
+def group_page(sweep: Sweep) -> None:
+    sweep.start("the page — its arithmetic still equals the engine's")
+    done = subprocess.run([sys.executable, str(TOOLS / "check_page_math.py")],
+                          cwd=REPO, capture_output=True, text=True)
+    sweep.check("page math matches the engine on every skill",
+                done.returncode == 0, done.stderr[-200:])
+    for skill in owi_do.SKILLS:
+        sweep.check(f"  {skill[6:]} agrees",
+                    f"[ok] {skill[6:]}" in done.stdout
+                    or skill[6:] in done.stdout)
+
+
+def group_serve(sweep: Sweep) -> None:
+    sweep.start("serve — the access gate and the routes")
+    import threading
+    import urllib.error
+    import urllib.request
+    from http.server import ThreadingHTTPServer
+
+    serve_loader = importlib.machinery.SourceFileLoader(
+        "owi_serve", str(TOOLS / "owi-serve"))
+    serve_spec = importlib.util.spec_from_loader("owi_serve", serve_loader)
+    owi_serve = importlib.util.module_from_spec(serve_spec)
+    serve_loader.exec_module(owi_serve)
+
+    def status(url: str, headers: dict | None = None) -> int:
+        request = urllib.request.Request(url, headers=headers or {})
+        try:
+            with urllib.request.urlopen(request, timeout=5) as response:
+                return response.status
+        except urllib.error.HTTPError as error:
+            return error.code
+
+    owi_serve.Handler.token = "functest-token"
+    owi_serve.Handler.data = {}
+    owi_serve.Handler.home = REPO / ".owi-quick"
+    server = ThreadingHTTPServer(("127.0.0.1", 0), owi_serve.Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+
+    sweep.expect("no token is turned away", status(f"{base}/api/data"), 401)
+    sweep.expect("a wrong token is turned away",
+                 status(f"{base}/api/data?token=nope"), 401)
+    sweep.expect("the token as a query admits",
+                 status(f"{base}/api/data?token=functest-token"), 200)
+    sweep.expect("the token in a header admits",
+                 status(f"{base}/api/data", {"X-OWI-Token": "functest-token"}),
+                 200)
+    sweep.expect("the page itself is gated too",
+                 status(f"{base}/"), 401)
+    owi_serve.Handler.token = None
+    sweep.expect("localhost mode stays gate-free",
+                 status(f"{base}/api/data"), 200)
+    sweep.expect("the page serves in localhost mode", status(f"{base}/"), 200)
+    server.shutdown()
+
+    sweep.check("serve spawns no worker of its own",
+                "subprocess.run(" not in (TOOLS / "owi-serve").read_text())
+    sweep.check("every skill has a role on the serve side",
+                set(owi_serve.SKILL_ROLE) == set(owi_do.SKILLS),
+                f"missing: {set(owi_do.SKILLS) - set(owi_serve.SKILL_ROLE)}")
+
+
+def group_roster(sweep: Sweep) -> None:
+    sweep.start("roster — priced, staffed, and internally consistent")
+    seed = json.loads((REPO / "examples/manager-scenario-seed.json").read_text())
+    workers = {w["id"] for w in seed["worker_profiles"]}
+    sweep.check("the roster is at least 47 workers", len(workers) >= 47,
+                f"got {len(workers)}")
+    sweep.check("worker ids are unique",
+                len(workers) == len(seed["worker_profiles"]))
+    evidence_workers = {e["worker_id"] for e in seed["evidence"]}
+    sweep.check("every evidence row names a rostered worker",
+                evidence_workers <= workers,
+                f"orphans: {sorted(evidence_workers - workers)[:2]}")
+    staffed = {s for w in seed["worker_profiles"]
+               for s in w["supported_skill_ids"]}
+    missing = [s for s in owi_do.SKILLS if s not in staffed]
+    sweep.check("every skill in the taxonomy has a worker", not missing,
+                f"unstaffed: {missing}")
+    sweep.check("every worker declares a configuration digest",
+                all(len(w.get("configuration_sha256", "")) == 64
+                    for w in seed["worker_profiles"]))
+    sweep.check("every worker declares a privacy clearance",
+                all(w.get("privacy_clearance") for w in seed["worker_profiles"]))
+    cleared = [w["id"] for w in seed["worker_profiles"]
+               if w["privacy_clearance"] == "confidential_content"]
+    sweep.check("at least one worker is cleared for confidential work",
+                bool(cleared), "nobody is cleared")
+    sweep.check("every evidence score is a probability",
+                all(0.0 <= e["normalized_score"] <= 1.0
+                    for e in seed["evidence"]))
+
+    code, out, _ = owi("prices", "--input",
+                       str(REPO / "examples/litellm-prices-sample.json"),
+                       "--options",
+                       str(REPO / "examples/price-import-options.json"),
+                       "--dry-run")
+    offerings = {o["id"] for o in json.loads(out)["offerings"]} if code == 0 \
+        else set()
+    offered = {w["offering_id"] for w in seed["worker_profiles"]}
+    sweep.check("every rostered offering has a published price",
+                offered <= offerings,
+                f"unpriced: {sorted(offered - offerings)[:2]}")
+    sweep.check("no offering id repeats its provider segment",
+                not any(f"/{p}/" in o for o in offerings
+                        for p in ("gemini", "xai", "deepseek", "mistral")))
+
+
+GROUPS = {
+    "cli": group_cli,
+    "snapshot": group_snapshot,
+    "classify": group_classify,
+    "checklist": group_checklist,
+    "privacy": group_privacy,
+    "runner": group_runner,
+    "blame": group_blame_end_to_end,
+    "inspection": group_inspection,
+    "planner": group_planner,
+    "escalation": group_escalation,
+    "evidence": group_evidence,
+    "bench": group_bench,
+    "team": group_team,
+    "page": group_page,
+    "serve": group_serve,
+    "roster": group_roster,
+}
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--group", action="append", choices=sorted(GROUPS),
+                        help="run only these groups (repeatable)")
+    arguments = parser.parse_args()
+
+    sweep = Sweep()
+    chosen = arguments.group or list(GROUPS)
+    print(f"owi functional sweep — {len(chosen)} groups, no model calls")
+    for name in chosen:
+        try:
+            GROUPS[name](sweep)
+        except Exception as error:  # a crashed group is itself a failure
+            sweep.start(name)
+            sweep.check(f"the {name} group ran to completion", False,
+                        f"{type(error).__name__}: {error}")
+
+    total = len(sweep.results)
+    print(f"\n{'=' * 62}")
+    by_group: dict[str, list[bool]] = {}
+    for group, _, ok, _ in sweep.results:
+        by_group.setdefault(group.split(" —")[0], []).append(ok)
+    for group, outcomes in by_group.items():
+        print(f"  {sum(outcomes):>3}/{len(outcomes):<3} {group}")
+    print(f"{'=' * 62}")
+    print(f"functional sweep: {sweep.passed}/{total} passed")
+    if sweep.failed:
+        print(f"\n{len(sweep.failed)} failing:")
+        for group, name, note in sweep.failed:
+            print(f"  - [{group.split(' —')[0]}] {name}"
+                  + (f" — {note}" if note else ""))
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

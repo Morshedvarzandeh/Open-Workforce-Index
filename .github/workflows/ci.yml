@@ -54,6 +54,9 @@ jobs:
       - name: Page math matches the engine
         run: python3 tools/check_page_math.py
 
+      - name: Functional sweep
+        run: python3 tools/owi-functest
+
       - name: Closed-loop vertical slice
         run: |
           INDEX="${RUNNER_TEMP}/loop-index.sqlite"
