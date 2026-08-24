@@ -608,5 +608,33 @@
       "model:claude-sonnet-5": 0.545
     },
     "worker_id_must_be_unset": true
+  },
+  "availability_expectations": {
+    "_why": [
+      "The index ranked all 47 workers on evidence and price and led with",
+      "the winner \u2014 but a machine can only execute the models it has a",
+      "command for. On a Claude-only machine, five of seven skills named a",
+      "worker that could not be run, and the real pick appeared later as a",
+      "fallback note at execution time. The headline answer was therefore",
+      "almost never the answer, which is the difference between a tool and",
+      "a demonstration.",
+      "",
+      "Availability is now applied before anything is printed: what you can",
+      "run leads, and what you cannot becomes a costed decision \u2014 the",
+      "saving you are forgoing, and the one line that would unlock it.",
+      "The ask page asks the same question of the reader, because a hosted",
+      "page cannot see your machine.",
+      "",
+      "The split stays OUTSIDE the verified decision math: evaluate() takes",
+      "availability as a parameter rather than reading the page, so the",
+      "browser's arithmetic can still be compared to the engine's."
+    ],
+    "unlock_hints": {
+      "haiku-4-5": "install the `claude` CLI",
+      "gpt-5-nano": "pip install llm && llm keys set openai",
+      "local-llama": "ollama pull llama3.1"
+    },
+    "page_control_selector": "prov",
+    "math_block_stays_pure": true
   }
 }

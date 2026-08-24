@@ -62,6 +62,14 @@
     .verdict { flex-wrap:wrap; }
     input[type=text], textarea { font-size:16px; }
   }
+  .have { margin-top:10px; display:flex; flex-wrap:wrap; gap:4px 14px;
+    align-items:center; }
+  .have label { display:inline-flex; align-items:center; gap:4px;
+    font-size:12.5px; color:var(--ink-2); }
+  .have-label { font-size:11px; letter-spacing:0.08em; text-transform:uppercase;
+    color:var(--ink-3); width:100%; }
+  .adds { font-size:12.5px; color:var(--ink-3); }
+  .adds b { color:var(--ink-2); font-weight:700; }
   .checkrep { font-size:13px; line-height:1.7; }
   .checkrep .ok { color:var(--good); }
   .checkrep .fail { color:var(--bad); }
@@ -129,6 +137,15 @@
     <label><input type="checkbox" id="confid"> confidential — only workers
       cleared for confidential content; your text never leaves this browser
       until you paste it somewhere yourself</label>
+    <div class="have">
+      <span class="have-label">what can you run?</span>
+      <label><input type="checkbox" class="prov" value="anthropic" checked> Claude</label>
+      <label><input type="checkbox" class="prov" value="openai"> OpenAI</label>
+      <label><input type="checkbox" class="prov" value="gemini"> Gemini</label>
+      <label><input type="checkbox" class="prov" value="deepseek"> DeepSeek</label>
+      <label><input type="checkbox" class="prov" value="lambda_ai"> Lambda</label>
+      <label><input type="checkbox" class="prov" value="ollama"> local (ollama)</label>
+    </div>
   </div>
 
   <div class="answer" id="answer"></div>
@@ -275,11 +292,14 @@
     PRIVACY_ORDER.indexOf(worker.clearance || "private_metadata")
       >= PRIVACY_ORDER.indexOf(required);
 
-  function evaluate(skill, tokensIn, tokensOut, required) {
+  // `available` is a Set of provider names you can actually run, or null for
+  // "show me everything". Passed in rather than read from the page, so this
+  // block stays free of the DOM and can be checked against the engine.
+  function evaluate(skill, tokensIn, tokensOut, required, available) {
     required = required || "private_metadata";
     const need = data().skillTools[skill] || [];
     const rows = [];
-    let turnedAway = 0;
+    let turnedAway = 0, unreachable = [];
     for (const w of data().workers) {
       const qualified = w.skills.includes(skill)
         && need.every(t => w.tools.includes(t))
@@ -292,13 +312,44 @@
       const run = Math.ceil(tokensIn * w.inRate / 1e6)
                 + Math.ceil(tokensOut * w.outRate / 1e6);
       const retry = Math.ceil((1 - mean) * data().fallbackMicros);
-      rows.push({ id: w.id, mean, bound, total: run + retry });
+      const row = { id: w.id, mean, bound, total: run + retry,
+                    provider: w.provider };
+      if (available && !available.has(w.provider)) { unreachable.push(row); }
+      else { rows.push(row); }
     }
-    rows.sort((x, y) => x.total - y.total || y.bound - x.bound
-      || x.id.localeCompare(y.id));
-    return { rows, turnedAway };
+    const byCost = (x, y) => x.total - y.total || y.bound - x.bound
+      || x.id.localeCompare(y.id);
+    rows.sort(byCost);
+    unreachable.sort(byCost);
+    return { rows, turnedAway, unreachable };
   }
   // <<< decision-math <<<
+
+  // Which providers you told us you can run. Remembered per browser; empty
+  // means "show me everything", because a page that hides every worker is
+  // worse than one that names an unreachable one.
+  const PROVIDER_LABEL = {anthropic:"Claude", openai:"OpenAI", gemini:"Gemini",
+    deepseek:"DeepSeek", lambda_ai:"Lambda", ollama:"a local model"};
+  const HAVE = "owi.have.v1";
+  function haveProviders() {
+    const boxes = [...document.querySelectorAll(".prov")];
+    const on = boxes.filter(b => b.checked).map(b => b.value);
+    return on.length ? new Set(on) : null;
+  }
+  function restoreHave() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(HAVE) || "null"); }
+    catch { saved = null; }
+    if (!saved) return;
+    document.querySelectorAll(".prov").forEach(b => {
+      b.checked = saved.includes(b.value);
+    });
+  }
+  function rememberHave() {
+    const on = [...document.querySelectorAll(".prov")]
+      .filter(b => b.checked).map(b => b.value);
+    try { localStorage.setItem(HAVE, JSON.stringify(on)); } catch {}
+  }
 
   const requiredPrivacy = () =>
     document.getElementById("confid").checked
@@ -373,7 +424,8 @@
     const privacy = requiredPrivacy();
     window.__privacy = privacy;
     const tokensIn = 1500 + Math.floor(text.length / 4);
-    const { rows, turnedAway } = evaluate(skill, tokensIn, 800, privacy);
+    const { rows, turnedAway, unreachable } =
+      evaluate(skill, tokensIn, 800, privacy, haveProviders());
     const box = document.getElementById("answer");
     box.classList.add("show");
 
@@ -424,6 +476,12 @@
         <button type="button" class="mini" id="preferq">use it</button></div>` : ""}
       <div class="meta">checked ${data().workers.length},
         turned away ${turnedAway}</div>
+      ${(unreachable && unreachable.length && unreachable[0].total < top.total)
+        ? `<div class="adds">cheaper if you add
+             <b>${PROVIDER_LABEL[unreachable[0].provider]
+                 || unreachable[0].provider}</b>:
+             ${short(unreachable[0].id)} ${$(unreachable[0].total)}
+             &nbsp;−${$(top.total - unreachable[0].total)}</div>` : ""}
       ${learnedNote ? `<div class="learned ${learnedNote.cls}">
         ${learnedNote.text}</div>` : ""}
       ${!LIVE ? (() => {
@@ -880,4 +938,13 @@
     document.getElementById("answer").classList.remove("show");
     document.getElementById("q").value = ""; document.getElementById("q").focus();
   });
+
+  // Remember what you can run, and re-answer the moment it changes — the
+  // point of the control is that the pick follows it.
+  restoreHave();
+  document.querySelectorAll(".prov").forEach(box =>
+    box.addEventListener("change", () => {
+      rememberHave();
+      if (document.getElementById("q").value.trim()) { render(); }
+    }));
 </script>

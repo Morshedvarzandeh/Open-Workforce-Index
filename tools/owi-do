@@ -108,8 +108,22 @@ CLAUDE_MODELS = {
     "sonnet-5": "claude-sonnet-5",
     "opus-5": "claude-opus-5",
 }
-OPENAI_MODELS = {"gpt-5": "gpt-5", "gpt-5-mini": "gpt-5-mini"}
+OPENAI_MODELS = {"gpt-5": "gpt-5", "gpt-5-mini": "gpt-5-mini",
+                 "gpt-5-nano": "gpt-5-nano"}
 OLLAMA_MODELS = {"local-llama": "llama3.1"}
+
+# Roster models with no built-in command, and the honest one-line answer to
+# "what would it take to run this here". Nothing is prefilled for these: a
+# command that silently needs a plugin you do not have is worse than a command
+# you were told to write yourself.
+PROVIDER_SETUP = {
+    "flash-lite": "llm install llm-gemini && llm keys set gemini",
+    "deepseek-r": "point runners.json at your DeepSeek client",
+    "hermes-8b": "point runners.json at your Lambda/OpenRouter client",
+    "hermes-405b": "point runners.json at your Lambda/OpenRouter client",
+    "openhands-sonnet-5": "run the OpenHands harness and point runners.json "
+                          "at it",
+}
 
 # Confidentiality is a GATE, not a preference: a task above a worker's
 # clearance turns that worker away whatever it costs. Cloud workers carry
@@ -683,24 +697,78 @@ def prefer_quality(result: dict, eligible: list) -> list:
     return eligible
 
 
-def print_pick(quote: dict, eligible: list, calibration=None) -> None:
-    top = eligible[0]
+def model_of(candidate: dict) -> str:
+    return candidate["worker_id"].split(":")[1].split("/")[0]
+
+
+def unlock_hint(model: str) -> str:
+    """What it would take to make this worker runnable here. A price you
+    cannot act on is trivia; the point is to say what to do about it."""
+    if model in CLAUDE_MODELS:
+        return "install the `claude` CLI"
+    if model in OPENAI_MODELS:
+        return "pip install llm && llm keys set openai"
+    if model in OLLAMA_MODELS:
+        return f"ollama pull {OLLAMA_MODELS[model]}"
+    return PROVIDER_SETUP.get(
+        model, f"add a command for '{model}' to runners.json")
+
+
+def split_by_availability(home: Path, eligible: list) -> tuple[list, list]:
+    """Who you can actually run right now, and who you cannot.
+
+    This is the difference between advice and trivia. The engine ranks the
+    whole roster on evidence and price, but a machine can only execute the
+    models it has a command for. Leading with a worker the caller cannot run
+    means the headline answer is never the answer — five of seven skills on a
+    Claude-only machine named a worker that could not be executed, and the
+    real pick was disclosed later as a fallback note. So the ranking is split
+    before anything is printed: what you can run leads, and what you cannot
+    becomes a costed decision about what to install.
+    """
+    here, elsewhere = [], []
+    for candidate in eligible:
+        (here if resolve_runner(home, model_of(candidate)) else
+         elsewhere).append(candidate)
+    return here, elsewhere
+
+
+def print_pick(quote: dict, eligible: list, calibration=None,
+               home: Path | None = None) -> None:
+    here, elsewhere = (split_by_availability(home, eligible) if home
+                       else (eligible, []))
+    runnable = bool(here)
+    shown = here if runnable else eligible
+    top = shown[0]
     print(f"\n→ {top['worker_id'].replace('worker:', '')}   "
           f"${top['cost']['expected_accepted_cost_micros'] / MICROS:.4f} "
-          f"per accepted result")
-    for alt in eligible[1:3]:
+          f"per accepted result"
+          + ("" if runnable else "   (no runner here — see below)"))
+    for alt in shown[1:3]:
         extra = (alt["cost"]["expected_accepted_cost_micros"]
                  - top["cost"]["expected_accepted_cost_micros"]) / MICROS
         print(f"  next: {alt['worker_id'].replace('worker:', ''):22} "
               f"+${extra:.4f}")
-    best, means = quality_option(calibration, eligible)
+    best, means = quality_option(calibration, shown)
     if best is not None and best["worker_id"] != top["worker_id"]:
         extra = (best["cost"]["expected_accepted_cost_micros"]
                  - top["cost"]["expected_accepted_cost_micros"]) / MICROS
         print(f"  quality option: {best['worker_id'].replace('worker:', ''):13} "
               f"+${extra:.4f} · est {means[best['worker_id']]:.2f} vs "
               f"{means.get(top['worker_id'], 0.0):.2f}  (--quality to use)")
+
+    # What you are leaving on the table by not having the cheaper worker, and
+    # exactly what would unlock it.
+    if runnable and elsewhere:
+        cheaper = elsewhere[0]
+        saving = (top["cost"]["expected_accepted_cost_micros"]
+                  - cheaper["cost"]["expected_accepted_cost_micros"]) / MICROS
+        if saving > 0:
+            model = model_of(cheaper)
+            print(f"  not installed: {cheaper['worker_id'].replace('worker:', ''):13} "
+                  f"−${saving:.4f} cheaper · {unlock_hint(model)}")
     print(f"  checked {len(eligible) + len(quote['rejected_candidates'])}, "
+          f"{len(here)} runnable here · "
           f"turned away {len(quote['rejected_candidates'])} · decision recorded")
 
 
@@ -908,7 +976,7 @@ def run_split(arguments, stdin_text: str) -> int:
             continue
         if arguments.quality:
             eligible = prefer_quality(result, eligible)
-        print_pick(quote, eligible, result.get("calibration"))
+        print_pick(quote, eligible, result.get("calibration"), home)
         if not arguments.run:
             outcomes.append((part, eligible[0], "planned"))
             continue
@@ -1033,7 +1101,8 @@ def main() -> int:
 
     if arguments.quality:
         eligible = prefer_quality(result, eligible)
-    print_pick(quote, eligible, result.get("calibration"))
+    print_pick(quote, eligible, result.get("calibration"),
+               arguments.home)
     model = eligible[0]["worker_id"].split(":")[1].split("/")[0]
 
     if not arguments.run:

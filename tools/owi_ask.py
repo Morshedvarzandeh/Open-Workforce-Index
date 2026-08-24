@@ -77,6 +77,11 @@ def harvest() -> dict:
                 "skills": w["supported_skill_ids"],
                 "tools": w["tools"],
                 "clearance": w.get("privacy_clearance", "private_metadata"),
+                # Which account or CLI it takes to run this worker. The page
+                # cannot see your machine, so it asks — and a pick you cannot
+                # execute is not an answer.
+                "provider": w["offering_id"].replace("offering:", "")
+                                            .split("/")[0],
                 "inRate": rate[0], "outRate": rate[1],
             })
 

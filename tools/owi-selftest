@@ -320,6 +320,38 @@ def run(no_cargo: bool) -> int:
                     suite.check("a release-level score claims no worker",
                                 not claimed, f"claimed: {claimed[:2]}")
 
+        available = frozen.get("availability_expectations")
+        if available:
+            print("\navailability (the headline must be something you can run)")
+            for model, want in available["unlock_hints"].items():
+                got = owi_do.unlock_hint(model)
+                suite.check(f"unlocking {model} says: {want}", got == want,
+                            f"got {got!r}")
+            with tempfile.TemporaryDirectory() as scratch:
+                home = Path(scratch)
+                (home / "runners.json").write_text('{"haiku-4-5": "echo hi"}')
+                eligible = [{"worker_id": "worker:gpt-5-nano/text"},
+                            {"worker_id": "worker:haiku-4-5/text"}]
+                here, elsewhere = owi_do.split_by_availability(home, eligible)
+                suite.check("what you can run is separated",
+                            [c["worker_id"] for c in here]
+                            == ["worker:haiku-4-5/text"],
+                            f"got {[c['worker_id'] for c in here]}")
+                suite.check("what you cannot is kept, not discarded",
+                            [c["worker_id"] for c in elsewhere]
+                            == ["worker:gpt-5-nano/text"],
+                            f"got {[c['worker_id'] for c in elsewhere]}")
+            template = (REPO / "tools/owi_ask_template.html").read_text()
+            suite.check("the page asks what you can run",
+                        f'class="{available["page_control_selector"]}"'
+                        in template)
+            if available.get("math_block_stays_pure"):
+                block = template.split("// >>> decision-math >>>", 1)[1] \
+                                .split("// <<< decision-math <<<", 1)[0]
+                suite.check("availability never leaks into the verified math",
+                            "querySelectorAll" not in block
+                            and "document." not in block)
+
         page_rules = frozen.get("page_math_expectations")
         if page_rules:
             print("\npage math (the browser's copy stays verifiable)")
