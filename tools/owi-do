@@ -810,10 +810,19 @@ def iterate(home: Path, eligible: list, calibration, skill: str, task: str,
             break
         worker = candidate["worker_id"]
         model = worker.split(":")[1].split("/")[0]
-        if attempt == 1 and worker != eligible[0]["worker_id"]:
-            skipped = eligible[0]["worker_id"].split(":")[1].split("/")[0]
-            print(f"\n{skipped} has no runner here — running with "
-                  f"{worker.replace('worker:', '')} (cheapest runnable)")
+        # The headline pick is already the cheapest RUNNABLE worker, so this
+        # only fires if the run diverges from it for some other reason. It
+        # used to announce a fallback that the headline had itself just
+        # announced, which read as the tool contradicting itself one line
+        # after giving its answer.
+        if attempt == 1:
+            runnable_top = next(
+                (candidate for candidate in eligible
+                 if resolve_runner(home, model_of(candidate))), None)
+            if runnable_top and worker != runnable_top["worker_id"]:
+                print(f"\nrunning with {worker.replace('worker:', '')} "
+                      f"instead of "
+                      f"{runnable_top['worker_id'].replace('worker:', '')}")
         if attempt > 1:
             print(f"\niteration {attempt}/{arguments.attempts}: escalating to "
                   f"{worker.replace('worker:', '')}")
