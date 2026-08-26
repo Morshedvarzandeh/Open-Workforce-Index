@@ -819,6 +819,246 @@ def group_roster(sweep: Sweep) -> None:
                         for p in ("gemini", "xai", "deepseek", "mistral")))
 
 
+def group_hire_local(sweep: Sweep) -> None:
+    """Hiring a model that runs on your own machine, and the clearance rule
+    that makes it worth doing.
+
+    Two independent failures are pinned here. The first is arithmetic: two
+    roles hired on one model must not collide on their configuration digest,
+    which they did the first time this was tried. The second is the leak —
+    the privacy gate used to stop a cloud model *doing* confidential work
+    while the checklist writer, the judge and the planner all read the same
+    content anyway. A gate the verifier walks around is not a gate.
+    """
+    sweep.start("hiring a local model")
+    import owi_local
+
+    # -- the declaration itself ------------------------------------------
+    declared = owi_local.declaration(
+        model="hermes3", context_window=131072,
+        roles=["text", "extract"], worker_prefix="local-hermes3",
+        developer="Nous Research", recorded_at="2026-08-26T00:00:00Z",
+        snapshot_id="snapshot:ft-hire", at_epoch_ms=owi_do.AT_EPOCH_MS)
+    digests = [w["configuration_sha256"] for w in declared["worker_profiles"]]
+    sweep.check("two roles on one model get distinct configuration digests",
+                len(set(digests)) == len(digests), f"got {digests}")
+    sweep.check("every hired worker is cleared for confidential content",
+                all(w["privacy_clearance"] == "confidential_content"
+                    for w in declared["worker_profiles"]))
+    offering = declared["provider_offerings"][0]
+    sweep.expect("a local model is priced at zero, not guessed",
+                 (offering["input_micros_per_million_tokens"],
+                  offering["output_micros_per_million_tokens"]), (0, 0))
+    sweep.expect("the context window is carried through verbatim",
+                 offering["context_window_tokens"], 131072)
+    sweep.check("the source says it is a declaration, not a fetched URL",
+                offering["source_url"].startswith("local declaration:"),
+                offering["source_url"])
+    sweep.check("ability is assumed at the weakest tier, never asserted",
+                all(e["evidence_tier"] == "vendor_reported"
+                    and "example.invalid" in e["source_url"]
+                    for e in declared["evidence"]))
+    sweep.check("an unknown role is refused rather than invented",
+                _raises(owi_local.declaration, model="m", context_window=8192,
+                        roles=["telepathy"], worker_prefix="p",
+                        developer="d", recorded_at="t", snapshot_id="s",
+                        at_epoch_ms=0))
+    sweep.check("a nonsense context window is refused",
+                _raises(owi_local.declaration, model="m", context_window=0,
+                        roles=["text"], worker_prefix="p", developer="d",
+                        recorded_at="t", snapshot_id="s", at_epoch_ms=0))
+
+    # -- the digest must be the store's, not merely self-consistent -------
+    with tempfile.TemporaryDirectory() as scratch:
+        home = Path(scratch)
+        index, local = build_index(home)
+        seed = home / "hire.json"
+        seed.write_text(json.dumps(declared))
+        code, out, err = owi("seed", "--index", str(index),
+                             "--input", str(seed))
+        sweep.check("the store accepts the digest this tool computes",
+                    code == 0, err[-200:])
+        if code == 0:
+            appended = json.loads(out)["appended"]
+            sweep.expect("both hired workers land", appended["worker_profiles"], 2)
+
+        # -- the case that had nobody -------------------------------------
+        def confidential_long(snapshot: str, name: str) -> set:
+            request = home / f"{name}.json"
+            request.write_text(json.dumps({
+                "decision_id": f"decision:{name}", "snapshot_id": snapshot,
+                "at_epoch_ms": owi_do.AT_EPOCH_MS,
+                "created_at": "2026-08-26T00:00:00Z",
+                "task": {"id": f"task:{name}", "summary": "long confidential",
+                         "required_skills": [{
+                             "skill_id": "skill:text-editing",
+                             "minimum_success_probability": 0.24,
+                             "minimum_evidence_count": 0}],
+                         "required_tools": [],
+                         "privacy": "confidential_content", "risk": "low",
+                         "verification": "deterministic",
+                         "minimum_success_probability": 0.24,
+                         "minimum_evidence_count": 0,
+                         "estimated_input_tokens": 21000,
+                         "estimated_output_tokens": 1500},
+                "policy": {"policy_id": "policy:economy-v1",
+                           "currency": "USD",
+                           "quota_shadow_cash_micros_per_unit": 0,
+                           "failure_probability_basis": "mean",
+                           "max_attempts": 2},
+                "calibration": {"calibration_id": "calibration:v1",
+                                "confidence_tail_probability": 0.05,
+                                "prior_alpha": 1.0, "prior_beta": 1.0,
+                                "max_public_prior_weight": 8.0,
+                                "private_outcome_weight": 1.0},
+                "assumptions": {"default_p95_latency_ms": 30000},
+            }))
+            code, out, _ = owi("allocate", "--index", str(index),
+                               "--local", str(local), "--input", str(request))
+            return ({c["worker_id"] for c in
+                     json.loads(out)["quote"]["eligible_candidates"]}
+                    if code == 0 else set())
+
+        sweep.expect("before hiring, a long confidential document has nobody",
+                     confidential_long("snapshot:manager-scenario-v1",
+                                       "before"), set())
+        sweep.expect("after hiring, the long-context local worker takes it",
+                     confidential_long("snapshot:ft-hire", "after"),
+                     {"worker:local-hermes3/text"})
+
+        # Hiring must never quietly overwrite an imported fact with a
+        # declared one -- the imported claim won the argument by having a
+        # source. It also must not crash halfway through the append, which
+        # is what it did the first time a colliding model was hired.
+        known = owi_local.existing_offering(index, "offering:ollama/llama3.1")
+        sweep.check("an offering already imported is detected before append",
+                    known is not None
+                    and known["context_window_tokens"] == 8192,
+                    f"got {known}")
+        sweep.check("a published source is distinguishable from a declaration",
+                    not known["source_url"].startswith("local declaration:")
+                    if known else False)
+        sweep.expect("an offering nobody declared reads as absent",
+                     owi_local.existing_offering(index,
+                                                 "offering:ollama/nope"), None)
+        sweep.expect("already-hired workers are detected before append",
+                     owi_local.existing_workers(
+                         index, ["worker:local-hermes3/text",
+                                 "worker:nobody/text"]),
+                     ["worker:local-hermes3/text"])
+        sweep.expect("a missing index answers rather than raising",
+                     owi_local.existing_offering(home / "absent.sqlite", "x"),
+                     None)
+
+    # -- the pointer: hiring cuts a snapshot, it never edits one ----------
+    with tempfile.TemporaryDirectory() as scratch:
+        home = Path(scratch)
+        sweep.expect("with no pointer, decisions quote the seeded snapshot",
+                     owi_local.current_snapshot(home),
+                     owi_local.DEFAULT_SNAPSHOT)
+        owi_local.set_snapshot(home, "snapshot:hired-x")
+        sweep.expect("hiring moves the pointer",
+                     owi_local.current_snapshot(home), "snapshot:hired-x")
+        (home / owi_local.POINTER).write_text("{ not json")
+        sweep.expect("a corrupt pointer falls back, it never guesses",
+                     owi_local.current_snapshot(home),
+                     owi_local.DEFAULT_SNAPSHOT)
+        sweep.expect("no hired models means no extra runners",
+                     owi_local.local_models(home), {})
+        owi_local.remember_local_model(home, "local-hermes3", "hermes3")
+        sweep.expect("a hired model is remembered",
+                     owi_local.local_models(home), {"local-hermes3": "hermes3"})
+        sweep.check("a hired model becomes runnable through the front door",
+                    owi_do.builtin_commands(home).get("local-hermes3")
+                    == "ollama run hermes3")
+        sweep.check("a model nobody hired stays unknown",
+                    "local-hermes3" not in owi_do.builtin_commands())
+
+
+def group_verifier_clearance(sweep: Sweep) -> None:
+    """The gate has to cover the whole crew.
+
+    The maker was always gated. The judge sees the maker's output, the
+    checklist writer sees the task line, and the planner sees the entire
+    input document — all three were reachable by any cloud model regardless
+    of the task's clearance. Hiring a local worker to keep a document on the
+    machine is pointless if the checker mails it out, so each of them is
+    filtered by the same ladder here.
+    """
+    sweep.start("verifier clearance — the gate covers the whole crew")
+    with tempfile.TemporaryDirectory() as scratch:
+        home = Path(scratch)
+        (home / "runners.json").write_text(json.dumps({
+            model: "true" for model in
+            ["opus-5", "sonnet-5", "haiku-4-5", "gpt-5-mini", "gpt-5"]}))
+
+        sweep.expect("a cloud model is cleared for metadata",
+                     owi_do.cleared(home, "haiku-4-5", "private_metadata"),
+                     True)
+        sweep.expect("a cloud model is NOT cleared for confidential content",
+                     owi_do.cleared(home, "haiku-4-5", "confidential_content"),
+                     False)
+        sweep.expect("an ordinary task still gets the cheapest judge",
+                     owi_do.judge_model_for(home, None, "private_metadata"),
+                     "gpt-5-mini")
+        sweep.expect("a confidential task gets no cloud judge",
+                     owi_do.judge_model_for(home, None,
+                                            "confidential_content"), None)
+        sweep.expect("a confidential task gets no cloud checklist writer",
+                     owi_do.writer_model_for(home, "confidential_content"),
+                     None)
+        sweep.expect("a confidential task gets no cloud planner",
+                     owi_do.plan_parts(home, "secret text",
+                                       "confidential_content"), (None, None))
+
+        # An unjudgeable item must stay unjudged, and say which kind of
+        # unjudgeable it is — installing a CLI fixes one, not the other.
+        report = owi_do.run_checklist(
+            home, "task", "some output", ["is it good?"],
+            maker_model="local-hermes3", privacy="confidential_content")
+        sweep.expect("a confidential item is left unchecked, not shipped out",
+                     report["verdict"], "undecided")
+        sweep.expect("no judge is named", report["judge"], None)
+        sweep.check("the note says clearance, not absence",
+                    "cleared for" in report["items"][0]["note"],
+                    report["items"][0]["note"])
+        # Mechanical items need no judge at all, so they still work.
+        mechanical = owi_do.run_checklist(
+            home, "task", "alpha beta gamma", ["contains:beta"],
+            maker_model="local-hermes3", privacy="confidential_content")
+        sweep.expect("mechanical checks still run under confidentiality",
+                     mechanical["verdict"], "accepted")
+
+        # Once a local model is hired, it can judge -- but never its own work.
+        owi_local_module = __import__("owi_local")
+        owi_local_module.remember_local_model(home, "local-hermes3", "hermes3")
+        owi_do.JUDGE_ORDER.insert(0, "local-hermes3")
+        try:
+            sweep.expect("a hired model with no runner still cannot judge",
+                         owi_do.judge_model_for(home, None,
+                                                "confidential_content"), None)
+            runners = json.loads((home / "runners.json").read_text())
+            runners["local-hermes3"] = "true"
+            (home / "runners.json").write_text(json.dumps(runners))
+            sweep.expect("a hired local model may judge confidential work",
+                         owi_do.judge_model_for(home, None,
+                                                "confidential_content"),
+                         "local-hermes3")
+            sweep.expect("but never its own",
+                         owi_do.judge_model_for(home, "local-hermes3",
+                                                "confidential_content"), None)
+        finally:
+            owi_do.JUDGE_ORDER.remove("local-hermes3")
+
+
+def _raises(function, **kwargs) -> bool:
+    try:
+        function(**kwargs)
+    except ValueError:
+        return True
+    return False
+
+
 GROUPS = {
     "cli": group_cli,
     "snapshot": group_snapshot,
@@ -836,6 +1076,8 @@ GROUPS = {
     "page": group_page,
     "serve": group_serve,
     "roster": group_roster,
+    "hire": group_hire_local,
+    "clearance": group_verifier_clearance,
 }
 
 

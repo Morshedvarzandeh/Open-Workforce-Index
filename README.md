@@ -52,6 +52,57 @@ tools/owi-serve        # open http://127.0.0.1:7787
 The complete workflow, every level from this link to real measurement, is
 written in [docs/WORKFLOW.md](docs/WORKFLOW.md).
 
+### Work that must not leave the machine
+
+Confidentiality is a gate, not a preference. A task marked `--privacy
+confidential` turns away every cloud worker whatever it costs, because a
+worker reached over an API is cleared for metadata at best. That leaves only
+models running on your own hardware — and if you have none, the honest answer
+is that nobody qualifies.
+
+Hire one in a single command:
+
+```bash
+tools/owi-hire-local hermes3 --context 131072 --developer "Nous Research"
+```
+
+That declares the model, cuts a snapshot containing it, points the front door
+at that snapshot, and writes the runner so it is executable rather than merely
+quotable. It is a *declaration*, not an import, and it says so: a local model
+has no published price row to fetch, and its price is genuinely zero. Ability
+is not declared — a hired model starts at the same discounted, unmeasured
+prior as everyone else and earns its posterior from your verified outcomes.
+
+Two things this changes, both measured rather than asserted:
+
+**It staffs cases that had nobody.** A 21,000-token confidential document was
+refused at any price — the only cleared worker on the roster had an 8,192-token
+window, so every candidate was rejected with `context_window_too_small`. A
+131,072-token local model takes it.
+
+**Free is not automatically cheapest.** A local worker's cost is flat — the
+tokens are yours — but it starts less trusted, and the allocator charges for
+the retry that a lower confidence implies. So it loses on short work and wins
+decisively on long:
+
+| shape | winner | its cost | local Hermes |
+|---|---|---|---|
+| 500 in / 200 out | `haiku-4-5/text` | $0.0050 | #3 · $0.0072 |
+| 1,500 / 800 | `gpt-5-nano/text` | $0.0066 | #2 · $0.0072 |
+| 5,000 / 1,000 | `gpt-5-nano/text` | $0.0069 | #2 · $0.0072 |
+| 20,000 / 1,000 | **`local-hermes3/text`** | **$0.0072** | #1 |
+| 100,000 / 2,000 | **`local-hermes3/text`** | **$0.0072** | #1 |
+
+The crossover sits near 10–20k input tokens. Below it, paying a cloud model to
+be more likely right beats paying nothing to be less likely right.
+
+The clearance gate covers the whole crew, not just the worker doing the job:
+the judge reads the output, the checklist writer reads the task line, and the
+planner under `--split` reads the entire input document. All three are filtered
+by the same ladder. When nothing cleared is available the item is left
+explicitly unchecked and says so — an unverified result is worse than a
+verified one, and far better than a leak.
+
 Everything below this line is the advanced layer: manifests that plan whole
 projects from a file in git, consoles with live weighting dials, benchmark
 harnesses, and total-cost-of-ownership scenarios. Start with `owi-do`; go

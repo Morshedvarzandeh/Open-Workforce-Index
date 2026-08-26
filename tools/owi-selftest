@@ -573,6 +573,125 @@ def run(no_cargo: bool) -> int:
                     staffed == {privacy_rules["cleared_worker"]},
                     f"got {sorted(staffed)}")
 
+    clearance = frozen.get("verifier_clearance_expectations")
+    if clearance:
+        # The gate that stops a cloud model doing the work is worthless if
+        # the crew that checks the work reads it anyway.
+        print("\nverifier clearance (the gate covers the whole crew)")
+        with tempfile.TemporaryDirectory() as scratch:
+            home = Path(scratch)
+            (home / "runners.json").write_text(json.dumps(
+                {model: "true" for model in owi_do.JUDGE_ORDER}))
+            cloud = clearance["cloud_model"]
+            suite.check("a cloud model holds only metadata clearance",
+                        owi_do.model_clearance(home, cloud)
+                        == clearance["cloud_clearance"],
+                        owi_do.model_clearance(home, cloud))
+            suite.check("an ordinary task still gets the cheapest judge",
+                        owi_do.judge_model_for(home, None,
+                                               clearance["ordinary"])
+                        == clearance["cheapest_ordinary_judge"])
+            for role, resolve in (
+                    ("judge", lambda: owi_do.judge_model_for(
+                        home, None, clearance["confidential"])),
+                    ("checklist writer", lambda: owi_do.writer_model_for(
+                        home, clearance["confidential"])),
+                    ("planner", lambda: owi_do.plan_parts(
+                        home, "confidential text",
+                        clearance["confidential"])[0])):
+                suite.check(
+                    f"no cloud {role} touches confidential work",
+                    resolve() == clearance[
+                        "confidential_judge_when_only_cloud_is_installed"],
+                    f"got {resolve()!r}")
+            report = owi_do.run_checklist(
+                home, "task", "output", ["is it good?"],
+                maker_model="local-x", privacy=clearance["confidential"])
+            suite.check("an unjudgeable confidential item stays unchecked",
+                        report["verdict"]
+                        == clearance["unjudgeable_confidential_verdict"]
+                        and report["judge"] is None, report["verdict"])
+            suite.check("the note blames clearance, not a missing CLI",
+                        "cleared for" in report["items"][0]["note"],
+                        report["items"][0]["note"])
+            mechanical = owi_do.run_checklist(
+                home, "task", "alpha beta", ["contains:beta"],
+                maker_model="local-x", privacy=clearance["confidential"])
+            suite.check("mechanical checks still run under confidentiality",
+                        mechanical["verdict"]
+                        == clearance["mechanical_still_runs"],
+                        mechanical["verdict"])
+
+            # Filtering is only half of it: the ladders list cloud models, so
+            # a hired local model has to reach them or confidential work can
+            # never be judged at all.
+            import owi_local
+            for hired, target in (("local-a", "model-a"), ("local-b", "model-b")):
+                owi_local.remember_local_model(home, hired, target)
+            runners = json.loads((home / "runners.json").read_text())
+            runners.update({"local-a": "true", "local-b": "true"})
+            (home / "runners.json").write_text(json.dumps(runners))
+            ladder = owi_do.helper_order(home, owi_do.JUDGE_ORDER)
+            suite.check("hired models extend the ladder, at the end",
+                        ladder[:len(owi_do.JUDGE_ORDER)] == owi_do.JUDGE_ORDER
+                        and set(ladder[len(owi_do.JUDGE_ORDER):])
+                        == {"local-a", "local-b"}, f"got {ladder}")
+            suite.check("ordinary routing is unchanged by hiring",
+                        owi_do.judge_model_for(home, None,
+                                               clearance["ordinary"])
+                        == clearance["cheapest_ordinary_judge"])
+            suite.check("two local models can check each other's confidential "
+                        "work",
+                        owi_do.judge_model_for(home, "local-a",
+                                               clearance["confidential"])
+                        == "local-b"
+                        and owi_do.judge_model_for(home, "local-b",
+                                                   clearance["confidential"])
+                        == "local-a")
+
+    hire = frozen.get("hire_local_expectations")
+    if hire:
+        print("\nhiring a local model (declared, never invented)")
+        import owi_local
+        declared = owi_local.declaration(
+            model=hire["model"], context_window=hire["context_window_tokens"],
+            roles=hire["roles"], worker_prefix=f"local-{hire['model']}",
+            developer="frozen", recorded_at="2026-08-26T00:00:00Z",
+            snapshot_id="snapshot:frozen-hire",
+            at_epoch_ms=owi_do.AT_EPOCH_MS)
+        digests = [w["configuration_sha256"]
+                   for w in declared["worker_profiles"]]
+        suite.check("each hired role gets its own configuration digest",
+                    len(set(digests)) == len(digests) == len(hire["roles"]),
+                    f"got {digests}")
+        suite.check("every hired worker is cleared for confidential content",
+                    all(w["privacy_clearance"] == hire["clearance"]
+                        for w in declared["worker_profiles"]))
+        offering = declared["provider_offerings"][0]
+        suite.check("a local model is priced at zero, not guessed",
+                    offering["input_micros_per_million_tokens"]
+                    == hire["input_micros_per_million_tokens"]
+                    and offering["output_micros_per_million_tokens"]
+                    == hire["output_micros_per_million_tokens"])
+        suite.check("the window is the model card's, carried verbatim",
+                    offering["context_window_tokens"]
+                    == hire["context_window_tokens"])
+        suite.check("the source admits it is a declaration",
+                    offering["source_url"].startswith(
+                        hire["source_url_prefix"]), offering["source_url"])
+        suite.check("ability is assumed at the weakest tier",
+                    all(e["evidence_tier"] == hire["evidence_tier"]
+                        for e in declared["evidence"]))
+        with tempfile.TemporaryDirectory() as scratch:
+            home = Path(scratch)
+            suite.check("with no pointer, decisions quote the seeded snapshot",
+                        owi_local.current_snapshot(home)
+                        == hire["default_snapshot"])
+            (home / owi_local.POINTER).write_text("{ not json")
+            suite.check("a corrupt pointer falls back rather than guessing",
+                        owi_local.current_snapshot(home)
+                        == hire["default_snapshot"])
+
     total = suite.passed + len(suite.failed)
     print(f"\n{frozen['version']}: {suite.passed}/{total} passed")
     for name in suite.failed:

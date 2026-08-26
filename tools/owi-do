@@ -45,6 +45,7 @@ import tempfile
 import time
 from pathlib import Path
 
+import owi_local
 import owi_runner
 from owi_runner import ENVIRONMENT, WORKER
 
@@ -152,15 +153,25 @@ WRITER_ORDER = ["opus-5", "opus-4-5", "gpt-5", "sonnet-5", "sonnet-4-5",
 QC = {"clearance": 5, "sample_every": 3}
 
 
-def builtin_commands() -> dict[str, str]:
+def builtin_commands(home: Path | None = None) -> dict[str, str]:
     """Model -> the command a locally installed CLI would use for it. Whether
-    that CLI exists here is a separate question, asked below."""
+    that CLI exists here is a separate question, asked below.
+
+    Models hired onto this machine with `owi-hire-local` are included: they
+    are not part of the shipped roster (nothing published prices them), but on
+    the machine that hired one it is as runnable as anything else, and a
+    router that could quote it but not run it would be back to naming workers
+    the caller cannot execute."""
     commands = {model: f"claude --model {target} -p"
                 for model, target in CLAUDE_MODELS.items()}
     commands.update({model: f"llm -m {target}"
                      for model, target in OPENAI_MODELS.items()})
     commands.update({model: f"ollama run {target}"
                      for model, target in OLLAMA_MODELS.items()})
+    if home is not None:
+        commands.update({model: f"ollama run {target}"
+                         for model, target in owi_local.local_models(home)
+                         .items()})
     return commands
 
 
@@ -176,7 +187,7 @@ def builtin_runner(model: str) -> str | None:
 
 def resolve_runner(home: Path, model: str) -> str | None:
     """The configured command for a model, or the built-in when unset."""
-    return owi_runner.resolve(home, model, builtin_commands())
+    return owi_runner.resolve(home, model, builtin_commands(home))
 
 
 def owi(*args: str) -> dict:
@@ -235,7 +246,7 @@ def pick(home: Path, task: str, skill: str, tokens_in: int, tokens_out: int,
          rate: int, privacy: str = "private_metadata") -> dict:
     request = {
         "decision_id": f"decision:do-{time.time_ns()}",
-        "snapshot_id": "snapshot:manager-scenario-v1",
+        "snapshot_id": owi_local.current_snapshot(home),
         "at_epoch_ms": AT_EPOCH_MS,
         "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "task": {
@@ -451,13 +462,66 @@ def check_item(item: str, output: str) -> tuple[str, bool | None, str]:
     return "judged", None, "needs judgement"
 
 
-def judge_model_for(home: Path, exclude: str | None) -> str | None:
-    return next((m for m in JUDGE_ORDER
-                 if m != exclude and resolve_runner(home, m)), None)
+# The clearance ladder, weakest first. A worker cleared at one level is
+# cleared for everything at or below it.
+CLEARANCE_ORDER = ["public", "private_metadata", "confidential_content",
+                   "secret"]
 
 
-def writer_model_for(home: Path) -> str | None:
-    return next((m for m in WRITER_ORDER if resolve_runner(home, m)), None)
+def model_clearance(home: Path, model: str) -> str:
+    """What this model is cleared to see.
+
+    A model running on your own machine never transmits the content, so it
+    holds `confidential_content`; anything reached over an API holds
+    `private_metadata` at best. This mirrors exactly what the index says
+    about the workers built on the same models — the helper roles are not a
+    side channel around the roster's own clearances.
+    """
+    if model in OLLAMA_MODELS or model in owi_local.local_models(home):
+        return "confidential_content"
+    return "private_metadata"
+
+
+def cleared(home: Path, model: str, privacy: str) -> bool:
+    return (CLEARANCE_ORDER.index(model_clearance(home, model))
+            >= CLEARANCE_ORDER.index(privacy))
+
+
+def helper_order(home: Path, ladder: list[str]) -> list[str]:
+    """A helper ladder, extended with the models hired onto this machine.
+
+    Hired models go on the END of both ladders, never the front. For ordinary
+    work the hand-ordered cloud ladders already express a judgement about cost
+    and capability that an unmeasured local model has not earned a place in,
+    so nothing about ordinary routing changes. For confidential work every
+    cloud model is filtered out anyway, and these are the only candidates
+    left — which is exactly the fallback they are.
+    """
+    hired = [m for m in owi_local.local_models(home) if m not in ladder]
+    return ladder + sorted(hired)
+
+
+def judge_model_for(home: Path, exclude: str | None,
+                    privacy: str = "private_metadata") -> str | None:
+    """The cheapest runnable model allowed to READ this task's output.
+
+    The privacy gate that keeps a cloud model from *doing* confidential work
+    is worthless if the checker mails the answer out anyway: the output of a
+    confidential task is derived from confidential content and carries the
+    same clearance. So the judge is filtered by the same ladder as the maker.
+    Returning None here is a real answer — verification stops and says why,
+    which is strictly better than a verdict bought with a leak.
+    """
+    return next((m for m in helper_order(home, JUDGE_ORDER)
+                 if m != exclude and cleared(home, m, privacy)
+                 and resolve_runner(home, m)), None)
+
+
+def writer_model_for(home: Path,
+                     privacy: str = "private_metadata") -> str | None:
+    return next((m for m in helper_order(home, WRITER_ORDER)
+                 if cleared(home, m, privacy) and resolve_runner(home, m)),
+                None)
 
 
 def qc_history(home: Path, worker: str, skill: str) -> tuple[int, int]:
@@ -531,7 +595,8 @@ def run_worker(home: Path, model: str, payload: str,
 
 
 def run_checklist(home: Path, task: str, output: str, items: list[str],
-                  maker_model: str, judge_enabled: bool = True) -> dict:
+                  maker_model: str, judge_enabled: bool = True,
+                  privacy: str = "private_metadata") -> dict:
     """Verify output against the checklist. Verdict: 'accepted' (every item
     checked and passed), 'rejected' (any item failed), or 'undecided' (an item
     could not be checked — no independent judge, or the judge was unusable).
@@ -549,7 +614,8 @@ def run_checklist(home: Path, task: str, output: str, items: list[str],
             entry["note"] = "sampled out — reduced inspection"
             entry["sampled"] = True
         pending = []
-    judge = judge_model_for(home, maker_model) if pending else None
+    judge = (judge_model_for(home, maker_model, privacy) if pending
+             else None)
     if pending and judge:
         numbered = "\n".join(f"{position}. {entry['item']}"
                              for position, entry in enumerate(pending, start=1))
@@ -569,6 +635,19 @@ def run_checklist(home: Path, task: str, output: str, items: list[str],
             if row is not None and isinstance(row.get("pass"), bool):
                 entry["pass"] = row["pass"]
                 entry["note"] = str(row.get("why", ""))[:200] or "judged"
+
+    if pending and judge is None:
+        # Distinguish "nobody is allowed to look at this" from "nobody is
+        # installed". Both leave items unchecked, but only one of them is
+        # fixed by installing a CLI.
+        blocked = privacy != "private_metadata" and any(
+            resolve_runner(home, m) for m in helper_order(home, JUDGE_ORDER)
+            if m != maker_model)
+        note = ("no judge cleared for {} — items left unchecked rather than "
+                "sent off the machine".format(privacy) if blocked
+                else "no independent judge available")
+        for entry in pending:
+            entry["note"] = note
 
     failed = [entry for entry in results if entry["pass"] is False]
     unchecked = [entry for entry in results
@@ -600,14 +679,19 @@ def clean_checklist(raw) -> list[str]:
     return [str(item).strip() for item in raw if str(item).strip()][:4]
 
 
-def auto_checklist(home: Path, task: str,
-                   tier: str = "full") -> tuple[str | None, list[str]]:
+def auto_checklist(home: Path, task: str, tier: str = "full",
+                   privacy: str = "private_metadata"
+                   ) -> tuple[str | None, list[str]]:
     """No checklist given? A model writes the test procedure before the run —
     printed, never silent. Under full inspection the smartest runnable model
     writes it (the spec is the leverage point); under reduced inspection a
-    cheap model does, because the worker has already earned the discount."""
-    writer = (writer_model_for(home) if tier == "full"
-              else judge_model_for(home, exclude=None))
+    cheap model does, because the worker has already earned the discount.
+
+    The writer only ever sees the task line, never the input document — but a
+    task line can itself be confidential, so it is filtered by the same
+    clearance ladder as the maker and the judge."""
+    writer = (writer_model_for(home, privacy) if tier == "full"
+              else judge_model_for(home, exclude=None, privacy=privacy))
     if writer is None:
         return None, []
     written = run_worker(home, writer, CHECKLIST_PROMPT.format(task=task[:6000]),
@@ -652,8 +736,13 @@ def clean_parts(raw_parts) -> list[dict] | None:
     return cleaned or None
 
 
-def plan_parts(home: Path, task: str) -> tuple[str | None, list[dict] | None]:
-    planner = writer_model_for(home)
+def plan_parts(home: Path, task: str, privacy: str = "private_metadata"
+               ) -> tuple[str | None, list[dict] | None]:
+    """Split the work. The planner is the one helper that sees the whole
+    input, document included, so its clearance matters most of all — a cloud
+    planner reading a confidential document would leak more than any worker
+    ever could."""
+    planner = writer_model_for(home, privacy)
     if planner is None:
         return None, None
     planned = run_worker(home, planner, PLAN_PROMPT.format(task=task[:8000]),
@@ -701,7 +790,7 @@ def model_of(candidate: dict) -> str:
     return candidate["worker_id"].split(":")[1].split("/")[0]
 
 
-def unlock_hint(model: str) -> str:
+def unlock_hint(model: str, home: Path | None = None) -> str:
     """What it would take to make this worker runnable here. A price you
     cannot act on is trivia; the point is to say what to do about it."""
     if model in CLAUDE_MODELS:
@@ -710,6 +799,9 @@ def unlock_hint(model: str) -> str:
         return "pip install llm && llm keys set openai"
     if model in OLLAMA_MODELS:
         return f"ollama pull {OLLAMA_MODELS[model]}"
+    hired = owi_local.local_models(home) if home is not None else {}
+    if model in hired:
+        return f"ollama pull {hired[model]}"
     return PROVIDER_SETUP.get(
         model, f"add a command for '{model}' to runners.json")
 
@@ -766,7 +858,7 @@ def print_pick(quote: dict, eligible: list, calibration=None,
         if saving > 0:
             model = model_of(cheaper)
             print(f"  not installed: {cheaper['worker_id'].replace('worker:', ''):13} "
-                  f"−${saving:.4f} cheaper · {unlock_hint(model)}")
+                  f"−${saving:.4f} cheaper · {unlock_hint(model, home)}")
     print(f"  checked {len(eligible) + len(quote['rejected_candidates'])}, "
           f"{len(here)} runnable here · "
           f"turned away {len(quote['rejected_candidates'])} · decision recorded")
@@ -889,7 +981,8 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
 
     if checklist:
         report = run_checklist(home, task, stdout, checklist, maker_model=model,
-                               judge_enabled=inspection["judge"])
+                               judge_enabled=inspection["judge"],
+                               privacy=privacy)
         marks = {True: "✓", False: "✗", None: "?"}
         for entry in report["items"]:
             print(f"  [{marks[entry['pass']]}] {entry['item']} — {entry['note']}")
@@ -947,9 +1040,16 @@ def ask_cause() -> str:
 
 def run_split(arguments, stdin_text: str) -> int:
     home = arguments.home
+    privacy = PRIVACY[getattr(arguments, "privacy", "metadata")]
     full = arguments.task + ("\n\n" + stdin_text if stdin_text else "")
-    planner, parts = plan_parts(home, full)
+    planner, parts = plan_parts(home, full, privacy)
     if planner is None:
+        if privacy != "private_metadata" and writer_model_for(home):
+            print(f"no planner cleared for {privacy}. Splitting would send "
+                  f"the whole input to the planner, so it is refused rather "
+                  f"than done quietly — hire a local model "
+                  f"(tools/owi-hire-local) or drop --split.")
+            return 1
         print("no runnable planner model — fill in "
               f"{home}/runners.json or drop --split")
         return 1
@@ -1000,7 +1100,7 @@ def run_split(arguments, stdin_text: str) -> int:
             tier = inspection_for(home, first["worker_id"],
                                   part["skill"])["level"]
             writer, part["checklist"] = auto_checklist(
-                home, part["summary"], tier=tier)
+                home, part["summary"], tier=tier, privacy=privacy)
             for item in part["checklist"]:
                 print(f"   check (auto, by {writer}): {item}")
         verdict, final_worker = iterate(home, eligible,
@@ -1133,11 +1233,14 @@ def main() -> int:
         tier = inspection_for(arguments.home, first["worker_id"],
                               skill)["level"]
         writer, checklist = auto_checklist(arguments.home, arguments.task,
-                                           tier=tier)
+                                           tier=tier, privacy=privacy)
         if checklist:
             print(f"checklist (auto-written by {writer}; --check none to skip):")
             for item in checklist:
                 print(f"   {item}")
+        elif writer is None and privacy != "private_metadata":
+            print(f"checklist: none — no model cleared for {privacy} could "
+                  f"write one here; supply your own with --check")
     verdict, _ = iterate(arguments.home, eligible, result.get("calibration"),
                          skill, arguments.task, stdin_text, checklist,
                          arguments, explicit)

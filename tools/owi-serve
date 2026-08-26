@@ -39,6 +39,7 @@ _loader = importlib.machinery.SourceFileLoader("owi_do", str(TOOLS / "owi-do"))
 _spec = importlib.util.spec_from_loader("owi_do", _loader)
 owi_do = importlib.util.module_from_spec(_spec)
 _loader.exec_module(owi_do)
+import owi_local  # noqa: E402
 
 SKILL_TOOLS = {skill: spec["tools"] for skill, spec in owi_do.SKILLS.items()}
 SKILL_ROLE = {"skill:text-editing": "text",
@@ -60,6 +61,20 @@ def harvest(home: Path) -> dict:
     rates = {o["id"]: (o["input_micros_per_million_tokens"],
                        o["output_micros_per_million_tokens"])
              for o in prices["offerings"]}
+    # Models hired onto this machine are in the index but not in the shipped
+    # seed, because nothing published prices them. Without this the page would
+    # quietly disagree with the terminal about who is on the roster, which is
+    # a worse failure than not showing them at all.
+    for declaration in sorted(home.glob("hired-*.json")):
+        try:
+            hired = json.loads(declaration.read_text())
+        except json.JSONDecodeError:
+            continue
+        for offering in hired.get("provider_offerings", []):
+            rates[offering["id"]] = (
+                offering["input_micros_per_million_tokens"],
+                offering["output_micros_per_million_tokens"])
+        seed["worker_profiles"].extend(hired.get("worker_profiles", []))
     workers = [{"id": w["id"], "skills": w["supported_skill_ids"],
                 "tools": w["tools"],
                 "clearance": w.get("privacy_clearance", "private_metadata"),
@@ -71,7 +86,7 @@ def harvest(home: Path) -> dict:
     for position, (skill, tools) in enumerate(SKILL_TOOLS.items(), start=1):
         request = {
             "decision_id": f"decision:serve-{position}-{int(time.time())}",
-            "snapshot_id": "snapshot:manager-scenario-v1",
+            "snapshot_id": owi_local.current_snapshot(home),
             "at_epoch_ms": 1_786_400_000_000,
             "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "task": {"id": f"task:serve-harvest-{position}",

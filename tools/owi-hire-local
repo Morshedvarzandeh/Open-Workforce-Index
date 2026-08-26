@@ -1,0 +1,187 @@
+#!/usr/bin/env python3
+"""Hire a model running on your own machine.
+
+    tools/owi-hire-local hermes3 --context 131072
+
+That is the whole interface. It declares the model as a set of
+confidential-cleared workers, cuts a new snapshot containing them, points the
+front door at that snapshot, and writes the runner command so the model is
+immediately executable rather than merely quotable.
+
+Why this exists as a command rather than a paragraph of instructions: a worker
+you can quote but not run is the failure mode this project already hit once,
+and a worker you can run but that no decision can see is the same failure with
+the sign flipped. Hiring has to do both halves or it is theatre.
+
+Nothing is applied without showing it first: `--dry-run` prints the exact
+declaration, and the file it writes stays on disk to be read, diffed or
+deleted.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import owi_local  # noqa: E402
+
+REPO = Path(__file__).resolve().parent.parent
+# The same pinned instant every decision uses, so a freshly hired offering is
+# effective at the epoch the allocator evaluates against rather than at a wall
+# clock that would make the hire invisible.
+AT_EPOCH_MS = 1_786_400_000_000
+
+
+def owi(*args: str) -> dict:
+    completed = subprocess.run(
+        ["cargo", "run", "-q", "-p", "workforce-cli", "--", *args],
+        cwd=REPO, capture_output=True, text=True)
+    if completed.returncode != 0:
+        sys.stderr.write(completed.stderr[-1500:])
+        raise SystemExit(f"owi {args[0]} failed")
+    return json.loads(completed.stdout)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Hire a local model as confidential-cleared workers.")
+    parser.add_argument("model", help="the ollama model, e.g. hermes3")
+    parser.add_argument("--context", type=int, required=True,
+                        help="context window in tokens, from the model card")
+    parser.add_argument("--roles", default="text,extract",
+                        help="comma-separated: "
+                             + ",".join(sorted(owi_local.ROLES)))
+    parser.add_argument("--developer", default="unknown",
+                        help="who made the model, e.g. 'Nous Research'")
+    parser.add_argument("--name", default=None,
+                        help="short name used in worker ids and runners.json "
+                             "(default: local-<model without a tag>)")
+    parser.add_argument("--provider", default="ollama")
+    parser.add_argument("--home", type=Path, default=REPO / ".owi-quick")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="print the declaration and change nothing")
+    args = parser.parse_args()
+
+    roles = [r.strip() for r in args.roles.split(",") if r.strip()]
+    # `hermes3:70b` is a fine ollama tag but a poor identifier fragment.
+    short = args.model.split(":")[0]
+    name = args.name or f"local-{short}"
+    recorded_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    snapshot_id = f"snapshot:hired-{name}-{int(time.time())}"
+
+    try:
+        seed = owi_local.declaration(
+            model=args.model, context_window=args.context, roles=roles,
+            worker_prefix=name, developer=args.developer,
+            recorded_at=recorded_at, snapshot_id=snapshot_id,
+            at_epoch_ms=AT_EPOCH_MS, provider=args.provider)
+    except ValueError as error:
+        raise SystemExit(f"cannot hire: {error}")
+
+    if args.dry_run:
+        print(json.dumps(seed, indent=2))
+        return 0
+
+    home = args.home
+    index = home / "index.sqlite"
+    if not index.exists():
+        raise SystemExit(f"no index at {index} — run tools/owi-do once first")
+
+    # Refuse before appending rather than crash halfway through it. Two
+    # different collisions are possible and they deserve different answers.
+    offering_id = seed["provider_offerings"][0]["id"]
+    known = owi_local.existing_offering(index, offering_id)
+    if known is not None:
+        print(f"{offering_id} is already in your index — hiring would "
+              f"contradict it, so nothing was changed.", file=sys.stderr)
+        print(f"  index says   {known['context_window_tokens']:,}-token "
+              f"window, ${known['input_micros_per_million_tokens'] / 1e6:.2f}"
+              f"/${known['output_micros_per_million_tokens'] / 1e6:.2f} per "
+              f"million", file=sys.stderr)
+        print(f"  source       {known['source_url']}", file=sys.stderr)
+        print(f"  you declared {args.context:,}-token window, $0/$0",
+              file=sys.stderr)
+        if known["source_url"].startswith("local declaration:"):
+            print("  It was declared before. Re-declaring on different terms "
+                  "is a supersession,", file=sys.stderr)
+            print("  which this tool does not do — edit the declaration and "
+                  "re-seed deliberately.", file=sys.stderr)
+        else:
+            print("  It came from a published source, which outranks a "
+                  "declaration. If the", file=sys.stderr)
+            print("  window is genuinely larger, fix it upstream or import "
+                  "a corrected price row.", file=sys.stderr)
+        return 1
+
+    already = owi_local.existing_workers(
+        index, [w["id"] for w in seed["worker_profiles"]])
+    if already:
+        print(f"already hired: {', '.join(already)} — nothing to do. "
+              f"Use --name to hire the same model under a second identity.",
+              file=sys.stderr)
+        return 1
+
+    # Written before it is applied, so a failed append still leaves the exact
+    # bytes that were attempted sitting where they can be inspected.
+    home.mkdir(parents=True, exist_ok=True)
+    declaration_path = home / f"hired-{name}.json"
+    declaration_path.write_text(json.dumps(seed, indent=2) + "\n")
+
+    result = owi("seed", "--index", str(index), "--input",
+                 str(declaration_path))
+    owi_local.set_snapshot(home, snapshot_id)
+    owi_local.remember_local_model(home, name, args.model)
+
+    # Make it runnable, not just quotable -- but only when it genuinely is.
+    # A configured runner is treated as authoritative everywhere downstream,
+    # so writing one for a CLI that is not installed would put an unrunnable
+    # worker back at the top of the headline, which is the exact failure this
+    # project spent a release fixing. When the CLI is missing the hire still
+    # succeeds (the worker is quotable, and correctly shown as not runnable
+    # here) and the command to fix it is printed instead.
+    runners_path = home / "runners.json"
+    command = f"{args.provider} run {args.model}"
+    installed = shutil.which(args.provider) is not None
+    if installed and runners_path.exists():
+        runners = json.loads(runners_path.read_text())
+        runners[name] = command
+        runners_path.write_text(json.dumps(runners, indent=2) + "\n")
+
+    appended = result["appended"]
+    members = result["snapshot_members"]
+    print(f"hired {args.provider}/{args.model} as {name} — "
+          f"{appended['worker_profiles']} workers "
+          f"({', '.join(roles)}), {args.context:,}-token window, $0/token")
+    print(f"  snapshot  {snapshot_id}  "
+          f"({members['worker_profiles']} workers now staffable)")
+    if installed:
+        print(f"  runner    {command}")
+    else:
+        print(f"  runner    NOT SET — `{args.provider}` is not on PATH here.")
+        print(f"            Install {args.provider} and pull the model, then "
+              f"this worker runs:")
+        print(f"              {args.provider} pull {args.model}")
+        print(f"            Until then it is quotable but not runnable, and "
+              f"owi-do will say so.")
+    print(f"  declared  {declaration_path}")
+    print()
+    print("  clearance: confidential_content — this is the only kind of "
+          "worker cleared")
+    print("             for content that must not leave the machine.")
+    print("  ability:   ASSUMED, not measured. It starts at the same "
+          "discounted prior")
+    print("             every unmeasured worker starts at, and earns its "
+          "posterior from")
+    print("             your own verified outcomes. Run real work through "
+          "it to find out.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
