@@ -692,6 +692,33 @@ def run(no_cargo: bool) -> int:
                         owi_local.current_snapshot(home)
                         == hire["default_snapshot"])
 
+    missing = frozen.get("missing_input_expectations")
+    if missing:
+        # A mechanical checklist cannot tell an answer from a request for the
+        # question. This is the guard that stops the ledger learning from work
+        # that was never done.
+        print("\nmissing input (an ask is not an answer)")
+        for reply in missing["caught"]:
+            suite.check(f"caught: {reply[:44]}...",
+                        owi_do.asks_for_missing_input(reply) is not None)
+        for reply in missing["passed"]:
+            got = owi_do.asks_for_missing_input(reply)
+            suite.check(f"real work survives: {reply[:34]}...",
+                        got is None, f"falsely flagged on {got!r}")
+        long_enough = " ".join(["word"] * (missing["max_words"] + 1))
+        suite.check("a long reply is never flagged, whatever it says",
+                    owi_do.asks_for_missing_input(
+                        "I don't see the document. " + long_enough) is None)
+        for task in missing["deictic_with_empty_stdin"]:
+            suite.check(f"warned before spending: {task[:38]}...",
+                        owi_do.points_at_missing_material(task, "") is not None)
+            suite.check(f"not warned once attached: {task[:36]}...",
+                        owi_do.points_at_missing_material(
+                            task, "the material") is None)
+        for task in missing["deictic_complete"]:
+            suite.check(f"a complete task is not warned: {task[:32]}...",
+                        owi_do.points_at_missing_material(task, "") is None)
+
     total = suite.passed + len(suite.failed)
     print(f"\n{frozen['version']}: {suite.passed}/{total} passed")
     for name in suite.failed:

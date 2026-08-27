@@ -715,5 +715,66 @@
       "worker:local-hermes3/text"
     ],
     "default_snapshot": "snapshot:manager-scenario-v1"
+  },
+  "missing_input_expectations": {
+    "_why": [
+      "A mechanical checklist cannot tell the difference between an answer",
+      "and a request for the question. `owi-do \"rewrite this supplier",
+      "email...\" --check min-words:60 --check contains:delivery --check",
+      "regex:(?i)date` was run with nothing on stdin. The worker did the",
+      "correct thing and asked for the email. That polite request contained",
+      "\"delivery\", contained \"date\", ran past sixty words, passed 3/3, and",
+      "was recorded as an ACCEPTED outcome -- so the ledger learned that a",
+      "model is good at work it never did. That is worse than learning",
+      "nothing, because it is learned with confidence.",
+      "",
+      "The blame is `task_spec`: the input was missing, so nothing is held",
+      "against the model, and retrying is pointless because the second",
+      "attempt has the same absent material. The loop stops and says what",
+      "to attach.",
+      "",
+      "Both halves of the detector were wrong on the first try, and both",
+      "failures are pinned below. The deictic check listed the fixed phrase",
+      "\"this email\" and sailed straight past \"rewrite this SUPPLIER email\"",
+      "-- the exact sentence it existed to catch -- so it now matches a",
+      "pointer plus up to three modifier words plus a material noun. The",
+      "output check listed bare imperatives and rejected a genuine forty-",
+      "word email that asked a supplier to \"please provide the revised",
+      "schedule\". Real deliverables give instructions to their readers all",
+      "the time; only the worker says it cannot see what it was handed. So",
+      "every phrase is now the worker speaking about its own missing input,",
+      "and it must also be short. Missing a case is recoverable; rejecting",
+      "real work as 'no input' would be a worse bug than the one this",
+      "exists to catch."
+    ],
+    "root_cause": "task_spec",
+    "verdict": "missing input",
+    "never_retries": true,
+    "max_words": 200,
+    "caught": [
+      "I don't see the supplier email text you'd like me to rewrite. Could you please share the original email?",
+      "I do not have the document you are referring to. Please paste it and I will summarise it.",
+      "The input appears to be empty. Could you provide the report?",
+      "It looks like the code snippet was not provided. Send it over and I will review it.",
+      "I haven't received any text to work with. Please paste the paragraph."
+    ],
+    "passed": [
+      "Dear Supplier, I am writing to confirm the delivery date for order 4471. Please confirm in writing by Friday that the delivery will meet this date. Regards, Procurement.",
+      "Please provide the revised delivery schedule by Friday so we can update production planning; the current date no longer works for the line and we need a firm commitment in writing.",
+      "Could you please share the test results with the team once the campaign finishes? We will need them for the review.",
+      "Once you provide the signed contract we will release the shipment.",
+      "{\"items\": [{\"sku\": \"A-1\", \"qty\": 4}], \"total\": 19.6}"
+    ],
+    "deictic_with_empty_stdin": [
+      "Rewrite this supplier email to be firmer about the delivery date",
+      "Summarise the attached quarterly sales report",
+      "Extract the line items from this invoice document",
+      "Fix the bug in this code"
+    ],
+    "deictic_complete": [
+      "Write a python function that reverses a string",
+      "Plan a battery pack thermal test campaign",
+      "Design a UI for a cycling dashboard"
+    ]
   }
 }

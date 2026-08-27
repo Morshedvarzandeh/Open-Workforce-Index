@@ -936,10 +936,100 @@ def iterate(home: Path, eligible: list, calibration, skill: str, task: str,
             return "accepted", worker
         if verdict == "unrecorded":
             return "unrecorded", worker
+        if verdict == "missing input":
+            # Escalating would hand the same absent material to a more
+            # expensive model. Stop, and say what to attach.
+            return "missing input", worker
         corrections = [failed] if failed else []
     print(f"still rejected after {len(tried)} attempt(s) — every failure is "
           "in the ledger and the prevention memory")
     return "rejected", tried[-1] if tried else None
+
+
+# The same failure, caught one step earlier and for free. A task that points
+# at material — "rewrite THIS email", "summarise THE ATTACHED report" — cannot
+# be done when nothing arrived on stdin, so there is no reason to pay a model
+# to discover that. This is a warning, not a veto: "write a function that
+# reverses this string" is a perfectly complete task despite the word "this",
+# and guessing wrong must never block real work.
+# The material a task can point at. Matched as "this/that/the attached ...
+# <noun>" rather than as fixed phrases, because the modifier is unpredictable:
+# the first version of this check listed "this email" and sailed straight past
+# "rewrite this SUPPLIER email", which is the exact sentence that produced the
+# bad outcome it was written to catch.
+MATERIAL_NOUNS = (
+    "email", "document", "report", "text", "file", "code", "message",
+    "letter", "contract", "spec", "specification", "log", "logs", "data",
+    "table", "article", "draft", "paragraph", "transcript", "snippet",
+    "function", "script", "config", "readme", "changelog", "diff", "patch",
+)
+POINTERS = ("this", "that", "these", "those", "the attached", "the following",
+            "the enclosed", "the above", "the below")
+# Up to three words of modifier between the pointer and the noun — "this
+# supplier email", "the attached quarterly sales report" — and no more, so a
+# sentence that merely contains both words far apart does not match.
+DEICTIC = re.compile(
+    r"\b(?:" + "|".join(POINTERS) + r")\b(?:\s+\w+){0,3}\s+\b(?:"
+    + "|".join(MATERIAL_NOUNS) + r")\b", re.IGNORECASE)
+
+
+def points_at_missing_material(task: str, stdin_text: str) -> str | None:
+    """The phrase that promised material nothing supplied, or None."""
+    if stdin_text.strip():
+        return None
+    found = DEICTIC.search(task)
+    return found.group(0) if found else None
+
+
+# A reply that asks for the material instead of working on it. This is not a
+# refusal and it is not incompetence — the worker is behaving correctly, the
+# task simply arrived without the thing it points at. What makes it dangerous
+# is that it looks like an answer to a mechanical checklist: "rewrite this
+# supplier email" with no email attached produced a polite request for the
+# email that contained "delivery", contained "date", ran past sixty words,
+# passed 3/3, and was recorded as an ACCEPTED outcome. The ledger learned that
+# a model is good at work it never did, which is worse than learning nothing.
+#
+# The blame is `task_spec`: the input was missing, so nothing is held against
+# the model. Retrying is pointless — the second attempt has the same missing
+# input — so the loop stops and says what to attach.
+# Every phrase here is the worker making a statement about ITS OWN missing
+# input. Bare imperatives were tried first and had to go: "please provide the"
+# rejected a genuine forty-word email that asked a supplier to provide a
+# revised schedule. Real deliverables give instructions to their reader all
+# the time; only the worker says it cannot see the thing it was handed.
+MISSING_INPUT_PHRASES = (
+    "i don't see", "i do not see", "i'm not seeing", "i am not seeing",
+    "i don't have", "i do not have", "i haven't been given",
+    "i have not been given", "i'll need the", "i will need the",
+    "i need the actual", "you haven't provided", "you have not provided",
+    "wasn't provided", "was not provided", "weren't provided",
+    "were not provided", "no content was provided", "nothing was provided",
+    "didn't receive", "did not receive", "haven't received",
+    "have not received", "appears to be empty", "appears to be missing",
+    "seems to be missing", "no text was supplied", "wasn't supplied",
+    "was not supplied",
+)
+# Length is the second half of the test, and it is what keeps this safe. A
+# genuine deliverable that happens to contain one of these phrases — an email
+# that says "please provide the revised schedule" — is normally long; a reply
+# whose whole purpose is to ask for the input is short. Both conditions must
+# hold, so a false positive needs a short deliverable that also talks about
+# not having its own input, which is very close to the real thing anyway.
+MISSING_INPUT_MAX_WORDS = 200
+
+
+def asks_for_missing_input(output: str) -> str | None:
+    """The phrase that shows the worker asked for its input, or None.
+
+    Deliberately conservative: rejecting real work as 'no input' would be a
+    worse bug than the one this exists to catch.
+    """
+    if len(output.split()) > MISSING_INPUT_MAX_WORDS:
+        return None
+    lowered = output.lower()
+    return next((phrase for phrase in MISSING_INPUT_PHRASES
+                 if phrase in lowered), None)
 
 
 def attempt_run(home: Path, worker: str, model: str, skill: str,
@@ -971,6 +1061,19 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
                        detail=result.detail, privacy=privacy)
         return "rejected", ""
     stdout = result.output
+
+    # Checked before the checklist, because a mechanical checklist cannot tell
+    # the difference between an answer and a request for the question.
+    missing = asks_for_missing_input(stdout)
+    if missing:
+        detail = (f"the worker asked for its input (\"{missing}\") — the task "
+                  f"points at material that was not supplied")
+        print(f"\nthe worker asked for the material rather than working on "
+              f"it — recorded as task_spec, not held against the model")
+        print(f"  attach it:  tools/owi-do \"...\" < your-file.txt")
+        record_outcome(home, worker, skill, False, "task_spec", task=task,
+                       detail=detail, privacy=privacy)
+        return "missing input", ""
 
     if accepted_flag is not None:
         accepted = accepted_flag == "y"
@@ -1199,6 +1302,10 @@ def main() -> int:
     print(f"skill: {skill.replace('skill:', '')}{guessed}")
     rate_note = f" · your hour ${arguments.rate}/hr" if arguments.rate else ""
     print(f"size : ~{tokens_in} in / {tokens_out} out tokens{rate_note}")
+    dangling = points_at_missing_material(arguments.task, stdin_text)
+    if dangling:
+        print(f"note : the task says \"{dangling}\" but nothing arrived on "
+              f"stdin — pipe it in, or the worker will just ask for it")
 
     if not eligible:
         reasons = sorted({reason["code"]
