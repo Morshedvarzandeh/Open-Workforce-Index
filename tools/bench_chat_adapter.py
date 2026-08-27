@@ -98,6 +98,19 @@ def main() -> int:
     if not command:
         print("usage: bench_chat_adapter.py <command...>", file=sys.stderr)
         return 2
+    # The command is positional, and getting that wrong is easy to do and
+    # expensive to diagnose: passing `--command 'claude ...'` made subprocess
+    # try to execute a file literally named `--command`, and the resulting
+    # FileNotFoundError said nothing about the real mistake. Eleven benchmark
+    # tasks came back in forty milliseconds each as "adapter produced no
+    # body". The blame rule held -- nothing was recorded against the model --
+    # but a whole run measured nothing.
+    if command[0].startswith("-"):
+        print(f"bench_chat_adapter.py takes the command positionally, not as "
+              f"a flag.\n  got:      {' '.join(command)}\n"
+              f"  meant:    {' '.join(command).replace('--command ', '', 1)}",
+              file=sys.stderr)
+        return 2
     task = json.load(sys.stdin)
     prompt = PROMPT.format(signature=task["signature"],
                            docstring=task["docstring"],

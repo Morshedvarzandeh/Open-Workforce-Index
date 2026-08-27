@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import subprocess
 import sys
 import time
@@ -223,7 +224,20 @@ def main() -> int:
     if arguments.adapter == "command":
         if not arguments.command:
             parser.error("--command is required for the `command` adapter")
-        command = arguments.command.split()
+        # shlex, not .split(): the documented invocation nests a quoted
+        # argument -- `bench_chat_adapter.py --command 'claude --model X -p'`
+        # -- and a whitespace split tears that apart into `'claude`, `--model`
+        # and `X`. The adapter then failed argparse, wrote nothing, and every
+        # task came back in forty milliseconds as "adapter produced no body".
+        # The blame rule held (nothing was recorded against the model) so the
+        # damage was a wasted run rather than a corrupted ledger, but a whole
+        # benchmark silently measuring nothing is its own kind of failure.
+        try:
+            command = shlex.split(arguments.command)
+        except ValueError as error:
+            parser.error(f"--command is not a valid shell command: {error}")
+        if not command:
+            parser.error("--command is empty")
 
         def produce(task: dict):
             return adapter_command(

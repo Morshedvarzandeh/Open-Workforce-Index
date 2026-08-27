@@ -719,6 +719,33 @@ def run(no_cargo: bool) -> int:
             suite.check(f"a complete task is not warned: {task[:32]}...",
                         owi_do.points_at_missing_material(task, "") is None)
 
+    invocation = frozen.get("bench_invocation_expectations")
+    if invocation:
+        print("\nbench invocation (a run that measures nothing)")
+        import shlex
+        import subprocess as _subprocess
+        quoted = invocation["quoted_command"]
+        suite.check("a plain split tears a quoted argument apart",
+                    quoted.split() == invocation["split_tears_it_apart"],
+                    f"got {quoted.split()}")
+        suite.check("shlex keeps a quoted argument whole",
+                    shlex.split(quoted) == invocation["shlex_keeps_it_whole"],
+                    f"got {shlex.split(quoted)}")
+        plain = invocation["unquoted_command"]
+        suite.check("shlex is identical for an unquoted command",
+                    shlex.split(plain) == plain.split())
+        if invocation["adapter_rejects_leading_flag"]:
+            done = _subprocess.run(
+                [sys.executable, str(REPO / "tools/bench_chat_adapter.py"),
+                 "--command", "claude -p"],
+                input='{"signature":"def f():","docstring":"d",'
+                      '"instruction":"i"}',
+                capture_output=True, text=True)
+            suite.check("the adapter names a leading flag as the mistake",
+                        done.returncode == invocation["adapter_flag_exit_code"]
+                        and "positionally" in done.stderr,
+                        f"exit {done.returncode}: {done.stderr[:120]}")
+
     total = suite.passed + len(suite.failed)
     print(f"\n{frozen['version']}: {suite.passed}/{total} passed")
     for name in suite.failed:

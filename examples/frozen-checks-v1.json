@@ -776,5 +776,48 @@
       "Plan a battery pack thermal test campaign",
       "Design a UI for a cycling dashboard"
     ]
+  },
+  "bench_invocation_expectations": {
+    "_why": [
+      "A benchmark run that measures nothing is its own kind of failure,",
+      "even when the blame rule holds. Today's run came back as eleven",
+      "HARNESS results in forty milliseconds each -- 'adapter produced no",
+      "body' -- and correctly recorded nothing against the model. It also",
+      "correctly recorded nothing at all, and the reason took two rounds to",
+      "find because both candidate causes were real.",
+      "",
+      "The first is latent and now fixed: run_bench parsed --command with a",
+      "plain .split(), which cannot express a nested quoted argument. Any",
+      "model command needing one -- a system prompt, a quoted flag -- would",
+      "be torn into pieces. shlex.split parses it the way a shell would and",
+      "is identical for unquoted commands.",
+      "",
+      "The second was the actual cause and was an invocation mistake, not a",
+      "defect: bench_chat_adapter takes its command POSITIONALLY, and it",
+      "was given `--command '...'`. subprocess then tried to execute a file",
+      "named `--command` and raised FileNotFoundError, which says nothing",
+      "about the real error. The adapter now recognises a leading flag and",
+      "prints what was meant. A confusing failure that costs a full",
+      "benchmark run is worth one line of code to prevent."
+    ],
+    "quoted_command": "python3 adapter.py --model 'gpt-5 turbo' -p",
+    "split_tears_it_apart": [
+      "python3",
+      "adapter.py",
+      "--model",
+      "'gpt-5",
+      "turbo'",
+      "-p"
+    ],
+    "shlex_keeps_it_whole": [
+      "python3",
+      "adapter.py",
+      "--model",
+      "gpt-5 turbo",
+      "-p"
+    ],
+    "unquoted_command": "claude --model claude-haiku-4-5 -p",
+    "adapter_rejects_leading_flag": true,
+    "adapter_flag_exit_code": 2
   }
 }
