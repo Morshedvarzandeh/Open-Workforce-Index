@@ -138,6 +138,11 @@ QC = {"clearance": 5, "sample_every": 3}
 # page or module (~25k tokens); beyond it the prompt says it is an excerpt.
 JUDGE_WINDOW = 100_000
 
+# How long one worker attempt may run, in seconds. A whole page or module
+# (15k+ output tokens) can take a strong model longer than ten minutes, and a
+# timeout is recorded as an environment failure — --timeout raises it.
+WORKER_TIMEOUT = 600
+
 
 def builtin_runner(model: str) -> str | None:
     if model in CLAUDE_MODELS and shutil.which("claude"):
@@ -815,12 +820,14 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
     payload = build_payload(task, stdin_text, checklist, notes, corrections)
     print(f"\nrunning via: {resolve_runner(home, model)}\n" + "-" * 60)
     try:
-        stdout, stderr, code = run_command(home, model, payload)
+        stdout, stderr, code = run_command(home, model, payload,
+                                           timeout=WORKER_TIMEOUT)
     except subprocess.TimeoutExpired:
         print("-" * 60)
-        print("timed out after 600s")
+        print(f"timed out after {WORKER_TIMEOUT}s (--timeout to allow more)")
         record_outcome(home, worker, skill, False, "environment", task=task,
-                       detail="runner timed out after 600s", privacy=privacy)
+                       detail=f"runner timed out after {WORKER_TIMEOUT}s",
+                       privacy=privacy)
         return "rejected", ""
     print(stdout.strip() or "(no output)")
     print("-" * 60)
@@ -989,6 +996,7 @@ def run_split(arguments, stdin_text: str) -> int:
 
 
 def main() -> int:
+    global WORKER_TIMEOUT
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("task", help="what you want done, in plain words")
@@ -1008,6 +1016,12 @@ def main() -> int:
                              "only workers whose clearance covers it are "
                              "considered (a gate, not a preference), and the "
                              "prevention memory keeps only redacted statistics")
+    parser.add_argument("--timeout", type=int, default=WORKER_TIMEOUT,
+                        metavar="SECONDS",
+                        help="how long one worker attempt may run before it "
+                             "is recorded as an environment failure "
+                             f"(default {WORKER_TIMEOUT}; a whole page or "
+                             "module can need more)")
     parser.add_argument("--attempts", type=int, default=2,
                         help="iterate until the checklist passes: on a "
                              "rejection the exact failures are fed back as "
@@ -1035,6 +1049,7 @@ def main() -> int:
                              "against the model (default: worker)")
     parser.add_argument("--home", type=Path, default=REPO / ".owi-quick")
     arguments = parser.parse_args()
+    WORKER_TIMEOUT = max(1, arguments.timeout)
 
     bootstrap(arguments.home)
     stdin_text = "" if sys.stdin.isatty() else sys.stdin.read()
