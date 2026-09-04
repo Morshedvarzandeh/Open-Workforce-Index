@@ -134,6 +134,10 @@ WRITER_ORDER = ["opus-5", "opus-4-5", "gpt-5", "sonnet-5", "sonnet-4-5",
 # the inline sensors never come off the line.
 QC = {"clearance": 5, "sample_every": 3}
 
+# How much of a worker's output the judge is shown. Large enough for a whole
+# page or module (~25k tokens); beyond it the prompt says it is an excerpt.
+JUDGE_WINDOW = 100_000
+
 
 def builtin_runner(model: str) -> str | None:
     if model in CLAUDE_MODELS and shutil.which("claude"):
@@ -544,9 +548,18 @@ def run_checklist(home: Path, task: str, output: str, items: list[str],
     if pending and judge:
         numbered = "\n".join(f"{position}. {entry['item']}"
                              for position, entry in enumerate(pending, start=1))
+        # The judge must see the work. A 12,000-character window once made it
+        # call two complete 60 KB pages "cut off mid-CSS" and reject them —
+        # the harness blaming the worker for its own keyhole. Show the whole
+        # output up to a generous cap, and when a cap does apply, say so, so
+        # an excerpt is never mistaken for an unfinished answer.
+        excerpt = output[:JUDGE_WINDOW]
+        cut = ("" if len(output) <= JUDGE_WINDOW else
+               f" (first {JUDGE_WINDOW:,} of {len(output):,} characters; the "
+               "output continues past this excerpt — the cut is not a defect)")
         prompt = ("You are verifying another model's work. Judge strictly; a "
                   "vague or partial answer fails.\n\nTASK:\n" + task[:4000]
-                  + "\n\nOUTPUT TO JUDGE:\n" + output[:12000]
+                  + f"\n\nOUTPUT TO JUDGE{cut}:\n" + excerpt
                   + "\n\nCHECKLIST:\n" + numbered
                   + '\n\nReply with JSON only, one entry per checklist item: '
                   '{"results": [{"item": 1, "pass": true, "why": "short reason"}]}')
