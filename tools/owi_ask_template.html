@@ -22,10 +22,12 @@
     --good:#0C8A5E; --good-deep:#086A47; --good-soft:#E0F7EE;
     --bad:#D53A26; --bad-deep:#A62918; --bad-soft:#FFE8E3;
     --warm:#F0A020; --warm-soft:#FFF3DC;
+    --gold:#E0A000; --gold-soft:#FFF0C2;
     --shadow:0 22px 44px -24px rgba(35,28,95,.55);
     --shadow-sm:0 10px 22px -14px rgba(35,28,95,.5);
     --ring:rgba(91,75,242,.35);
     --btn-ink:#FFFFFF;
+    --avatar-ring:rgba(255,255,255,.55);
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
@@ -38,10 +40,12 @@
       --good:#3DD69B; --good-deep:#1C9E6F; --good-soft:#123529;
       --bad:#FF8874; --bad-deep:#C44B36; --bad-soft:#3A1B16;
       --warm:#FFC163; --warm-soft:#3A2C12;
+      --gold:#FFD166; --gold-soft:#3A2E0E;
       --shadow:0 24px 50px -26px rgba(0,0,0,.85);
       --shadow-sm:0 12px 26px -16px rgba(0,0,0,.8);
       --ring:rgba(124,107,255,.45);
       --btn-ink:#FFFFFF;
+      --avatar-ring:rgba(255,255,255,.2);
     }
   }
   :root[data-theme="dark"] {
@@ -54,10 +58,12 @@
     --good:#3DD69B; --good-deep:#1C9E6F; --good-soft:#123529;
     --bad:#FF8874; --bad-deep:#C44B36; --bad-soft:#3A1B16;
     --warm:#FFC163; --warm-soft:#3A2C12;
+    --gold:#FFD166; --gold-soft:#3A2E0E;
     --shadow:0 24px 50px -26px rgba(0,0,0,.85);
     --shadow-sm:0 12px 26px -16px rgba(0,0,0,.8);
     --ring:rgba(124,107,255,.45);
     --btn-ink:#FFFFFF;
+    --avatar-ring:rgba(255,255,255,.2);
   }
 
   * { box-sizing:border-box; }
@@ -105,6 +111,17 @@
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) .badge { color:var(--good); }
   }
+  .heroRow { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+  .teamBtn { display:inline-flex; align-items:center; gap:8px;
+    font-family:var(--display); font-size:14px; font-weight:600;
+    min-height:44px; padding:10px 18px; border-radius:999px;
+    color:var(--accent); background:var(--accent-soft); border:2px solid transparent; }
+  .teamBtn .facepile { display:inline-flex; }
+  .teamBtn .facepile span { width:20px; height:20px; border-radius:50%;
+    display:grid; place-items:center; font-size:11px; margin-left:-8px;
+    background:linear-gradient(160deg,var(--accent),var(--accent-2));
+    border:2px solid var(--panel); }
+  .teamBtn .facepile span:first-child { margin-left:0; }
 
   /* ---------- how it works ---------- */
   .steps { list-style:none; margin:0; padding:0; display:grid; gap:8px;
@@ -217,6 +234,122 @@
   .switch input:checked + .track::after { transform:translateX(24px); }
   .switch input:focus-visible + .track { box-shadow:0 0 0 4px var(--ring); }
 
+  /* ---------- character cards (the "agents like people" bit) ---------- */
+  .avatar { --hue:250; flex:none; width:60px; height:60px; border-radius:20px;
+    display:grid; place-items:center; font-size:30px; line-height:1;
+    background:linear-gradient(155deg, hsl(var(--hue) 88% 68%),
+      hsl(calc(var(--hue) + 42) 82% 52%));
+    box-shadow:inset 0 -4px 0 rgba(0,0,0,.18), 0 3px 0 var(--avatar-ring); }
+  .avatar.sm { width:38px; height:38px; border-radius:13px; font-size:19px; }
+  .avatar.lg { width:72px; height:72px; border-radius:24px; font-size:36px; }
+
+  .char-card { background:var(--panel-sunk); border:2px solid var(--rule);
+    border-radius:22px; padding:14px; display:flex; flex-direction:column;
+    gap:10px; }
+  .char-card.pick { border-color:var(--accent); background:
+    linear-gradient(175deg, var(--accent-soft), var(--panel-sunk) 65%);
+    box-shadow:0 10px 22px -16px var(--ring); }
+  .char-card.squad { border-color:var(--rule-firm); }
+  .char-top { display:flex; align-items:center; gap:12px; }
+  .char-id { flex:1; min-width:0; }
+  .char-name { font-family:var(--display); font-weight:600; font-size:17px;
+    line-height:1.2; }
+  .char-role { font-size:12.5px; color:var(--accent); font-weight:700; }
+  .char-model { font-size:11.5px; color:var(--ink-3); font-family:var(--mono); }
+  .char-wage { flex:none; text-align:right; font-family:var(--display);
+    font-weight:700; font-size:17px; color:var(--accent-2-deep); }
+  .char-wage small { display:block; font-family:var(--sans); font-weight:600;
+    font-size:10.5px; color:var(--ink-3); text-transform:uppercase;
+    letter-spacing:.04em; }
+  :root[data-theme="dark"] .char-wage { color:var(--accent-2); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .char-wage { color:var(--accent-2); }
+  }
+
+  .lvrow { display:flex; align-items:center; gap:8px; }
+  .lvpill { flex:none; font-family:var(--display); font-size:11.5px;
+    font-weight:700; color:#fff; background:linear-gradient(160deg,var(--gold),#C77E00);
+    border-radius:999px; padding:3px 9px; }
+  .lvbar { flex:1; height:9px; border-radius:999px; background:var(--rule-firm);
+    overflow:hidden; }
+  .lvfill { height:100%; border-radius:999px;
+    background:linear-gradient(90deg, var(--good), var(--accent)); }
+  .lvtext { font-size:12px; color:var(--ink-2); }
+
+  .badges { display:flex; flex-wrap:wrap; gap:6px; }
+  .badges span { font-size:11px; font-weight:700; border-radius:999px;
+    padding:4px 9px; display:inline-flex; align-items:center; gap:4px; }
+  .b-conf { color:var(--accent-deep); background:var(--accent-soft); }
+  .b-run-yes { color:var(--good-deep); background:var(--good-soft); }
+  .b-run-no { color:var(--ink-3); background:var(--rule); }
+  .b-tool { color:var(--ink-2); background:var(--panel); border:1px solid var(--rule); }
+  :root[data-theme="dark"] .b-conf { color:var(--accent-2); }
+  :root[data-theme="dark"] .b-run-yes { color:var(--good); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .b-conf { color:var(--accent-2); }
+    :root:not([data-theme="light"]) .b-run-yes { color:var(--good); }
+  }
+
+  .mini-char { display:flex; align-items:center; gap:10px; font-size:13.5px;
+    color:var(--ink-2); background:var(--panel-sunk); border:1px solid var(--rule);
+    border-radius:16px; padding:8px 12px; }
+  .mini-name { flex:1; min-width:0; font-weight:700; color:var(--ink); }
+  .mini-name small { display:block; font-weight:400; color:var(--ink-3); font-size:11px; }
+  .mini-right { flex:none; font-variant-numeric:tabular-nums; text-align:right; }
+  .mini-right button { margin-top:4px; }
+
+  .squad-strip { display:flex; align-items:center; gap:2px; overflow-x:auto;
+    padding:4px 2px 8px; }
+  .squad-strip .avatar { border:2px solid var(--panel); }
+  .squad-strip .arrow-between { color:var(--ink-3); flex:none; }
+
+  .char-empty { display:flex; align-items:center; gap:14px;
+    background:var(--bad-soft); border:2px solid var(--bad); border-radius:20px;
+    padding:14px 16px; }
+  .char-empty .avatar { background:var(--panel); box-shadow:none;
+    filter:grayscale(1); opacity:.8; }
+  .char-empty div { color:var(--bad-deep); font-family:var(--display);
+    font-weight:600; font-size:15.5px; }
+  :root[data-theme="dark"] .char-empty div { color:var(--bad); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .char-empty div { color:var(--bad); }
+  }
+
+  /* ---------- roster ---------- */
+  .roster-panel { display:flex; flex-direction:column; gap:14px; }
+  .roster-head { display:flex; align-items:center; justify-content:space-between;
+    gap:10px; }
+  .roster-head h2 { margin:0; font-family:var(--display); font-size:19px; }
+  .roster-legend { font-size:13px; color:var(--ink-2); background:var(--panel-sunk);
+    border-radius:16px; padding:10px 14px; }
+  .role-group { display:flex; flex-direction:column; gap:8px; }
+  .role-group h3 { margin:0; font-family:var(--display); font-size:14.5px;
+    color:var(--ink-2); display:flex; align-items:center; gap:8px; }
+  .roster-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr));
+    gap:10px; }
+  .roster-card { background:var(--panel-sunk); border:1px solid var(--rule);
+    border-radius:18px; padding:10px; display:flex; flex-direction:column;
+    gap:6px; text-align:center; align-items:center; }
+  .roster-card .avatar { margin:0 auto; }
+  .roster-card .char-name { font-size:14px; }
+  .roster-card .char-role { font-size:11px; }
+  .roster-card .char-model { font-size:10px; }
+  .roster-card .lvpill { font-size:10px; }
+  .roster-card .char-wage { font-size:12.5px; text-align:center; }
+  .char-status { font-size:11px; font-weight:700; border-radius:999px;
+    padding:3px 9px; }
+  .char-status.yes { color:var(--good-deep); background:var(--good-soft); }
+  .char-status.no { color:var(--bad-deep); background:var(--bad-soft); }
+  :root[data-theme="dark"] .char-status.yes { color:var(--good); }
+  :root[data-theme="dark"] .char-status.no { color:var(--bad); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .char-status.yes { color:var(--good); }
+    :root:not([data-theme="light"]) .char-status.no { color:var(--bad); }
+  }
+  .roster-card.turned { opacity:.55; }
+  .roster-card.turned .avatar { filter:grayscale(.7); }
+  .close-roster { align-self:center; }
+
   /* ---------- the answer ---------- */
   .answer { position:relative; display:none; flex-direction:column; gap:12px;
     background:var(--panel); border:1px solid var(--rule);
@@ -242,19 +375,6 @@
   .tag.ghost { color:var(--ink-3); background:var(--panel-sunk);
     text-transform:none; letter-spacing:0; font-weight:600; }
   .guide { font-size:14px; color:var(--ink-2); }
-  .pick { font-family:var(--display); font-size:26px; font-weight:700;
-    line-height:1.25; display:flex; flex-wrap:wrap; align-items:center;
-    gap:10px; }
-  .pick .arrow { color:var(--accent-2); }
-  .pick .price { font-size:20px; color:#fff; padding:5px 14px;
-    border-radius:999px;
-    background:linear-gradient(120deg, var(--accent), var(--accent-2));
-    box-shadow:0 6px 16px -8px var(--ring); }
-  .pick .meta { font-size:12px; }
-  .alt { font-size:14px; color:var(--ink-2); background:var(--panel-sunk);
-    border:1px solid var(--rule); border-radius:16px; padding:10px 14px;
-    font-variant-numeric:tabular-nums; display:flex; flex-wrap:wrap;
-    align-items:center; gap:8px; }
   .meta { font-size:13px; color:var(--ink-3); }
   .none { font-family:var(--display); font-size:17px; font-weight:600;
     color:var(--bad-deep); background:var(--bad-soft);
@@ -268,12 +388,20 @@
     border-top:2px dashed var(--rule); padding-top:14px; }
   .verdict span { font-size:13.5px; color:var(--ink-2); }
   .verdict button { padding:11px 18px; font-size:15px; min-height:46px; }
-  .learned { font-size:14px; font-weight:700; border-radius:16px;
-    padding:10px 14px; animation:pop .3s cubic-bezier(.2,.9,.3,1.5) both; }
+  .learned { display:flex; align-items:center; gap:12px; font-size:14px;
+    font-weight:700; border-radius:16px; padding:10px 14px;
+    animation:pop .3s cubic-bezier(.2,.9,.3,1.5) both; }
+  .learned .avatar { box-shadow:none; }
   .learned.up { color:var(--good-deep); background:var(--good-soft);
     border:2px solid var(--good); }
+  .learned.up::before { content:"🎉 LEVEL UP"; font-size:11px;
+    letter-spacing:.06em; background:var(--good); color:#fff;
+    border-radius:999px; padding:3px 9px; flex:none; }
   .learned.down { color:var(--bad-deep); background:var(--bad-soft);
     border:2px solid var(--bad); }
+  .learned.down::before { content:"TRAINING NEEDED"; font-size:11px;
+    letter-spacing:.06em; background:var(--bad); color:#fff;
+    border-radius:999px; padding:3px 9px; flex:none; }
   :root[data-theme="dark"] .learned.up { color:var(--good); }
   :root[data-theme="dark"] .learned.down { color:var(--bad); }
   @media (prefers-color-scheme: dark) {
@@ -305,7 +433,6 @@
   .part { background:var(--panel-sunk); border:1px solid var(--rule);
     border-left:6px solid var(--accent); border-radius:20px; padding:14px;
     display:flex; flex-direction:column; gap:8px; }
-  .part .pick { font-size:20px; }
   .part .verdict { border-top:none; padding-top:2px; }
   .part .line { text-transform:none; letter-spacing:0; font-weight:600;
     font-size:12.5px; }
@@ -372,9 +499,10 @@
     .answer::before { border-radius:24px; }
     .steps { grid-template-columns:1fr; }
     .steps li { flex-direction:row; text-align:left; gap:10px; padding:10px 14px; }
-    .pick { font-size:22px; }
     input[type=text], textarea { font-size:16px; }
     button, a.golink { min-height:48px; }
+    .char-wage { text-align:left; }
+    .char-top { flex-wrap:wrap; }
   }
 </style>
 
@@ -383,16 +511,20 @@
     <div class="mark">🧭</div>
     <h1>Who should do this job?<small>Open Workforce Index</small></h1>
     <p class="sub">Tell it what you need done, in normal words. It looks at
-      every AI model on the roster, throws out the ones that can't do that kind
-      of work, and shows you the cheapest one that can — plus what one good
-      answer should cost.</p>
-    <span class="badge" id="livebadge" hidden>● Live mode — this page can run
-      the job for you</span>
+      every AI worker on the roster, sends home the ones that can't do that
+      kind of work, and introduces you to the cheapest one left who can —
+      plus what one good answer should cost.</p>
+    <div class="heroRow">
+      <span class="badge" id="livebadge" hidden>● Live mode — this page can run
+        the job for you</span>
+      <button type="button" class="teamBtn" id="teamBtn" aria-expanded="false"
+        aria-controls="roster">🧑‍🤝‍🧑 Meet the team</button>
+    </div>
   </header>
 
   <ol class="steps">
     <li><b>1</b><span>Say what you need done</span></li>
-    <li><b>2</b><span>See the best model and its price</span></li>
+    <li><b>2</b><span>Meet the worker picked for you, and its price</span></li>
     <li><b>3</b><span>Run it, then say if it worked</span></li>
   </ol>
 
@@ -400,7 +532,7 @@
     <label class="qlabel" for="q"><span class="dot">1</span> What do you need
       done?</label>
     <p class="hint">Plain words are perfect. If you need two things, say both —
-      each part gets its own model.</p>
+      each part gets its own worker.</p>
     <input type="text" id="q" autocomplete="off" autofocus
       placeholder='e.g. "rewrite this email to the supplier"'>
     <div class="examples">
@@ -424,12 +556,12 @@
         must pass. Leave it empty if you don't care. Try
         <code>contains:thermal</code>, <code>min-words:60</code>,
         <code>json</code>, or <code>regex:…</code>; write anything else in
-        normal words and another model judges it for you on the live
+        normal words and another worker judges it for you on the live
         page.</label>
       <textarea id="checks" rows="3" autocapitalize="off" autocorrect="off"
         spellcheck="false" placeholder="contains:thermal&#10;min-words:60&#10;the tone stays friendly"></textarea>
       <label class="switch"><input type="checkbox" id="confid"><span class="track"></span>
-        <span><b>This is confidential.</b> Only models cleared for confidential
+        <span><b>This is confidential.</b> Only workers cleared for confidential
         material are even considered — it's a hard rule, not a preference. Your
         text stays in this browser until you paste it somewhere
         yourself.</span></label>
@@ -438,23 +570,38 @@
 
   <div class="answer" id="answer" aria-live="polite"></div>
 
+  <section class="card roster-panel" id="roster" hidden aria-label="The team">
+    <div class="roster-head">
+      <h2>🧑‍🤝‍🧑 Meet the team</h2>
+      <button type="button" class="mini no close-roster" id="closeRoster">✕ close</button>
+    </div>
+    <p class="roster-legend">Everyone on the roster, grouped by the job they do.
+      <b>Lv</b> is a cautious reliability score built from real accepted and
+      rejected answers — it starts low and only rises with proof. <b>Wage</b> is
+      what one page of work costs at each worker's published price. Greyed-out
+      workers can't take the job you last asked about, and the badge underneath
+      says why.</p>
+    <div id="rosterBody"></div>
+  </section>
+
   <footer>
     <p><span class="mode">build __BUILT__</span> &nbsp;If that stamp looks old,
       close the tab and open the link again.</p>
     <p><b>The prices are real.</b> They come straight from the providers'
-      published price lists (imported and content-hashed), so the number you
-      see is money, not a guess.</p>
-    <p><b>How good each model is starts as an assumption.</b> Every
-      <b>worked / didn't</b> you tap reshapes it using the same Beta update the
-      main engine uses. On this page that learning lives <b>only in this
-      browser</b> — nobody else sees it (<a href="#" id="reset">reset it</a>).</p>
+      published price lists (imported and content-hashed), so the wage you see
+      on each character card is money, not a guess.</p>
+    <p><b>How good each worker is starts as an assumption.</b> Every
+      <b>worked / didn't</b> you tap reshapes their level using the same Beta
+      update the main engine uses. On this page that learning lives <b>only in
+      this browser</b> — nobody else sees it (<a href="#" id="reset">reset
+      it</a>).</p>
     <p><b>This page ranks on public evidence only.</b> It runs the engine's
       exact arithmetic — same gates, same quality floor, same micros, checked
       against the engine on every build — but it carries no private ledger, so
       a terminal that has lived through real work knows more and may rank
       differently. That gap is the privacy boundary, not a bug.</p>
     <p><b>This page never calls an AI provider.</b> "Run in Claude/ChatGPT"
-      only opens the picked model's own chat with your task already typed in —
+      only opens the picked worker's own chat with your task already typed in —
       your account, your keys.</p>
     <p><b>Want real runs with nothing to install?</b> Open this repo in Claude
       Code and just say the task. On your own machine, run
@@ -673,6 +820,180 @@
     catch (error) { /* older browsers: the card is already on screen */ }
   };
 
+  // ---------------------------------------------------------------------
+  // Character presentation. Purely cosmetic: it turns a bare worker id
+  // like "worker:gpt-5-nano/text" into a face, a name and a job title, all
+  // deterministic from the id so the same worker always looks the same. It
+  // never changes which worker gets picked or what it costs — those numbers
+  // still come straight out of evaluate() above.
+  // ---------------------------------------------------------------------
+  function hashId(s) {
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+    return h >>> 0;
+  }
+  const ROLE_INFO = {
+    text:    { title: "Writer",         face: ["📝","✍️","📰","🖋️","📚","💬"] },
+    extract: { title: "Data Extractor", face: ["🔍","🗂️","🧾","📊","🔎","🗃️"] },
+    code:    { title: "Coder",          face: ["💻","⌨️","🧑‍💻","🛠️","🔧","🚀"] },
+    cad:     { title: "CAD Engineer",   face: ["📐","🧩","⚙️","🏗️","📏","🔩"] },
+    plan:    { title: "Planner",        face: ["🗺️","🧭","📋","🎯","🪜","🧠"] },
+    debug:   { title: "Debugger",       face: ["🐛","🔦","🩺","🧪","🕵️","🔬"] },
+    design:  { title: "Designer",       face: ["🎨","🖌️","✨","🖼️","🪄","💡"] },
+  };
+  const NAME_A = ["Nova","Ace","Byte","Echo","Flux","Iris","Jax","Kai","Luma",
+    "Milo","Nyx","Orin","Pixel","Quill","Rune","Sable","Tessa","Vex","Wren",
+    "Zephyr","Coral","Dash","Ember","Finch","Glyph","Hex"];
+  const NAME_B = ["Sparks","Byte","Quill","Flux","Rook","Vale","Rowan",
+    "Beacon","Wisp","Forge","Marsh","Reed","Storm","Tide","Frost","Ash","Cove"];
+  const TOOL_ICON = { "tool:python-sandbox":"🐍", "tool:cad-kernel":"📐",
+    "tool:web-search":"🌐", "tool:file-io":"📁", "tool:shell":"⌨️",
+    "tool:browser":"🧭" };
+
+  function roleOf(id) {
+    const role = (id.split(":")[1] || "").split("/")[1] || "text";
+    return ROLE_INFO[role] ? role : "text";
+  }
+  function charName(id) {
+    const h = hashId(id);
+    return NAME_A[h % NAME_A.length] + " " + NAME_B[(h >>> 4) % NAME_B.length];
+  }
+  function charFace(id, role) {
+    const set = ROLE_INFO[role].face;
+    return set[hashId(id + ":face") % set.length];
+  }
+  function avatarHue(id) { return hashId(id + ":hue") % 360; }
+  function statLevel(bound) { return Math.max(1, Math.min(20, Math.round(bound * 20))); }
+  function toolIcon(t) { return TOOL_ICON[t] || "🧰"; }
+  function toolLabel(t) { return t.replace(/^tool:/, "").replace(/-/g, " "); }
+
+  function worker(id) {
+    return data().workers.find(w => w.id === id)
+      || { id, tools: [], skills: [], clearance: "private_metadata" };
+  }
+
+  function badgesHTML(w, id) {
+    const model = modelOf(id);
+    const run = LIVE
+      ? ((data().runnable || []).includes(model)
+          ? `<span class="b-run-yes">▶ can run here</span>`
+          : `<span class="b-run-no">🚫 no runner here</span>`)
+      : "";
+    const conf = cleared(w, "confidential_content")
+      ? `<span class="b-conf">🔒 confidential-ready</span>` : "";
+    const tools = (w.tools || []).map(t =>
+      `<span class="b-tool" title="${esc(toolLabel(t))}">${toolIcon(t)} ${esc(toolLabel(t))}</span>`
+    ).join("");
+    return conf + run + tools;
+  }
+
+  // The big character card used for the pick, runner-ups shown in full and
+  // each member of a multi-part squad. `stat` is {mean, bound} for the job
+  // at hand; `price` is the micros total for one accepted answer.
+  function charCardHTML(id, stat, price, kind) {
+    const role = roleOf(id), info = ROLE_INFO[role];
+    const w = worker(id);
+    const level = statLevel(stat.bound);
+    return `<div class="char-card ${kind || ""}">
+      <div class="char-top">
+        <div class="avatar lg" style="--hue:${avatarHue(id)}">${charFace(id, role)}</div>
+        <div class="char-id">
+          <div class="char-name">${esc(charName(id))}</div>
+          <div class="char-role">${info.title}</div>
+          <div class="char-model">runs on ${esc(modelOf(id))} · ${esc(short(id))}</div>
+        </div>
+        ${price != null ? `<div class="char-wage">${$(price)}<small>per answer</small></div>` : ""}
+      </div>
+      <div class="lvrow"><span class="lvpill">Lv ${level}</span>
+        <div class="lvbar"><div class="lvfill" style="width:${Math.round(stat.bound * 100)}%"></div></div>
+      </div>
+      <div class="lvtext">reliable ${Math.round(stat.mean * 100)}% of the time ·
+        worst-case estimate ${Math.round(stat.bound * 100)}%</div>
+      <div class="badges">${badgesHTML(w, id)}</div>
+    </div>`;
+  }
+
+  // A compact one-line character, used for "cheaper on paper" notes and the
+  // more-reliable alternative — a bench character, not the starter.
+  function miniCharHTML(id, rightHTML) {
+    const role = roleOf(id);
+    return `<div class="mini-char">
+      <span class="avatar sm" style="--hue:${avatarHue(id)}">${charFace(id, role)}</span>
+      <span class="mini-name">${esc(charName(id))}
+        <small>${ROLE_INFO[role].title} · ${esc(modelOf(id))}</small></span>
+      <span class="mini-right">${rightHTML}</span>
+    </div>`;
+  }
+
+  function statFor(skill, id, row) {
+    if (row) return { mean: row.mean, bound: row.bound };
+    const p = posterior(skill, id);
+    return { mean: p.a / (p.a + p.b), bound: lcb(p.a, p.b) };
+  }
+
+  // ---- the roster: every worker, browsable, without leaving the page ----
+  let rosterBuilt = false;
+  function rosterCardHTML(w, ctx) {
+    const role = roleOf(w.id), info = ROLE_INFO[role];
+    let sum = 0, n = 0;
+    for (const sk of w.skills) { const p = posterior(sk, w.id); sum += lcb(p.a, p.b); n++; }
+    const bound = n ? sum / n : 0;
+    const level = statLevel(bound);
+    let status = "", turned = false;
+    if (ctx && ctx.skill) {
+      const need = data().skillTools[ctx.skill] || [];
+      if (!w.skills.includes(ctx.skill)) {
+        status = `<span class="char-status no">✗ doesn't do this job</span>`; turned = true;
+      } else if (!need.every(t => w.tools.includes(t))) {
+        status = `<span class="char-status no">✗ missing a tool</span>`; turned = true;
+      } else if (!cleared(w, ctx.privacy)) {
+        status = `<span class="char-status no">✗ not cleared</span>`; turned = true;
+      } else {
+        const p = posterior(ctx.skill, w.id);
+        if (lcb(p.a, p.b) < data().floor) {
+          status = `<span class="char-status no">✗ below quality bar</span>`; turned = true;
+        } else status = `<span class="char-status yes">✓ ready now</span>`;
+      }
+    }
+    return `<div class="roster-card${turned ? " turned" : ""}">
+      <div class="avatar" style="--hue:${avatarHue(w.id)}">${charFace(w.id, role)}</div>
+      <div class="char-name">${esc(charName(w.id))}</div>
+      <div class="char-role">${info.title}</div>
+      <div class="char-model">${esc(modelOf(w.id))}</div>
+      <span class="lvpill">Lv ${level}</span>
+      <div class="char-wage">${$(w.inRate)}<small>per 1M in</small></div>
+      ${status}
+    </div>`;
+  }
+
+  function renderRoster() {
+    const body = document.getElementById("rosterBody");
+    const ctx = window.__ctxSkill ? { skill: window.__ctxSkill, privacy: window.__ctxPrivacy } : null;
+    const byRole = {};
+    for (const w of data().workers) {
+      const role = roleOf(w.id);
+      (byRole[role] = byRole[role] || []).push(w);
+    }
+    body.innerHTML = Object.keys(ROLE_INFO).filter(r => byRole[r]).map(role => `
+      <div class="role-group">
+        <h3>${ROLE_INFO[role].face[0]} ${ROLE_INFO[role].title}s</h3>
+        <div class="roster-grid">${byRole[role].map(w => rosterCardHTML(w, ctx)).join("")}</div>
+      </div>`).join("");
+  }
+
+  function openRoster() {
+    if (!rosterBuilt || window.__ctxSkill !== undefined) { renderRoster(); rosterBuilt = true; }
+    const panel = document.getElementById("roster");
+    panel.hidden = false;
+    document.getElementById("teamBtn").setAttribute("aria-expanded", "true");
+    reveal(panel);
+  }
+  document.getElementById("teamBtn").addEventListener("click", openRoster);
+  document.getElementById("closeRoster").addEventListener("click", () => {
+    document.getElementById("roster").hidden = true;
+    document.getElementById("teamBtn").setAttribute("aria-expanded", "false");
+  });
+
   function render(learnedNote, preferId) {
     const text = document.getElementById("q").value.trim();
     if (!text) return;
@@ -688,6 +1009,8 @@
     const skill = guess(text);
     const privacy = requiredPrivacy();
     window.__privacy = privacy;
+    window.__ctxSkill = skill; window.__ctxPrivacy = privacy;
+    if (rosterBuilt) renderRoster();
     const tokensIn = 1500 + Math.floor(text.length / 4);
     const { rows, turnedAway } = evaluate(skill, tokensIn, 800, privacy);
     const box = document.getElementById("answer");
@@ -700,18 +1023,21 @@
       const why = privacy === "confidential_content"
         ? `<div class="none">Nobody here is allowed to see confidential
            material for this kind of work.</div>
-           <div class="meta">Confidential work belongs to models running on
+           <div class="meta">Confidential work belongs to workers running on
            your own machine — the roster's local-llama (via ollama) is
-           cleared; see docs/ROUTER.md. Cloud models are trusted with
+           cleared; see docs/ROUTER.md. Cloud workers are trusted with
            metadata only. Untick "this is confidential" to see the cloud
            options.</div>`
-        : `<div class="none">Nobody qualified — every model that could do this
+        : `<div class="none">Nobody qualified — every worker who could do this
            has slipped below your quality bar.</div>
            <div class="meta">That is your own feedback speaking: you marked
            them down. Tap "reset it" at the bottom of the page to forgive
            them, or measure for real with the terminal.</div>`;
       box.innerHTML = closeButton + `<div class="tags"><span class="tag">job:
-        ${skill.replace("skill:", "")}</span></div>` + why;
+        ${skill.replace("skill:", "")}</span></div>
+        <div class="char-empty"><div class="avatar">😔</div>${why}</div>
+        <div class="meta">See who was sent home and why in
+        <b>🧑‍🤝‍🧑 Meet the team</b> above.</div>`;
       wireClose();
       reveal(box);
       return;
@@ -723,34 +1049,32 @@
     const best = qualityBest(bench);
     const paper = rows[0].id !== bench[0].id ? rows[0] : null;
     last = { skill, id: top.id };
+    const topStat = statFor(skill, top.id, top);
     box.innerHTML = closeButton + `
       <div class="tags"><span class="tag">job: ${skill.replace("skill:", "")}</span>
         <span class="tag ghost">about ${tokensIn} tokens in · 800 out</span></div>
-      <div class="guide">Here is your worker — the cheapest model that is
-        actually allowed and able to do this job.</div>
-      <div class="pick"><span class="arrow">→</span> ${short(top.id)}
-        <span class="price">${$(top.total)}</span></div>
-      <div class="meta">That is what <b>one answer you accept</b> should cost —
-        the price of a retry if it fails is already baked in.</div>
+      <div class="guide">Meet your worker — the cheapest one who is actually
+        allowed and able to do this job.</div>
+      ${charCardHTML(top.id, topStat, top.total, "pick")}
+      <div class="meta">That wage is what <b>one answer you accept</b> should
+        cost — the price of a retry if it fails is already baked in.</div>
       ${top.id !== cheapest.id ? `<div class="meta">You picked the more
-        reliable one. The cheapest that qualifies is ${short(cheapest.id)}
-        at ${$(cheapest.total)}.</div>` : ""}
-      ${paper ? `<div class="meta">Cheaper on paper: ${short(paper.id)}
-        ${$(paper.total)} — but its phone app drops hand-off links, so it only
-        runs as itself in the router (this repo in Claude Code, or
-        tools/owi-serve).</div>` : ""}
-      ${bench.filter(r => r.id !== top.id).slice(0, 2).map(r => `<div class="alt">
-        <b>runner-up:</b> ${short(r.id)} — ${$(r.total - top.total)} more
-        per answer</div>`).join("")}
-      ${best && best.id !== top.id ? `<div class="alt"><b>Want the most
-        reliable instead?</b> ${short(best.id)} at ${$(best.total)} ·
-        confidence ${best.bound.toFixed(2)} vs ${top.bound.toFixed(2)}
-        <button type="button" class="mini" id="preferq">use it</button></div>` : ""}
-      <div class="meta">Looked at ${data().workers.length} models ·
-        ${turnedAway} were turned away (wrong skills, missing tools, not
-        cleared, or below your quality bar).</div>
+        reliable one. The cheapest that qualifies is ${esc(charName(cheapest.id))}
+        (${short(cheapest.id)}) at ${$(cheapest.total)}.</div>` : ""}
+      ${paper ? miniCharHTML(paper.id, `cheaper on paper<br>${$(paper.total)}`)
+        + `<div class="meta">${esc(charName(paper.id))}'s phone app drops
+           hand-off links, so it only runs as itself in the router (this repo
+           in Claude Code, or tools/owi-serve).</div>` : ""}
+      ${bench.filter(r => r.id !== top.id).slice(0, 2).map(r =>
+        miniCharHTML(r.id, `bench · +${$(r.total - top.total)}`)).join("")}
+      ${best && best.id !== top.id ? miniCharHTML(best.id,
+        `<button type="button" class="mini" id="preferq">👑 hire the most reliable</button>`) : ""}
+      <div class="meta">Looked at ${data().workers.length} workers ·
+        ${turnedAway} were sent home (wrong skills, missing tools, not
+        cleared, or below your quality bar) — see them in Meet the team.</div>
       ${learnedNote ? `<div class="learned ${learnedNote.cls}">
-        ${learnedNote.text}</div>` : ""}
+        <span class="avatar sm" style="--hue:${avatarHue(last.id)}">${charFace(last.id, roleOf(last.id))}</span>
+        <span>${learnedNote.text}</span></div>` : ""}
       ${!LIVE ? (() => {
         const topLaunch = LAUNCH[modelOf(top.id)];
         const links = (!MOBILE && topLaunch) ? `<a class="golink"
@@ -762,7 +1086,7 @@
           : (checks.length ? "Run it there, then paste the result below."
                            : "Run it there, come back, and tell us how it went.");
         const pasteback = checks.length ? `
-          <textarea id="pasteback" rows="4" placeholder="Paste the model's answer here — this page checks it against your checklist, right on your device."></textarea>
+          <textarea id="pasteback" rows="4" placeholder="Paste the worker's answer here — this page checks it against your checklist, right on your device."></textarea>
           <div class="verdict">
             <button type="button" id="checkbtn">Check it against my checklist</button>
             <span id="checkstate" class="meta"></span></div>
@@ -785,10 +1109,10 @@
           (data().runnable || []).includes(modelOf(r.c ? r.c.id : r.id)));
         const target = runnable ? (runnable.c ? runnable.c.id : runnable.id) : null;
         if (!target) return `<div class="meta">No runner is set up for any
-          eligible model here — fill in .owi-quick/runners.json</div>`;
+          eligible worker here — fill in .owi-quick/runners.json</div>`;
         window.__runTarget = target;
         const label = target === top.id ? "▶ Run it now"
-          : `▶ Run with ${short(target)}`;
+          : `▶ Run with ${esc(charName(target))}`;
         const why = target === top.id ? "" : `<span class="meta">
           ${modelOf(top.id)} has no runner on this machine</span>`;
         return `<div class="verdict">
@@ -802,8 +1126,8 @@
         <button type="button" id="yes">👍 It worked</button>
         <button type="button" class="no" id="no">👎 It didn't</button></div>
       <div class="verdict" id="causes" hidden>
-        <span>Whose fault was it? Only "the model" counts against it:</span>
-        <button type="button" data-cause="worker">The model</button>
+        <span>Whose fault was it? Only "the worker" counts against it:</span>
+        <button type="button" data-cause="worker">The worker</button>
         <button type="button" class="no" data-cause="task_spec">My task was unclear</button>
         <button type="button" class="no" data-cause="environment">My own setup</button>
       </div>`;
@@ -912,8 +1236,8 @@
   }
 
   // Several parts: each is classified and staffed on its own bench. A code
-  // part and a text part land on different workers — one model never gets
-  // everything by default.
+  // part and a text part land on different workers — one worker never gets
+  // everything by default. Shown as a squad: one character card per part.
   function renderParts(parts, checks, learnedNote) {
     const box = document.getElementById("answer");
     box.classList.add("show");
@@ -936,39 +1260,41 @@
     const staffed = detail.filter(d => d.top);
     const distinct = new Set(staffed.map(d => d.top.id)).size;
     const total = staffed.reduce((s, d) => s + d.top.total, 0);
+    const strip = detail.map(d => d.top
+      ? `<span class="avatar sm" style="--hue:${avatarHue(d.top.id)}" title="${esc(charName(d.top.id))}">${charFace(d.top.id, roleOf(d.top.id))}</span>`
+      : `<span class="avatar sm" title="unstaffed">❓</span>`
+    ).join(`<span class="arrow-between">→</span>`);
     box.innerHTML = `<button type="button" class="close" id="closeAnswer"
         aria-label="close">✕</button>
-      <div class="tags"><span class="tag">${detail.length} jobs in one</span></div>
+      <div class="tags"><span class="tag">${detail.length} jobs · your squad</span></div>
       <div class="guide">You asked for more than one thing, so each part goes
         to whoever is best and cheapest at <i>that</i> part.</div>
+      <div class="squad-strip">${strip}</div>
       ${detail.map((d, i) => {
         const head = `<div class="line">part ${i + 1} ·
           ${d.skill.replace("skill:", "")} —
           “${esc(d.text.slice(0, 90))}”</div>`;
         if (!d.top) return `<div class="part">${head}
-          <div class="none">Nobody qualified for this part.</div></div>`;
+          <div class="char-empty"><div class="avatar">😔</div>
+          <div class="none" style="border:none;background:none;padding:0">Nobody qualified for this part.</div></div></div>`;
+        const stat = statFor(d.skill, d.top.id, d.top);
         const topLaunch = LAUNCH[modelOf(d.top.id)];
         const link = (!LIVE && !MOBILE && topLaunch) ? `<a class="golink"
             target="_blank" rel="noopener" data-launch="${i}"
             data-worker="${d.top.id}"
             href="${topLaunch.url}${encodeURIComponent(d.text)}"
             >▶ Open in ${topLaunch.name}</a>` : "";
-        const paperNote = (!LIVE && d.paper) ? `<div class="meta">cheaper on
-          paper: ${short(d.paper.id)} ${$(d.paper.total)} — runs as itself
-          only in the router</div>` : "";
+        const paperNote = (!LIVE && d.paper) ? miniCharHTML(d.paper.id,
+          `cheaper on paper<br>${$(d.paper.total)}`) : "";
         const runButton = LIVE ? `<button type="button" class="mini"
             data-run="${i}">▶ run</button>` : "";
-        const quality = d.best && d.best.id !== d.top.id ? `<div class="alt">
-          <b>more reliable:</b> ${short(d.best.id)} ${$(d.best.total)} ·
-          confidence ${d.best.bound.toFixed(2)} vs ${d.top.bound.toFixed(2)}
-          <button type="button" class="mini" data-qswap="${i}">use it</button>
-          </div>` : "";
+        const quality = d.best && d.best.id !== d.top.id ? miniCharHTML(d.best.id,
+          `<button type="button" class="mini" data-qswap="${i}">👑 use instead</button>`) : "";
         const preferred = d.cheapest && d.top.id !== d.cheapest.id
           ? `<div class="meta">picked for quality — the cheapest is
-             ${short(d.cheapest.id)} at ${$(d.cheapest.total)}</div>` : "";
+             ${esc(charName(d.cheapest.id))} (${short(d.cheapest.id)}) at ${$(d.cheapest.total)}</div>` : "";
         return `<div class="part">${head}
-          <div class="pick"><span class="arrow">→</span> ${short(d.top.id)}
-            <span class="price">${$(d.top.total)}</span></div>
+          ${charCardHTML(d.top.id, stat, d.top.total, "squad")}
           ${preferred}${paperNote}${quality}
           <div class="verdict">${runButton}${link}
             <button type="button" class="mini no" data-copy="${i}">📋 copy</button>
@@ -979,11 +1305,10 @@
           <div class="checkrep" id="prep-${i}"></div></div>`;
       }).join("")}
       <div class="meta">All parts together: ${$(total)} ·
-        ${distinct} different model(s)${checks.length
+        ${distinct} different worker(s)${checks.length
           ? " · your checklist applies to single-job asks; the live page writes one per part"
-          : ""}${LIVE ? "" : (MOBILE ? " · copy each part, paste it into your Claude app, then mark worked/didn't here · one-tap real runs: open this repo in Claude Code and say the task" : " · opening a part also copies it · exact-model runs: open this repo in Claude Code and say the task")}</div>
-      ${learnedNote ? `<div class="learned ${learnedNote.cls}">
-        ${learnedNote.text}</div>` : ""}`;
+          : ""}${LIVE ? "" : (MOBILE ? " · copy each part, paste it into your Claude app, then mark worked/didn't here · one-tap real runs: open this repo in Claude Code and say the task" : " · opening a part also copies it · exact-worker runs: open this repo in Claude Code and say the task")}</div>
+      ${learnedNote ? `<div class="learned ${learnedNote.cls}">${learnedNote.text}</div>` : ""}`;
     wireClose();
     reveal(box);
     box.querySelectorAll("[data-copy]").forEach(b => b.onclick = async () => {
@@ -1037,7 +1362,7 @@
       const alt = rows.find(r => (data().runnable || []).includes(modelOf(r.id)));
       if (!alt) { state.textContent = "no runner set up here"; return; }
       who.id = alt.id; model = modelOf(alt.id);
-      state.textContent = `running with ${short(alt.id)} (cheapest one that can run here)…`;
+      state.textContent = `running with ${charName(alt.id)} (cheapest one that can run here)…`;
     } else {
       state.textContent = "running on your own machine…";
     }
@@ -1122,7 +1447,7 @@
         .map(i => `failed: ${i.item} (${i.note})`).join("; ");
       await postOutcome(false, "worker", detail, task, report.items);
       state.textContent =
-        `the checklist failed${judged} → saved as rejected (the model's fault)`;
+        `the checklist failed${judged} → saved as rejected (the worker's fault)`;
       hideManualVerdict();
     } else {
       state.textContent = `some items need a human eye${judged} — your call below`;
@@ -1165,7 +1490,7 @@
         const result = await response.json();
         if (result.ok) { LIVE = result.data;
           render({ cls: worked ? "up" : "down",
-                   text: `${short(last.id)} ${worked ? "gets the credit 🎉"
+                   text: `${esc(charName(last.id))} (${short(last.id)}) ${worked ? "gets the credit 🎉"
                      : "has been marked down"} — saved to your real ledger` });
           return; }
       } catch (error) { /* fall through to browser-only */ }
@@ -1175,7 +1500,8 @@
 
   // The browser-only Beta update, shared by the buttons, the paste-back
   // checker, and per-part verdicts. Only worker-caused failures count
-  // against the model, here too.
+  // against the worker. This is the whole of the "leveling" system — the
+  // celebration above is just how it's shown.
   function learn(worked, cause, who) {
     who = who || last;
     const store = local();
@@ -1186,7 +1512,7 @@
     store[who.skill][who.id] = mine;
     save(store);
     const p = posterior(who.skill, who.id);
-    return `${short(who.id)} ${worked ? "gets the credit 🎉" : "has been marked down"}
+    return `${esc(charName(who.id))} (${short(who.id)}) ${worked ? "gets the credit 🎉" : "has been marked down"}
       — its score for this kind of work is now
       ${(p.a / (p.a + p.b)).toFixed(2)}
       (${mine.s} worked / ${mine.f} didn't, saved in this browser only)`;
