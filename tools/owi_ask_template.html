@@ -223,6 +223,12 @@
   .setup-panel code { margin-top:9px; padding:9px 11px; overflow:auto;
     border-radius:9px; background:#fff; color:#343B49; font:11px/1.5 var(--mono); }
   .setup-panel .setup-note { color:#7A6842; }
+  .setup-panel summary { cursor:pointer; font-weight:650; min-height:44px;
+    display:flex; align-items:center; }
+  .setup-diagnostics { margin:8px 0 14px; display:grid; gap:8px;
+    font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
+  .project-switcher { display:grid; gap:10px; margin-top:20px; }
+  .project-switcher select { width:100%; min-width:0; }
   form.is-disabled { opacity:.52; }
   form button:disabled,.quick-prompts button:disabled { cursor:not-allowed; }
   details { border-top:1px solid var(--rule); padding-top:15px; }
@@ -771,15 +777,24 @@
           <div class="active-project" id="activeProjectSummary" hidden>
             <strong id="activeProjectName"></strong><span id="activeProjectProgress"></span>
           </div>
+          <div class="project-switcher" id="projectSwitcher" hidden>
+            <label class="field"><span>Saved projects</span>
+              <select id="savedProject"><option value="">No saved projects yet</option></select>
+            </label>
+            <button type="button" class="quiet" id="refreshProject">Refresh project</button>
+          </div>
         </aside>
 
         <div class="project-workspace" data-tour-id="task-board">
-          <div class="project-create" id="projectCreateCard" data-tour-id="project-create">
-            <header><div><span class="eyebrow">1 · Create</span>
-              <h2>What are we delivering?</h2>
-              <p>OWI can propose task boundaries. You can add and edit them before staffing.</p>
-            </div></header>
-            <div class="setup-panel" id="setupPanel" hidden>
+          <details class="setup-panel" id="workspaceSetup" hidden>
+            <summary>Workforce setup</summary>
+            <div class="setup-diagnostics" id="setupDiagnostics" role="status"></div>
+            <p>Draft and organise projects now. Connect the engine and your workers when you are ready to run them.</p>
+            <div class="form-actions">
+              <button type="button" class="quiet" id="reloadWorkspace">Reload setup</button>
+              <a href="/help/setup" target="_blank" rel="noopener noreferrer">Setup guide</a>
+            </div>
+            <div id="setupPanel" hidden>
               <strong id="setupTitle">Connect your real workforce</strong>
               <span id="setupMessage"></span>
               <span>Launch with an existing OWI workspace:</span>
@@ -787,6 +802,12 @@
               <span class="setup-note">For an explicitly labelled sample only:</span>
               <code id="setupDemoCommand"></code>
             </div>
+          </details>
+          <div class="project-create" id="projectCreateCard" data-tour-id="project-create">
+            <header><div><span class="eyebrow">1 · Create</span>
+              <h2>What are we delivering?</h2>
+              <p>OWI can propose task boundaries. You can add and edit them before staffing.</p>
+            </div></header>
             <div class="static-notice" id="staticNotice" hidden>
               This published page is a read-only product preview. It cannot access your models or credentials. Open the local OWI Office with <code>tools/owi-serve --home PATH</code> to create, staff and run real projects.
             </div>
@@ -934,8 +955,11 @@
   // it from the visible address immediately so it does not remain in copied
   // links or browser history entries.
   if (location.protocol.startsWith("http")
-      && new URLSearchParams(location.search).has("token"))
-    history.replaceState(null, "", location.pathname + location.hash);
+      && new URLSearchParams(location.search).has("token")) {
+    const cleanUrl = new URL(location.href);
+    cleanUrl.searchParams.delete("token");
+    history.replaceState(null, "", cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+  }
   const KEYWORDS = {
     "skill:python-numerical-implementation":
       ["code","implement","fix","bug","test","function","rust","python",
@@ -1258,6 +1282,44 @@
   let WORKFLOW_PROJECT = null;
   let WORKFLOW_BUSY = false;
   let WORKFLOW_CREATING = false;
+  let WORKFLOW_PROJECTS = [];
+
+  function workflowRememberProject() {
+    if (!LIVE || !WORKFLOW_PROJECT) return;
+    const url = new URL(location.href);
+    url.searchParams.delete("token");
+    url.searchParams.set("project", WORKFLOW_PROJECT.id);
+    history.replaceState(null, "", url.pathname + url.search + url.hash);
+  }
+
+  async function workflowRefreshProjects() {
+    if (!LIVE) return;
+    const payload = await workflowRequest("/api/projects");
+    WORKFLOW_PROJECTS = payload.projects || [];
+    const select = document.getElementById("savedProject");
+    select.innerHTML = '<option value="">Choose a saved project</option>' +
+      WORKFLOW_PROJECTS.map(project => `<option value="${esc(project.id)}">${esc(project.name)} · ${project.taskCount} tasks</option>`).join("");
+    select.value = WORKFLOW_PROJECT ? WORKFLOW_PROJECT.id : "";
+    select.disabled = WORKFLOW_BUSY || !WORKFLOW_PROJECTS.length;
+  }
+
+  async function workflowLoadProject(id) {
+    const payload = await workflowRequest(id
+      ? `/api/projects/${encodeURIComponent(id)}` : "/api/projects/current");
+    WORKFLOW_PROJECT = payload.project || null;
+    WORKFLOW_CREATING = false;
+    workflowRememberProject();
+    workflowRenderProject();
+  }
+
+  async function workflowSetupStatus() {
+    if (!LIVE) return;
+    const status = await workflowRequest("/api/workspace");
+    document.getElementById("setupDiagnostics").innerHTML =
+      `<div><b>Engine:</b> ${esc(status.engine)}</div><div><b>Workforce:</b> ${esc(status.catalog)}</div>` +
+      `<div><b>Runner bindings:</b> ${status.runnerCount} configured (provider access is checked when a task runs)</div>` +
+      `<div><b>Workspace:</b> ${esc(status.home)}</div><div><b>Runner file:</b> ${esc(status.runnerFile)}</div>`;
+  }
 
   const workflowStatusLabel = (status) => ({
     draft: "draft", unstaffed: "needs staffing", staffed: "staffed",
@@ -1913,7 +1975,7 @@
       const payload = await managerRequest(
         `${MANAGER_BASE}/work-items/${encodeURIComponent(MANAGER_DETAIL.id)}/import`,
         { method: "POST", body });
-      if (payload.project) WORKFLOW_PROJECT = payload.project;
+      workflowUsePayload(payload);
       const created = Boolean(payload.import && payload.import.created);
       const importedProjectId = payload.project && payload.project.id;
       const importedTaskId = payload.task && payload.task.id;
@@ -2009,6 +2071,7 @@
     }
     document.querySelectorAll("[data-workflow-action]").forEach(control =>
       control.disabled = true);
+    workflowApplyRuntime();
     return true;
   }
 
@@ -2033,8 +2096,8 @@
     const privacy = document.getElementById("projectPrivacy").value;
     const sensitive = privacy === "confidential_content" || privacy === "secret";
     const planning = document.getElementById("usePlanningModel");
-    if (sensitive) planning.checked = false;
-    planning.disabled = !configured || sensitive;
+    if (sensitive || !configured) planning.checked = false;
+    planning.disabled = WORKFLOW_BUSY || !configured || sensitive;
     document.getElementById("planningPrivacyNote").textContent = sensitive
       ? "Model planning is disabled for Confidential and Secret projects so the project goal is not sent to a planning model. Add or edit the deterministic draft tasks yourself."
       : "Optional and unchecked by default. It may cost money, and that unmetered planning call is outside the task-forecast budget.";
@@ -2054,8 +2117,13 @@
     connection.classList.toggle("attention", isStatic || !configured || demo || !runnable.length);
     staticNotice.hidden = !isStatic;
     setupPanel.hidden = isStatic || configured;
+    document.getElementById("workspaceSetup").hidden = isStatic;
+    document.getElementById("projectSwitcher").hidden = isStatic;
+    document.getElementById("savedProject").disabled = WORKFLOW_BUSY || !WORKFLOW_PROJECTS.length;
+    document.getElementById("refreshProject").disabled = WORKFLOW_BUSY || isStatic;
+    document.getElementById("reloadWorkspace").disabled = WORKFLOW_BUSY || isStatic;
     form.querySelectorAll("input,textarea,select,button").forEach(control => {
-      if (control.id !== "backToProject") control.disabled = isStatic || !configured;
+      if (control.id !== "backToProject") control.disabled = isStatic || WORKFLOW_BUSY;
     });
     workflowSyncPlanningPrivacy(configured);
 
@@ -2080,13 +2148,15 @@
         setup.existingCommand || "tools/owi-serve --home PATH";
       document.getElementById("setupDemoCommand").textContent =
         setup.demoCommand || "tools/owi-serve --demo";
-      document.getElementById("officeStatus").textContent = "Connect your workforce";
+      document.getElementById("officeStatus").textContent = "Start with your first project";
       document.getElementById("officeIntro").textContent =
-        "The office needs a stored roster snapshot, price evidence and exact worker runners before it can staff or run work.";
+        "Write your goal, organise tasks and save your work now. Connect your workforce before staffing or running tasks.";
+      document.getElementById("officeCta").textContent = WORKFLOW_PROJECT
+        ? "Open active project" : "Create a project";
       document.getElementById("footerTruth").textContent =
-        "No model, price, assignment or result is shown until a real OWI workspace and exact worker-ID runner bindings are connected.";
+        "Projects and drafts are saved locally. Staffing and execution require a configured workforce; creating a draft does not call a model.";
       document.getElementById("spendEvidence").textContent =
-        "No private ledger is active";
+        "Drafting makes no provider calls";
       return;
     }
     label.textContent = demo ? "local office · explicit demo" :
@@ -2177,7 +2247,8 @@
     const maxAttempts = Number.isFinite(Number(task.maxAttempts))
       ? Number(task.maxAttempts) : 2;
     const hasAttempt = attempts < maxAttempts;
-    const exactRunner = task.runnerReady === true && task.runnerBinding === "worker";
+    const exactRunner = Boolean(LIVE && data().configured)
+      && task.runnerReady === true && task.runnerBinding === "worker";
     const canRun = status === "staffed" && exactRunner && hasAttempt;
     const canRetry = ["needs_review", "rejected", "run_failed"].includes(status)
       && exactRunner && hasAttempt;
@@ -2237,6 +2308,7 @@
   }
 
   function workflowRenderProject() {
+    workflowApplyRuntime();
     const createCard = document.getElementById("projectCreateCard");
     const board = document.getElementById("projectBoard");
     const summary = document.getElementById("activeProjectSummary");
@@ -2317,7 +2389,10 @@
       : `<div class="empty-board">No tasks were returned. Add a concrete task, then staff it.</div>`;
     const needsStaffing = tasks.some(task =>
       ["draft", "unstaffed", "setup_required"].includes(task.status));
-    document.getElementById("staffProject").disabled = WORKFLOW_BUSY || !needsStaffing;
+    document.getElementById("staffProject").disabled = WORKFLOW_BUSY || !needsStaffing || !data().configured;
+    if (!data().configured) document.querySelectorAll(
+      '[data-workflow-action="staff"],[data-workflow-action="restaff"],[data-workflow-action="accept"],[data-workflow-action="confirm-reject"]'
+    ).forEach(control => control.disabled = true);
     workflowRenderProjectResults();
   }
 
@@ -2346,6 +2421,8 @@
   function workflowUsePayload(payload) {
     if (payload && payload.project) WORKFLOW_PROJECT = payload.project;
     WORKFLOW_CREATING = false;
+    workflowRememberProject();
+    workflowRefreshProjects().catch(error => workflowNotice(workflowErrorMessage(error), true));
     workflowRenderProject();
   }
 
@@ -2487,6 +2564,37 @@
   }
 
   document.getElementById("projectForm").addEventListener("submit", workflowCreateProject);
+  document.getElementById("savedProject").addEventListener("change", async event => {
+    const id = event.target.value;
+    if (!id || WORKFLOW_BUSY) return;
+    if (!workflowSetBusy(null, "")) return;
+    try { await workflowLoadProject(id); workflowNotice("Saved project opened."); }
+    catch (error) { workflowNotice(workflowErrorMessage(error), true); }
+    finally { workflowClearBusy(null); }
+  });
+  document.getElementById("refreshProject").addEventListener("click", async event => {
+    const button = event.currentTarget;
+    if (!workflowSetBusy(button, "Refreshing…")) return;
+    try {
+      await workflowLoadProject(WORKFLOW_PROJECT && WORKFLOW_PROJECT.id);
+      await workflowRefreshProjects();
+      workflowNotice("Project refreshed from the local workspace.");
+    } catch (error) { workflowNotice(workflowErrorMessage(error), true); }
+    finally { workflowClearBusy(button); }
+  });
+  document.getElementById("reloadWorkspace").addEventListener("click", async event => {
+    const button = event.currentTarget;
+    if (!workflowSetBusy(button, "Checking setup…")) return;
+    try {
+      LIVE = await workflowRequest("/api/workspace/reload", {method: "POST", body: {}});
+      await workflowSetupStatus();
+      renderCrew(); renderResults();
+      workflowNotice(LIVE.configured
+        ? "Workforce reloaded. Staff tasks to apply updated runner bindings."
+        : "Drafting is available. Complete the remaining setup steps before staffing.");
+    } catch (error) { workflowNotice(workflowErrorMessage(error), true); }
+    finally { workflowClearBusy(button); }
+  });
   document.getElementById("projectPrivacy").addEventListener("change", () =>
     workflowSyncPlanningPrivacy(Boolean(LIVE && data().configured !== false)));
   document.getElementById("taskForm").addEventListener("submit", workflowAddTask);
@@ -2551,10 +2659,15 @@
     workflowApplyRuntime();
     renderCrew();
     renderResults();
-    if (LIVE && data().configured !== false) {
+    if (LIVE) {
       try {
-        const payload = await workflowRequest("/api/projects/current");
-        WORKFLOW_PROJECT = payload.project || null;
+        await workflowSetupStatus();
+        document.getElementById("workspaceSetup").open = !data().configured;
+        await workflowRefreshProjects();
+        const requested = new URLSearchParams(location.search).get("project");
+        const exists = WORKFLOW_PROJECTS.some(project => project.id === requested);
+        await workflowLoadProject(exists ? requested : null);
+        document.getElementById("savedProject").value = WORKFLOW_PROJECT ? WORKFLOW_PROJECT.id : "";
       } catch (error) { workflowNotice(workflowErrorMessage(error), true); }
     }
     workflowRenderProject();

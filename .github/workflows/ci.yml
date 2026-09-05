@@ -13,6 +13,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  local-launch:
+    name: Local launch without Rust or provider credentials
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 tools/check_launch_readiness.py
+
   rust:
     name: Rust workspace
     runs-on: ubuntu-latest

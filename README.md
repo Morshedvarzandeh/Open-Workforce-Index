@@ -1,5 +1,12 @@
 # Open Workforce Index
 
+**Start with the Office:** run `python3 tools/owi-serve`, open the complete
+local link printed in the terminal, and create your first project. Drafts work
+with Python 3.10+ alone. Use **Saved projects** to return to earlier work and
+**Workforce setup → Reload setup** after configuring your engine or runners.
+See the [step-by-step setup guide](docs/GETTING_STARTED.md) and
+[launch review](docs/LAUNCH_REVIEW.md) for the current release boundary.
+
 Open Workforce Index (OWI) is a local-first, provider-neutral system for using
 AI models as a measured workforce. It selects the lowest expected-cost worker
 that can satisfy a task's quality, latency, privacy, tool, and budget
@@ -70,8 +77,9 @@ The [seven-pass visual review](docs/design/training-tour-iterations.md) records
 the desktop, tablet, phone, landscape, accessibility, and adversarial checks.
 
 Unlike `owi-do`, the application does **not** silently create the demo roster.
-With no configured index it opens an honest setup screen containing no models,
-abilities, recommendations, or costs. Point it at an existing OWI workspace,
+With no configured index it lets you save and edit local draft projects, while
+showing setup guidance and no models, abilities, recommendations, or costs.
+Staffing, paid planning and execution remain gated. Point it at an existing OWI workspace,
 or request the labelled sample explicitly:
 
 ```bash

@@ -28,22 +28,12 @@ accepted?  [y/n]  ──►  verified outcome in the private ledger
                         └───────────────────────┘
 ```
 
-## Level 0 — the link (zero install)
+## Level 0 — the static preview
 
-Open the ask page, type a task, press enter.
-
-- picks the cheapest qualified model at real prices
-- a task that says "do X, then Y" is cut into parts right in the page
-  (sequence markers, newlines, numbered steps — mechanical and visible);
-  each part is classified and staffed on its own bench with its own launch
-  button and verdict, so a code part and a CAD part land on different
-  workers instead of one model getting everything
-- give a checklist and it travels with the task; paste the result back and
-  the mechanical items are verified right in the page — the verdict feeds
-  the same learning update, no server involved
-- `worked` / `didn't` applies the engine's own Beta update, stored in that
-  browser only — the page says so itself
-- cannot execute: a published page holds no credentials by design
+An exported Office page is a read-only preview. It can show the catalog and
+training tour, but cannot create persisted projects, staff tasks or execute
+workers. For real work, start the local application below; do not mistake the
+static page for a connected workspace.
 
 ## Level 1 — one command
 
@@ -95,6 +85,12 @@ recorded: accepted — the next pick will know
 ```bash
 tools/owi-serve        # opens a token-gated local URL
 ```
+
+On a fresh workspace you can immediately create and edit drafts with Python
+alone. Open **Workforce setup** to see what is missing before staffing, then
+press **Reload setup** after configuring the engine, index or runner file.
+**Saved projects** reopens older projects and **Refresh project** retrieves
+their latest state. See [Getting started](GETTING_STARTED.md) for each step.
 
 This is a persisted project workflow, not a browser-only task splitter:
 

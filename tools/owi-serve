@@ -94,6 +94,26 @@ def setup_payload(home: Path, problem: str | None = None) -> dict:
     }
 
 
+def workspace_status(home: Path, data: dict) -> dict:
+    """Read setup diagnostics without building the engine or invoking a runner."""
+    try:
+        command = owi_do.resolve_owi_command()
+        engine = ("Build on first use" if "workforce-cli" in command
+                  else "Installed")
+    except owi_do.OwiSetupError:
+        engine = "Missing — install Rust/Cargo or set OWI_BIN to an OWI binary"
+    return {
+        "home": str(home),
+        "engine": engine,
+        "catalog": (f"{len(data.get('workers', []))} workers loaded"
+                    if data.get("configured") else
+                    data.get("setup", {}).get("message", "Not configured")),
+        "runnerCount": len(data.get("runnable", [])),
+        "runnerFile": str(home / "runners.json"),
+        "mode": data.get("mode", "unconfigured"),
+    }
+
+
 def stored_catalog(home: Path) -> dict:
     """Read the exact workers and prices in the newest stored snapshot.
 
@@ -344,6 +364,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("X-Frame-Options", "DENY")
         if set_cookie and self.token:
             self.send_header("Set-Cookie",
                              f"owi_token={self.token}; HttpOnly; "
@@ -446,6 +468,20 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802 (stdlib naming)
         if not self._authorized():
+            if self._route() == "/":
+                self._send(401, (
+                    '<!doctype html><html lang="en"><meta charset="utf-8">'
+                    '<meta name="viewport" content="width=device-width,initial-scale=1">'
+                    '<title>Open your OWI Office</title>'
+                    '<body style="font:18px/1.6 system-ui;max-width:560px;'
+                    'margin:12vh auto;padding:24px;background:#f8f9fb;color:#243047">'
+                    '<h1>Open your private Office</h1>'
+                    '<p>Use the full link printed in the terminal where you started OWI. '
+                    'It includes the access token for this session.</p>'
+                    '<p>If you restarted the server, open its new link. '
+                    'Your saved projects will still be there.</p></body></html>'
+                ).encode(), "text/html; charset=utf-8")
+                return
             self._json(401, {"error": "missing or wrong token — open "
                                       "/?token=<the token the server printed>"})
             return
@@ -453,18 +489,33 @@ class Handler(BaseHTTPRequestHandler):
         if route == "/":
             template = inline_office_assets(
                 (TOOLS / "owi_ask_template.html").read_text())
-            with self.lock:
-                payload = json.dumps(self.data).replace("</", "<\\/")
+            # Runtime snapshots are replaced atomically, never mutated in place.
+            # A model run may hold the mutation lock for minutes; page loads
+            # and status reads must remain available throughout that run.
+            payload = json.dumps(self.data).replace("</", "<\\/")
             page = (template.replace("__DATA__", payload)
                     .replace("__BUILT__", "local — always current"))
             self._send(200, page.encode(), "text/html; charset=utf-8",
                        set_cookie=True)
         elif route == "/api/data":
-            with self.lock:
-                self._json(200, self.data)
+            self._json(200, self.data)
+        elif route == "/api/workspace":
+            self._json(200, workspace_status(self.home, self.data))
+        elif route == "/help/setup":
+            self._send(200, (REPO / "docs" / "GETTING_STARTED.md").read_bytes(),
+                       "text/plain; charset=utf-8")
+        elif route == "/api/projects":
+            self._workflow_reply(
+                lambda workflow: {"projects": workflow.list_projects()}
+            )
         elif route == "/api/projects/current":
             self._workflow_reply(
                 lambda workflow: {"project": workflow.current()}
+            )
+        elif (match := re.fullmatch(r"/api/projects/([^/]+)", route)):
+            project_id = unquote(match.group(1))
+            self._workflow_reply(
+                lambda workflow: {"project": workflow.get_project(project_id)}
             )
         elif route == "/api/v1/github/status":
             self._github_reply(lambda manager: manager.status())
@@ -495,7 +546,20 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {"error": "request body must be one JSON object"})
             return
         route = self._route()
-        if (match := re.fullmatch(
+        if route == "/api/workspace/reload":
+            if body:
+                self._json(400, {"error": "reload body must be empty"})
+                return
+            # Do not queue a setup reload behind a paid model invocation.
+            if not self.lock.acquire(blocking=False):
+                self._json(409, {"error": "Work is in progress. Reload setup after it finishes."})
+                return
+            try:
+                Handler.data = load_workspace(self.home)
+                self._json(200, self.data)
+            finally:
+                self.lock.release()
+        elif (match := re.fullmatch(
                 r"/api/v1/github/repositories/([0-9]+)/sync", route)):
             if body:
                 self._json(400, {"error": "sync body must be an empty JSON object",
@@ -511,17 +575,17 @@ class Handler(BaseHTTPRequestHandler):
                 item_id, body, self._workflow_service()
             ))
         elif route == "/api/projects":
-            if not self.data.get("configured"):
-                self._json(409, {"error": "configure a real OWI workspace first"})
+            # Local drafts need neither a model catalog nor provider access.
+            # Explicit paid planning still requires a configured workspace.
+            if (not self.data.get("configured") and
+                    (body.get("usePlanningModel") or body.get("usePlanner"))):
+                self._json(409, {"error": "configure a workforce before using model planning"})
                 return
             with self.lock:
                 self._workflow_reply(
                     lambda workflow: {"project": workflow.create_project(body)}
                 )
         elif (match := re.fullmatch(r"/api/projects/([^/]+)/tasks", route)):
-            if not self.data.get("configured"):
-                self._json(409, {"error": "configure a real OWI workspace first"})
-                return
             project_id = unquote(match.group(1))
             with self.lock:
                 self._workflow_reply(lambda workflow: dict(zip(
@@ -542,13 +606,20 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(409, {"error": "configure a real OWI workspace first"})
                 return
             project_id, task_id = (unquote(value) for value in match.groups())
-            with self.lock:
+            # A duplicate click or a second tab must not queue another paid
+            # invocation to start as soon as the first one finishes.
+            if not self.lock.acquire(blocking=False):
+                self._json(409, {"error": "Work is already in progress. Refresh the project to see its status."})
+                return
+            try:
                 def run(workflow):
                     project, task = workflow.run_task(project_id, task_id)
                     if task["status"] in ("accepted", "rejected"):
                         Handler.data = harvest(self.home)
                     return {"project": project, "task": task}
                 self._workflow_reply(run)
+            finally:
+                self.lock.release()
         elif (match := re.fullmatch(
                 r"/api/projects/([^/]+)/tasks/([^/]+)/review", route)):
             if not self.data.get("configured"):
@@ -581,9 +652,6 @@ class Handler(BaseHTTPRequestHandler):
         if not self._trusted_post_origin():
             self._json(403, {"error": "cross-origin PATCH rejected"})
             return
-        if not self.data.get("configured"):
-            self._json(409, {"error": "configure a real OWI workspace first"})
-            return
         match = re.fullmatch(
             r"/api/projects/([^/]+)/tasks/([^/]+)", self._route()
         )
@@ -607,9 +675,6 @@ class Handler(BaseHTTPRequestHandler):
             return
         if not self._trusted_post_origin():
             self._json(403, {"error": "cross-origin DELETE rejected"})
-            return
-        if not self.data.get("configured"):
-            self._json(409, {"error": "configure a real OWI workspace first"})
             return
         match = re.fullmatch(
             r"/api/projects/([^/]+)/tasks/([^/]+)", self._route()
@@ -667,7 +732,10 @@ def main() -> int:
                                      else ".owi-quick")
     Handler.home = home
     Handler.token = arguments.token or secrets.token_urlsafe(24)
-    Handler.data = prepare_workspace(home, arguments.demo)
+    try:
+        Handler.data = prepare_workspace(home, arguments.demo)
+    except (owi_do.OwiSetupError, OSError, SystemExit) as error:
+        parser.error(str(error))
     Handler.workflow = WorkflowService(home, owi_do, stored_catalog)
     try:
         github_config = GitHubConfig.load(

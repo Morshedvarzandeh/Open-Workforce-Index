@@ -423,6 +423,23 @@ class WorkflowService:
             ).fetchone()
             return self._project_dict(connection, row) if row else None
 
+    def list_projects(self) -> list[dict]:
+        """List saved projects without loading every task output into the page."""
+        if self.path.is_symlink():
+            raise WorkflowProblem("workflow database may not be a symlink", 409)
+        if not self.path.exists():
+            return []
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT p.id, p.name, p.status, p.updated_at, "
+                "COUNT(t.id) AS task_count FROM projects p "
+                "LEFT JOIN tasks t ON t.project_id=p.id GROUP BY p.id "
+                "ORDER BY p.created_at DESC, p.rowid DESC"
+            ).fetchall()
+            return [{"id": row["id"], "name": row["name"],
+                     "status": row["status"], "updatedAt": row["updated_at"],
+                     "taskCount": row["task_count"]} for row in rows]
+
     def recover_interrupted_runs(self) -> int:
         """On server startup, turn abandoned `running` rows into retryable facts."""
         if self.path.is_symlink() or not self.path.exists():
