@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+"""Export and restore what the roster learned.
+
+    tools/owi-ledger export --out learned.json     # redacted statistics
+    tools/owi-ledger restore --in learned.json     # into a fresh ledger
+    tools/owi-ledger show --in learned.json        # what is in a summary
+
+The ledger itself is not in git and should not be: it holds task text. What
+leaves is who did what work and how often it was accepted — the same line the
+prevention memory already draws for confidential failures.
+
+Run `export` whenever a machine holds learning you would mind losing. A
+container that is reclaimed takes the ledger with it, and the failure is
+silent: the roster reverts to shipped assumptions and the next decision looks
+exactly like a decision made on evidence.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import owi_ledger  # noqa: E402
+
+REPO = Path(__file__).resolve().parent.parent
+
+
+def owi(*args: str) -> dict:
+    completed = subprocess.run(
+        ["cargo", "run", "-q", "-p", "workforce-cli", "--", *args],
+        cwd=REPO, capture_output=True, text=True)
+    if completed.returncode != 0:
+        sys.stderr.write(completed.stderr[-1200:])
+        raise SystemExit(f"owi {args[0]} failed")
+    return json.loads(completed.stdout) if completed.stdout.strip() else {}
+
+
+def show(summary: dict) -> None:
+    print(f"{summary['version']} · exported {summary['exported_at']}")
+    print(f"{summary['source_outcome_count']} outcomes → "
+          f"{len(summary['statistics'])} worker × skill pairs · "
+          f"sha256 {summary['content_sha256'][:16]}")
+    print()
+    print(f"  {'worker':32} {'skill':38} {'acc':>4} {'rej':>4} {'exc':>4}")
+    for row in summary["statistics"]:
+        print(f"  {row['worker_id']:32} "
+              f"{row['skill_id'].replace('skill:', ''):38} "
+              f"{row['accepted']:4} {row['rejected_worker']:4} "
+              f"{row['excused']:4}")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    exporter = sub.add_parser("export", help="write redacted statistics")
+    exporter.add_argument("--home", type=Path, default=REPO / ".owi-quick")
+    exporter.add_argument("--out", type=Path, required=True)
+
+    restorer = sub.add_parser("restore", help="seed a ledger from a summary")
+    restorer.add_argument("--home", type=Path, default=REPO / ".owi-quick")
+    restorer.add_argument("--in", dest="source", type=Path, required=True)
+    restorer.add_argument("--dry-run", action="store_true")
+
+    viewer = sub.add_parser("show", help="print what a summary contains")
+    viewer.add_argument("--in", dest="source", type=Path, required=True)
+
+    args = parser.parse_args()
+
+    if args.command == "show":
+        show(json.loads(args.source.read_text()))
+        return 0
+
+    if args.command == "export":
+        try:
+            summary = owi_ledger.summarize(args.home / "local.sqlite")
+        except FileNotFoundError as error:
+            raise SystemExit(str(error))
+        args.out.write_text(json.dumps(summary, indent=2) + "\n")
+        show(summary)
+        print()
+        print(f"written to {args.out}")
+        print("  This is a SUMMARY, not the ledger. Restoring it rebuilds the")
+        print("  posteriors, not the individual outcomes — and every restored")
+        print("  record says so, so it can never pass as fresh measurement.")
+        return 0
+
+    summary = json.loads(args.source.read_text())
+    records = owi_ledger.restore_records(summary)
+    if args.dry_run:
+        print(json.dumps(records[:3], indent=2))
+        print(f"... {len(records)} record(s) total (showing 3)")
+        return 0
+
+    local = args.home / "local.sqlite"
+    if not local.exists():
+        raise SystemExit(f"no ledger at {local} — run tools/owi-do once first")
+    written = 0
+    with tempfile.TemporaryDirectory(prefix="owi-restore-") as scratch:
+        for record in records:
+            path = Path(scratch) / "record.json"
+            path.write_text(json.dumps(record))
+            owi("outcome", "--local", str(local), "--input", str(path))
+            written += 1
+    print(f"restored {written} outcome(s) from "
+          f"{summary['content_sha256'][:16]} into {local}")
+    print("  Marked as restored, never as measured. Re-benching replaces")
+    print("  them with the real thing.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

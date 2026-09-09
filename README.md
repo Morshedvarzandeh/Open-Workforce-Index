@@ -52,6 +52,26 @@ tools/owi-serve        # open http://127.0.0.1:7787
 The complete workflow, every level from this link to real measurement, is
 written in [docs/WORKFLOW.md](docs/WORKFLOW.md).
 
+### Learning that outlives the machine
+
+The private ledger is not in git, and should not be — it holds task text. But
+that means the roster's accumulated evidence lives in exactly one place, and a
+reclaimed container takes it with no error and no warning: the next decision
+quietly falls back to the shipped assumptions while looking exactly like a
+decision made on evidence.
+
+```bash
+tools/owi-ledger export --out learned.json    # redacted statistics
+tools/owi-ledger restore --in learned.json    # into a fresh ledger
+```
+
+What leaves is who did what work, how often it was accepted, and whether a
+rejection counted — never task text, failure detail or checklist contents.
+Restoring rebuilds the posteriors exactly, and every restored record is marked
+`self_reported` and `restored_from_summary` with the digest it came from, so a
+number inherited from a machine that no longer exists can always be told apart
+from one measured here. Re-benching replaces it with the real thing.
+
 ### Work that must not leave the machine
 
 Confidentiality is a gate, not a preference. A task marked `--privacy

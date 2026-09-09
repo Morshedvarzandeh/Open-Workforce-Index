@@ -819,5 +819,95 @@
     "unquoted_command": "claude --model claude-haiku-4-5 -p",
     "adapter_rejects_leading_flag": true,
     "adapter_flag_exit_code": 2
+  },
+  "ledger_durability_expectations": {
+    "_why": [
+      "A daily learning loop ran for eleven benchmark rounds and roughly a",
+      "hundred and twenty measured code outcomes. All of it lived only in",
+      ".owi-quick/local.sqlite, which is gitignored -- correctly, because",
+      "the private ledger holds task text and a public repository is the",
+      "wrong place for it. Then the container was reclaimed.",
+      "",
+      "Nothing errored. Nothing was corrupted. Every posterior the roster",
+      "had earned simply stopped existing, and the next decision was made",
+      "on the shipped vendor_reported assumptions while looking exactly",
+      "like a decision made on evidence. That is the worst shape a failure",
+      "can take here: silent, and indistinguishable from success.",
+      "",
+      "The gitignore is not the bug. The missing export is. What can safely",
+      "leave a machine is REDACTED STATISTICS -- who did what work, how",
+      "often it was accepted, and whether a rejection counted -- and never",
+      "task text, failure detail or checklist contents. That is the same",
+      "line the prevention memory already draws for confidential failures,",
+      "applied to the whole ledger instead of to one privacy level.",
+      "",
+      "A summary is not the ledger, and restoring one must never pretend",
+      "otherwise. Restored records are validation_kind self_reported and",
+      "carry restored_from_summary with the digest they came from, so a",
+      "posterior rebuilt from a machine that no longer exists can always",
+      "be told apart from one measured here. Excused rejections are not",
+      "restored at all: they never counted, and expanding them would",
+      "invent evidence the original ledger deliberately withheld."
+    ],
+    "summary_version": "owi-ledger-summary@1",
+    "allowed_summary_keys": [
+      "version",
+      "exported_at",
+      "source_outcome_count",
+      "statistics",
+      "content_sha256"
+    ],
+    "allowed_statistic_keys": [
+      "worker_id",
+      "skill_id",
+      "accepted",
+      "rejected_worker",
+      "excused",
+      "first_observed_at",
+      "last_observed_at"
+    ],
+    "forbidden_keys": [
+      "task",
+      "detail",
+      "checklist",
+      "metadata_json",
+      "metadata",
+      "summary",
+      "note"
+    ],
+    "restored_validation_kind": "self_reported",
+    "restored_marker": "restored_from_summary",
+    "excused_are_not_restored": true,
+    "round_trip_is_exact": true,
+    "fixture": {
+      "outcomes": [
+        {
+          "worker_id": "worker:a/text",
+          "skill_id": "skill:text-editing",
+          "accepted": true,
+          "count": 3
+        },
+        {
+          "worker_id": "worker:a/text",
+          "skill_id": "skill:text-editing",
+          "accepted": false,
+          "root_cause": "worker",
+          "count": 2
+        },
+        {
+          "worker_id": "worker:a/text",
+          "skill_id": "skill:text-editing",
+          "accepted": false,
+          "root_cause": "environment",
+          "count": 1
+        }
+      ],
+      "expected_statistic": {
+        "accepted": 3,
+        "rejected_worker": 2,
+        "excused": 1
+      },
+      "expected_restored_record_count": 5
+    }
   }
 }

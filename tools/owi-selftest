@@ -746,6 +746,72 @@ def run(no_cargo: bool) -> int:
                         and "positionally" in done.stderr,
                         f"exit {done.returncode}: {done.stderr[:120]}")
 
+    durability = frozen.get("ledger_durability_expectations")
+    if durability:
+        # Learning that exists in exactly one ephemeral place is learning you
+        # are going to lose, quietly, and be unable to tell you lost.
+        print("\nledger durability (learning that outlives the machine)")
+        import sqlite3 as _sqlite3
+
+        import owi_ledger
+        fixture = durability["fixture"]
+        with tempfile.TemporaryDirectory() as scratch:
+            ledger = Path(scratch) / "local.sqlite"
+            connection = _sqlite3.connect(ledger)
+            connection.execute(
+                "CREATE TABLE outcome_events (id TEXT PRIMARY KEY, "
+                "worker_id TEXT, skill_id TEXT, accepted INTEGER, "
+                "metadata_json TEXT, observed_at TEXT)")
+            row = 0
+            for entry in fixture["outcomes"]:
+                for _ in range(entry["count"]):
+                    row += 1
+                    metadata = ({} if entry["accepted"]
+                                else {"root_cause": entry["root_cause"]})
+                    connection.execute(
+                        "INSERT INTO outcome_events VALUES (?,?,?,?,?,?)",
+                        (f"outcome:{row}", entry["worker_id"],
+                         entry["skill_id"], int(entry["accepted"]),
+                         json.dumps(metadata), f"2026-09-09T05:{row:02d}:00Z"))
+            connection.commit()
+            connection.close()
+
+            summary = owi_ledger.summarize(ledger)
+            statistic = summary["statistics"][0]
+            for field, want in fixture["expected_statistic"].items():
+                suite.check(f"the summary counts {field} the way the "
+                            f"posterior does",
+                            statistic[field] == want,
+                            f"got {statistic[field]}, want {want}")
+            suite.check("only the allowed keys leave the machine",
+                        set(summary) == set(durability["allowed_summary_keys"])
+                        and set(statistic)
+                        == set(durability["allowed_statistic_keys"]),
+                        f"got {sorted(summary)} / {sorted(statistic)}")
+            blob = json.dumps(summary)
+            suite.check("no content-bearing field appears anywhere in it",
+                        not any(f'"{key}"' in blob
+                                for key in durability["forbidden_keys"]))
+
+            records = owi_ledger.restore_records(summary)
+            suite.check("excused rejections are never restored",
+                        len(records)
+                        == fixture["expected_restored_record_count"],
+                        f"got {len(records)}")
+            suite.check("a restored outcome never claims to be measured",
+                        all(r["event"]["validation_kind"]
+                            == durability["restored_validation_kind"]
+                            and r["event"]["metadata"].get(
+                                durability["restored_marker"]) is True
+                            and r["event"]["metadata"]["summary_sha256"]
+                            == summary["content_sha256"]
+                            for r in records))
+            suite.check("a restored outcome claims no decision it never made",
+                        all("decision_id" not in r for r in records))
+            suite.check("the digest names the exact statistics exported",
+                        owi_ledger.summarize(ledger)["content_sha256"]
+                        == summary["content_sha256"])
+
     total = suite.passed + len(suite.failed)
     print(f"\n{frozen['version']}: {suite.passed}/{total} passed")
     for name in suite.failed:
