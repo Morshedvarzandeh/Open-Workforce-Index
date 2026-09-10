@@ -357,21 +357,37 @@ def record_outcome(home: Path, worker: str, skill: str, accepted: bool,
                    cause: str | None = None, task: str = "",
                    detail: str = "", checklist: list | None = None,
                    inspection: str = "",
-                   privacy: str = "private_metadata") -> None:
+                   privacy: str = "private_metadata",
+                   usage: dict | None = None, quoted_micros: int = 0,
+                   latency_ms: int = 0) -> None:
     """Record a verified outcome. On rejection, `cause` names the root cause;
     only 'worker' (the default) counts against the model's evidence, and the
     failure is appended to root-causes.jsonl for prevention. When a checklist
     produced the verdict, every item's labelled result rides along in the
-    event metadata — pass and fail alike, so no evidence is lost."""
+    event metadata — pass and fail alike, so no evidence is lost.
+
+    When the runner reported a receipt, the real spend is recorded and kept
+    beside the quote it is meant to check. Every outcome before this recorded
+    actual_cash_micros = 0, so the router quoted prices for weeks without one
+    of them ever being compared to a bill — and when one finally was, the
+    quote was out by 2.7x."""
     event = {
         "id": f"outcome:do-{time.time_ns()}",
         "task_id": f"task:do-{time.time_ns()}",
         "worker_id": worker, "skill_id": skill, "accepted": accepted,
         "validation_kind": "human",
-        "actual_cash_micros": 0, "actual_quota_milliunits": 0,
-        "latency_ms": 0,
+        "actual_cash_micros": int((usage or {}).get("cash_micros", 0)),
+        "actual_quota_milliunits": 0,
+        "latency_ms": int(latency_ms),
         "observed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     metadata: dict = {}
+    if usage:
+        # The quote travels with the receipt. A ratio computed later from two
+        # numbers stored apart is a number nobody can check; stored together
+        # it is an audit.
+        metadata["billed"] = {k: usage[k] for k in sorted(usage)}
+        if quoted_micros:
+            metadata["quoted_micros"] = int(quoted_micros)
     if inspection:
         metadata["inspection"] = inspection[:20]
     if checklist:
@@ -924,10 +940,11 @@ def iterate(home: Path, eligible: list, calibration, skill: str, task: str,
         else:
             inspection = inspection_for(home, worker, skill)
         print(f"inspection: {inspection['level']} — {inspection['why']}")
-        verdict, failed = attempt_run(home, worker, model, skill, task,
-                                      stdin_text, checklist,
-                                      arguments.accepted, arguments.cause,
-                                      inspection, corrections, privacy=privacy)
+        verdict, failed = attempt_run(
+            home, worker, model, skill, task, stdin_text, checklist,
+            arguments.accepted, arguments.cause, inspection, corrections,
+            privacy=privacy,
+            quoted_micros=candidate["cost"]["expected_accepted_cost_micros"])
         tried.append(worker)
         if verdict == "accepted":
             if attempt > 1:
@@ -1036,7 +1053,8 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
                 task: str, stdin_text: str, checklist: list[str],
                 accepted_flag: str | None, cause_flag: str | None,
                 inspection: dict, corrections: list[str],
-                privacy: str = "private_metadata") -> tuple[str, str]:
+                privacy: str = "private_metadata",
+                quoted_micros: int = 0) -> tuple[str, str]:
     """One attempt: run, verify against the checklist, record. Returns
     (verdict, failed-detail) — the detail feeds the next iteration's
     corrections when the checklist rejected the work."""
@@ -1046,7 +1064,18 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
               "rejections of this skill")
     payload = build_payload(task, stdin_text, checklist, notes, corrections)
     print(f"\nrunning via: {resolve_runner(home, model)}\n" + "-" * 60)
+    started = time.monotonic()
     result = run_worker(home, model, payload)
+    latency_ms = int((time.monotonic() - started) * 1000)
+    # Only what the runner reported. A runner that says nothing leaves this
+    # unknown rather than zero — an unmeasured cost must never read as free.
+    billed = dict(usage=result.usage, quoted_micros=quoted_micros,
+                  latency_ms=latency_ms)
+    if result.usage and result.usage.get("cash_micros") and quoted_micros:
+        real = result.usage["cash_micros"]
+        print(f"  billed ${real / MICROS:.4f} against a quote of "
+              f"${quoted_micros / MICROS:.4f}"
+              f"  ({real / quoted_micros:.1f}x)")
     print(result.output.strip() or "(no output)")
     print("-" * 60)
     if not result.usable:
@@ -1058,7 +1087,7 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
             sys.stderr.write(result.stderr[-1500:])
         print(f"{result.detail} — the plumbing failed, not the model")
         record_outcome(home, worker, skill, False, ENVIRONMENT, task=task,
-                       detail=result.detail, privacy=privacy)
+                       detail=result.detail, privacy=privacy, **billed)
         return "rejected", ""
     stdout = result.output
 
@@ -1072,14 +1101,14 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
               f"it — recorded as task_spec, not held against the model")
         print(f"  attach it:  tools/owi-do \"...\" < your-file.txt")
         record_outcome(home, worker, skill, False, "task_spec", task=task,
-                       detail=detail, privacy=privacy)
+                       detail=detail, privacy=privacy, **billed)
         return "missing input", ""
 
     if accepted_flag is not None:
         accepted = accepted_flag == "y"
         record_outcome(home, worker, skill, accepted,
                        cause_flag if not accepted else None, task=task,
-                       privacy=privacy)
+                       privacy=privacy, **billed)
         return ("accepted" if accepted else "rejected"), ""
 
     if checklist:
@@ -1097,7 +1126,8 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
                   f"checked, all passed{judged} → accepted")
             record_outcome(home, worker, skill, True, task=task,
                            checklist=report["items"],
-                           inspection=inspection["level"], privacy=privacy)
+                           inspection=inspection["level"], privacy=privacy,
+                           **billed)
             return "accepted", ""
         if report["verdict"] == "rejected":
             detail = "; ".join(f"failed: {entry['item']} ({entry['note']})"
@@ -1106,7 +1136,8 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
             print(f"checklist: failed{judged} → rejected, root cause: worker")
             record_outcome(home, worker, skill, False, "worker", task=task,
                            detail=detail, checklist=report["items"],
-                           inspection=inspection["level"], privacy=privacy)
+                           inspection=inspection["level"], privacy=privacy,
+                           **billed)
             return "rejected", detail
         print(f"checklist: could not verify every item{judged} — your call")
 
@@ -1114,7 +1145,7 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
         answer = input("accepted? [y/n] ").strip().lower()
         if answer == "y":
             record_outcome(home, worker, skill, True, task=task,
-                           privacy=privacy)
+                           privacy=privacy, **billed)
             return "accepted", ""
         if answer == "n":
             record_outcome(home, worker, skill, False,

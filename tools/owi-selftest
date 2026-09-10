@@ -812,6 +812,37 @@ def run(no_cargo: bool) -> int:
                         owi_ledger.summarize(ledger)["content_sha256"]
                         == summary["content_sha256"])
 
+    receipts = frozen.get("receipt_expectations")
+    if receipts:
+        # A router that quotes a price and never reads a bill is doing
+        # arithmetic, not accounting.
+        print("\nreceipts (the quote checked against the bill)")
+        suite.check("the receipt carries exactly the agreed fields",
+                    list(owi_runner.USAGE_FIELDS)
+                    == receipts["usage_fields"],
+                    f"got {owi_runner.USAGE_FIELDS}")
+        for fixture in receipts["fixtures"]:
+            got = owi_runner.parse_usage(fixture["stderr"])
+            label = (fixture["stderr"].strip().splitlines() or ["(empty)"])[-1]
+            suite.check(f"stderr {label[:44]!r} → "
+                        f"{'a receipt' if fixture['expect'] else 'nothing'}",
+                        got == fixture["expect"],
+                        f"got {got!r}, want {fixture['expect']!r}")
+        # Silence and zero are different answers and must stay different.
+        suite.check("a silent runner leaves the cost unknown, not zero",
+                    owi_runner.parse_usage("") is None
+                    and owi_runner.parse_usage(
+                        '{"cash_micros": 0}') == {"cash_micros": 0})
+        quiet = owi_runner.run_worker("printf 'hi'", "task")
+        suite.check("a real run with no receipt reports usage None",
+                    quiet.usable and quiet.usage is None,
+                    f"got {quiet.usage!r}")
+        loud = owi_runner.run_worker(
+            "printf 'hi'; printf '{\"cash_micros\": 42}\\n' >&2", "task")
+        suite.check("a real run with a receipt reports it",
+                    loud.usable and loud.usage == {"cash_micros": 42},
+                    f"got {loud.usage!r}")
+
     total = suite.passed + len(suite.failed)
     print(f"\n{frozen['version']}: {suite.passed}/{total} passed")
     for name in suite.failed:

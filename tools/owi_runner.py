@@ -32,6 +32,14 @@ The contract:
    command that could not be started at all.
 5. Only output that actually arrived can be held against a model. Anything
    else is plumbing, and plumbing is not performance.
+6. A runner MAY report what the call actually cost, by writing one final line
+   of JSON to stderr carrying `input_tokens`, `output_tokens` and/or
+   `cash_micros`. Optional: a runner that stays silent is still a valid
+   runner. But a router that quotes prices and never reads a receipt is doing
+   arithmetic, not accounting — and measured against a real call the quote
+   was out by 2.7x. Its estimate of the task was close; the thirty-one
+   thousand tokens of the agent CLI's own system prompt, cached and re-read
+   on every single call, were not modelled at all.
 """
 
 from __future__ import annotations
@@ -79,6 +87,10 @@ class RunResult:
     exit_code: int
     blame: str
     detail: str = ""
+    # What the call actually cost, when the runner said. Empty when it did
+    # not — which is different from zero, and the two must not be confused:
+    # zero is a measurement (a local model), empty is an unknown.
+    usage: dict | None = None
 
     @property
     def usable(self) -> bool:
@@ -118,7 +130,40 @@ def run_worker(command: str, payload: str,
     if not stdout.strip():
         return RunResult("", stderr, completed.returncode, ENVIRONMENT,
                          "runner produced no output")
-    return RunResult(stdout, stderr, completed.returncode, WORKER)
+    return RunResult(stdout, stderr, completed.returncode, WORKER,
+                     usage=parse_usage(stderr))
+
+
+# Only these three, and only as non-negative numbers. A runner's stderr is
+# whatever the user's CLI decided to print; treating it as a general channel
+# for structured data would let a warning that happens to be JSON become a
+# cost record.
+USAGE_FIELDS = ("input_tokens", "output_tokens", "cash_micros")
+
+
+def parse_usage(stderr: str) -> dict | None:
+    """The reported cost of a call, from the last JSON line of stderr.
+
+    Read from the LAST line backwards, because a CLI logs before it
+    summarises. Returns None rather than {} when nothing was reported, so an
+    unknown cost never reads as a measured zero.
+    """
+    for line in reversed((stderr or "").strip().splitlines()):
+        line = line.strip()
+        if not (line.startswith("{") and line.endswith("}")):
+            continue
+        try:
+            parsed = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(parsed, dict):
+            continue
+        usage = {field: parsed[field] for field in USAGE_FIELDS
+                 if isinstance(parsed.get(field), (int, float))
+                 and parsed[field] >= 0}
+        if usage:
+            return usage
+    return None
 
 
 def load_runners(home: Path) -> dict[str, str]:

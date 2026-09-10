@@ -909,5 +909,79 @@
       },
       "expected_restored_record_count": 5
     }
+  },
+  "receipt_expectations": {
+    "_why": [
+      "The router quoted prices for weeks and never once read a bill. Every",
+      "outcome in the ledger recorded actual_cash_micros = 0, so the entire",
+      "cost half of 'cost-aware allocation' was arithmetic nobody had ever",
+      "checked against reality.",
+      "",
+      "Checked, it was out by 2.3x across sixteen real calls. The estimate",
+      "of the TASK was close -- 1,642 input and 380 output tokens actual",
+      "against 2,026 and 800 estimated. What was never modelled at all is",
+      "the agent CLI's own context: roughly 4,900 tokens written to cache",
+      "and 27,000 read back, on every single call, billed at the chosen",
+      "model's rate. The harness costs more than the work does.",
+      "",
+      "That does not invalidate the ranking -- the overhead is per-call and",
+      "scales with the model's price, so a cheap worker wins by MORE than",
+      "the quote claims. It does invalidate every absolute figure, which is",
+      "why the receipt is now stored beside the quote it checks rather than",
+      "recomputed later from two numbers kept apart.",
+      "",
+      "A runner reporting nothing leaves the cost UNKNOWN, never zero. Zero",
+      "is a measurement -- it is what a local model costs -- and collapsing",
+      "the two would make an unmeasured cloud call look free."
+    ],
+    "usage_fields": [
+      "input_tokens",
+      "output_tokens",
+      "cash_micros"
+    ],
+    "silent_runner_reports_none": true,
+    "last_json_line_wins": true,
+    "negative_values_rejected": true,
+    "non_json_stderr_is_not_a_receipt": true,
+    "fixtures": [
+      {
+        "stderr": "warming up\n{\"input_tokens\": 32918, \"output_tokens\": 544, \"cash_micros\": 16441}\n",
+        "expect": {
+          "input_tokens": 32918,
+          "output_tokens": 544,
+          "cash_micros": 16441
+        }
+      },
+      {
+        "stderr": "{\"cash_micros\": 100}\n{\"cash_micros\": 200}\n",
+        "expect": {
+          "cash_micros": 200
+        }
+      },
+      {
+        "stderr": "some warning text\n",
+        "expect": null
+      },
+      {
+        "stderr": "",
+        "expect": null
+      },
+      {
+        "stderr": "{\"cash_micros\": -5}\n",
+        "expect": null
+      },
+      {
+        "stderr": "{not json}\n",
+        "expect": null
+      },
+      {
+        "stderr": "{\"cash_micros\": 0}\n",
+        "expect": {
+          "cash_micros": 0
+        }
+      }
+    ],
+    "observed_ratio_min": 1.5,
+    "observed_ratio_max": 4.5
   }
 }

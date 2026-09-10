@@ -52,6 +52,35 @@ tools/owi-serve        # open http://127.0.0.1:7787
 The complete workflow, every level from this link to real measurement, is
 written in [docs/WORKFLOW.md](docs/WORKFLOW.md).
 
+### The quote, checked against the bill
+
+A router that quotes prices and never reads a receipt is doing arithmetic,
+not accounting. Point a runner at the wrapper and every run records what it
+actually cost, beside the quote it is meant to check:
+
+```json
+"haiku-4-5": "tools/owi-claude-runner --model claude-haiku-4-5-20251001"
+```
+
+```
+→ haiku-4-5/extract   $0.0091 per accepted result
+  billed $0.0171 against a quote of $0.0091  (1.9x)
+```
+
+Measured over sixteen real calls the quote ran **2.3x low**, consistently. The
+estimate of the *task* was close — 1,642 input and 380 output tokens actual
+against 2,026 and 800 estimated. What was never modelled is the agent CLI's
+own context: roughly 4,900 tokens written to cache and 27,000 read back on
+every single call, billed at the chosen model's rate. The harness costs more
+than the work does.
+
+That does not change who wins. The overhead is per-call and scales with the
+model's price, so a cheap worker wins by *more* than the quote claims — the
+seven-module audit below cost $0.1294 routed to haiku against roughly five
+times that on opus-5. It does mean every absolute figure was understated, and
+that a run through some other CLI still reports nothing, which the ledger
+records as unknown rather than as zero.
+
 ### Learning that outlives the machine
 
 The private ledger is not in git, and should not be — it holds task text. But

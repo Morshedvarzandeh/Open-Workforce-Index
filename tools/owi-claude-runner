@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""A runner for the `claude` CLI that reports what the call actually cost.
+
+    tools/owi-claude-runner --model claude-haiku-4-5-20251001
+
+Put that in runners.json instead of `claude --model ... -p` and every run
+records a receipt beside its quote. The task arrives on stdin and the reply
+leaves on stdout exactly as the contract requires; the cost goes to stderr as
+one final JSON line, which is the convention `owi_runner.parse_usage` and
+`run_bench.py` already read.
+
+Why this is worth a separate program rather than a flag: the router must not
+assume anything about the command a user configured. Somebody's runner is a
+shell function, an ssh hop, a company gateway. The contract stays "stdin in,
+stdout out, optional receipt on stderr", and this is simply one runner that
+honours the optional half.
+
+What it reveals is not small. The router priced a real task at $0.0060 and
+the receipt said $0.0160. Its estimate of the task itself was close — 1,642
+input and 380 output tokens against an estimated 2,026 and 800. What it never
+modelled is the agent CLI's own context: 4,882 tokens written to cache and
+26,943 read back, on every single call. The harness costs more than the work.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+
+MICROS = 1_000_000
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--model", required=True)
+    parser.add_argument("--claude", default="claude",
+                        help="the CLI to invoke (default: claude)")
+    args, passthrough = parser.parse_known_args()
+
+    payload = sys.stdin.read()
+    command = [args.claude, "--model", args.model, "-p",
+               "--output-format", "json", *passthrough]
+    completed = subprocess.run(command, input=payload, text=True,
+                               capture_output=True)
+    if completed.returncode != 0:
+        # Pass the failure through untouched. The contract already says a
+        # non-zero exit is the environment's fault, and dressing it up here
+        # would only hide which layer broke.
+        sys.stderr.write(completed.stderr[-2000:])
+        return completed.returncode
+
+    try:
+        envelope = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        # A CLI that stopped speaking JSON is still a CLI. Emit whatever it
+        # said and report no usage rather than losing the worker's answer to
+        # a bookkeeping problem.
+        sys.stdout.write(completed.stdout)
+        return 0
+
+    sys.stdout.write(str(envelope.get("result", "")))
+
+    usage = (envelope.get("modelUsage") or {})
+    detail = next(iter(usage.values()), {}) if usage else {}
+    cost = envelope.get("total_cost_usd")
+    receipt = {}
+    # Every input token billed, cache included — that is the whole point.
+    billed_input = sum(
+        detail.get(field, 0) or 0
+        for field in ("inputTokens", "cacheReadInputTokens",
+                      "cacheCreationInputTokens"))
+    if billed_input:
+        receipt["input_tokens"] = billed_input
+    if detail.get("outputTokens"):
+        receipt["output_tokens"] = detail["outputTokens"]
+    if isinstance(cost, (int, float)):
+        receipt["cash_micros"] = round(cost * MICROS)
+    if receipt:
+        sys.stderr.write(json.dumps(receipt) + "\n")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
