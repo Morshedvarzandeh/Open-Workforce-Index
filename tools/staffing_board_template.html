@@ -2,16 +2,16 @@
 <title>Staffing Board — Open Workforce Index</title>
 <style>
   :root {
-    --ground: #EEF1F5;
+    --ground: #F7F8F5;
     --panel: #FFFFFF;
-    --panel-sunk: #F5F7FA;
-    --rule: #D3DAE3;
-    --rule-firm: #B4BECB;
-    --ink: #14171C;
-    --ink-2: #454E5B;
-    --ink-3: #6B7686;
-    --accent: #2B5CE6;
-    --accent-soft: #E4EAFB;
+    --panel-sunk: #F1F3EF;
+    --rule: #E1E5DE;
+    --rule-firm: #C8D0C5;
+    --ink: #202A24;
+    --ink-2: #58635A;
+    --ink-3: #69766D;
+    --accent: #28634B;
+    --accent-soft: #EAF1EB;
     --pass: #0F6B47;
     --pass-soft: #DCEFE6;
     --warn: #8A6109;
@@ -23,16 +23,16 @@
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --ground: #101318;
-      --panel: #171B21;
-      --panel-sunk: #1D222A;
-      --rule: #2B323C;
-      --rule-firm: #3D4653;
-      --ink: #E8ECF2;
-      --ink-2: #AEB8C6;
-      --ink-3: #7C8797;
-      --accent: #7CA0FF;
-      --accent-soft: #1C2740;
+      --ground: #141A17;
+      --panel: #1B231E;
+      --panel-sunk: #222D25;
+      --rule: #303E34;
+      --rule-firm: #4F6355;
+      --ink: #EDF2EC;
+      --ink-2: #B3C0B5;
+      --ink-3: #9AAE9E;
+      --accent: #AED7B9;
+      --accent-soft: #233B2B;
       --pass: #4FC08D;
       --pass-soft: #142A22;
       --warn: #D9A63E;
@@ -42,16 +42,16 @@
     }
   }
   :root[data-theme="dark"] {
-    --ground: #101318;
-    --panel: #171B21;
-    --panel-sunk: #1D222A;
-    --rule: #2B323C;
-    --rule-firm: #3D4653;
-    --ink: #E8ECF2;
-    --ink-2: #AEB8C6;
-    --ink-3: #7C8797;
-    --accent: #7CA0FF;
-    --accent-soft: #1C2740;
+    --ground: #141A17;
+    --panel: #1B231E;
+    --panel-sunk: #222D25;
+    --rule: #303E34;
+    --rule-firm: #4F6355;
+    --ink: #EDF2EC;
+    --ink-2: #B3C0B5;
+    --ink-3: #9AAE9E;
+    --accent: #AED7B9;
+    --accent-soft: #233B2B;
     --pass: #4FC08D;
     --pass-soft: #142A22;
     --warn: #D9A63E;
@@ -65,7 +65,7 @@
     margin: 0;
     background: var(--ground);
     color: var(--ink);
-    font-family: var(--mono);
+    font-family: var(--sans);
     font-size: 14px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
@@ -74,7 +74,7 @@
   .prose { font-family: var(--sans); }
 
   /* ---- masthead ---- */
-  .masthead { border-bottom: 2px solid var(--ink); padding-bottom: 18px; display: flex; flex-direction: column; gap: 14px; }
+  .masthead { border-bottom: 1px solid var(--rule-firm); padding-bottom: 18px; display: flex; flex-direction: column; gap: 14px; }
   .stamp { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
   .stamp h1 { font-size: 25px; margin: 0; letter-spacing: -0.02em; font-weight: 700; }
   .stamp .ref { font-size: 11px; color: var(--ink-3); letter-spacing: 0.08em; text-transform: uppercase; }
@@ -117,7 +117,7 @@
   .who .name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row.assigned .who .name { font-weight: 700; }
   .tag { font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; padding: 1px 6px; background: var(--accent); color: #fff; white-space: nowrap; }
-  :root[data-theme="dark"] .tag, :root:not([data-theme="light"]) .tag { color: #0F1420; }
+  :root[data-theme="dark"] .tag, :root:not([data-theme="light"]) .tag { color: #18291D; }
   @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .tag { color: #fff; } }
   .lcb { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
   .bar { height: 9px; background: var(--panel-sunk); border: 1px solid var(--rule); position: relative; }
@@ -169,6 +169,18 @@
     .cost { grid-column: 3; }
     .lcb { grid-column: 3; text-align: right; }
   }
+
+  a { color:var(--accent); text-underline-offset:3px; }
+  summary { cursor:pointer; min-height:44px; align-content:center; }
+  summary:focus-visible,a:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+  .task,.tiles,.measure,.controls,.card,.caveat { border-radius:16px; overflow:hidden; }
+  .scroll { border-radius:16px; }
+  .chip,.tag,.role,.why { border-radius:6px; }
+  .masthead h1 { font-size:30px; font-weight:600; letter-spacing:-.035em; }
+  .masthead { padding-bottom:24px; }
+  .split { grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr)); }
+  @media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { color-scheme:dark; } }
+  :root[data-theme="dark"] { color-scheme:dark; }
 </style>
 
 <div class="shell">
@@ -178,7 +190,9 @@
       <h1>Staffing Board</h1>
       <span class="ref">scenario:manager-v1 · snapshot:manager-scenario-v1 · policy:economy-v1</span>
     </div>
-    <p class="thesis">Five jobs, sixteen people on the roster, one rule: <strong>give each job to the cheapest person who is actually qualified for it.</strong> Not the best person available — the cheapest one who clears the bar. Nobody sends the principal engineer to reformat an email, and nobody sends the copywriter to cut metal.</p>
+    <p class="thesis">See the recommended model for each task, compare estimated costs,
+      and review why other models were ruled out. Each recommendation balances cost
+      with the task's requirements.</p>
   </header>
 
   <details class="prose">

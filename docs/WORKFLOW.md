@@ -1,7 +1,7 @@
 # The complete workflow
 
 For your first task, use the shorter [getting-started guide](GETTING_STARTED.md)
-or open **Start here** in the ask page.
+or open **How it works** in the ask page.
 
 Every step below was executed and verified before being written down. The
 ladder has five rungs; each works on its own, and each records into the same

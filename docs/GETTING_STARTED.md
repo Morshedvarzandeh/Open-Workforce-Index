@@ -12,9 +12,9 @@ its role and tools. Choosing a model and running it are separate actions.
 | Ask page in connected mode | Compare models and run tasks through configured commands on your server | The server's private ledger |
 | Project console or staffing board | Inspect assignments and estimated costs | These reports do not execute tasks or collect task feedback |
 
-The ask page tells you its mode near the top. “Start here” opens a short
+The ask page tells you its mode near the top. “How it works” opens a short
 walkthrough. You can reopen it at any time without clearing your work.
-“Your next step” changes as you compare, run, check, and review a result.
+Contextual guidance appears when you run, check, or review a result.
 
 ## 1. Describe the work
 
@@ -27,8 +27,9 @@ You can also choose **Write an email**, **Extract JSON**, or **Make a plan**
 to load an example. Loading an example does not run a model. If you already
 have a draft, clear it and its requirements first to use an example.
 
-The optional requirements box describes a good result, one item per line.
-Plain language is fine. Simple automatic checks include:
+Open **Options** to add requirements or mark the task as confidential.
+Describe a good result with one requirement per line. Plain language is fine.
+Simple automatic checks include:
 
 - `contains:Friday` — the answer must contain Friday.
 - `min-words:60` — the answer must contain at least 60 words.
@@ -43,7 +44,8 @@ checklist for you.
 
 Select **Choose a model**. The displayed USD amount is an estimate of the
 cost of a usable result, including possible retries. It is not a bill.
-Starting ability estimates are assumptions; feedback changes them.
+Starting ability estimates are assumptions; feedback changes them. Open
+**Compare models & details** to see alternatives and choose a quality option.
 
 In browser mode, copy the task into your AI app and select the recommended
 model if it is available. Desktop links may open a provider's chat; they
@@ -64,12 +66,12 @@ CLIs and the default `.owi-quick/runners.json` configuration.
 ## 3. Review and give feedback
 
 Read the answer against your requirements. In browser mode with a checklist,
-paste the answer into the result box and choose **check the result**.
+open **Check your result**, paste the answer, and choose **Check result**.
 Automatic checks do not guarantee that the whole answer is correct.
 
-Choose **worked** after reviewing a usable result. If it did not work,
-choose the cause: **the model**, **unclear task**, or **my setup**. Only
-model-caused failures should reduce that worker's estimate.
+Choose **Worked** after reviewing a usable result. If it did not work,
+choose **Needs work**, then the cause: **the model**, **unclear task**, or
+**my setup**. Only model-caused failures should reduce that worker's estimate.
 
 Connected mode records decisive checklist outcomes automatically. If saving
 fails, the page tells you and keeps the output visible; check the connection

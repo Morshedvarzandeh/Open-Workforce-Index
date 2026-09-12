@@ -2,10 +2,10 @@
 <title>OWI Console — battery-design</title>
 <style>
   :root {
-    --ground:#EEF1F5; --panel:#FFFFFF; --panel-sunk:#F5F7FA;
-    --rule:#D3DAE3; --rule-firm:#B4BECB;
-    --ink:#14171C; --ink-2:#454E5B; --ink-3:#6B7686;
-    --accent:#2B5CE6; --accent-soft:#E4EAFB;
+    --ground:#F7F8F5; --panel:#FFFFFF; --panel-sunk:#F1F3EF;
+    --rule:#E1E5DE; --rule-firm:#C8D0C5;
+    --ink:#202A24; --ink-2:#58635A; --ink-3:#69766D;
+    --accent:#28634B; --accent-soft:#EAF1EB;
     --warn:#8A6109; --warn-soft:#F6EBD2;
     --stop:#9E3B2C; --stop-soft:#F6E2DE;
     --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
@@ -13,30 +13,30 @@
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --ground:#101318; --panel:#171B21; --panel-sunk:#1D222A;
-      --rule:#2B323C; --rule-firm:#3D4653;
-      --ink:#E8ECF2; --ink-2:#AEB8C6; --ink-3:#7C8797;
-      --accent:#7CA0FF; --accent-soft:#1C2740;
+      --ground:#141A17; --panel:#1B231E; --panel-sunk:#222D25;
+      --rule:#303E34; --rule-firm:#4F6355;
+      --ink:#EDF2EC; --ink-2:#B3C0B5; --ink-3:#9AAE9E;
+      --accent:#AED7B9; --accent-soft:#233B2B;
       --warn:#D9A63E; --warn-soft:#2C2415;
       --stop:#E0796A; --stop-soft:#301C19;
     }
   }
   :root[data-theme="dark"] {
-    --ground:#101318; --panel:#171B21; --panel-sunk:#1D222A;
-    --rule:#2B323C; --rule-firm:#3D4653;
-    --ink:#E8ECF2; --ink-2:#AEB8C6; --ink-3:#7C8797;
-    --accent:#7CA0FF; --accent-soft:#1C2740;
+    --ground:#141A17; --panel:#1B231E; --panel-sunk:#222D25;
+    --rule:#303E34; --rule-firm:#4F6355;
+    --ink:#EDF2EC; --ink-2:#B3C0B5; --ink-3:#9AAE9E;
+    --accent:#AED7B9; --accent-soft:#233B2B;
     --warn:#D9A63E; --warn-soft:#2C2415;
     --stop:#E0796A; --stop-soft:#301C19;
   }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--ground); color:var(--ink);
-    font-family:var(--mono); font-size:14px; line-height:1.5;
+    font-family:var(--sans); font-size:14px; line-height:1.5;
     -webkit-font-smoothing:antialiased; }
   .shell { max-width:1080px; margin:0 auto; padding:36px 22px 72px;
     display:flex; flex-direction:column; gap:26px; }
 
-  .masthead { border-bottom:2px solid var(--ink); padding-bottom:14px; }
+  .masthead { border-bottom:1px solid var(--rule-firm); padding-bottom:14px; }
   .masthead h1 { margin:0; font-size:22px; letter-spacing:-0.02em; }
   .masthead .ref { font-size:11px; color:var(--ink-3); letter-spacing:0.08em;
     text-transform:uppercase; }
@@ -63,7 +63,7 @@
     border:1px solid var(--rule-firm); border-left-width:0; cursor:pointer; }
   .seg button:first-child { border-left-width:1px; }
   .seg button.on { background:var(--accent); color:#fff; }
-  :root[data-theme="dark"] .seg button.on { color:#0F1420; }
+  :root[data-theme="dark"] .seg button.on { color:#18291D; }
   .seg button:focus-visible, input:focus-visible {
     outline:2px solid var(--accent); outline-offset:1px; }
 
@@ -128,17 +128,37 @@
     .row { grid-template-columns:16px 1fr 90px; }
     .row .d { display:none; }
   }
+
+  a { color:var(--accent); text-underline-offset:3px; }
+  summary { cursor:pointer; min-height:44px; align-content:center; }
+  summary:focus-visible,a:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+  .task,.tiles,.measure,.controls,.card,.caveat { border-radius:16px; overflow:hidden; }
+  .scroll { border-radius:16px; }
+  .chip,.tag,.role,.why { border-radius:6px; }
+  .masthead h1 { font-size:30px; font-weight:600; letter-spacing:-.035em; }
+  .masthead { padding-bottom:24px; }
+  .split { grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr)); }
+  @media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) { color-scheme:dark; } }
+  :root[data-theme="dark"] { color-scheme:dark; }
+  .row { grid-template-columns:18px minmax(0,1fr) 90px 110px; }
+  .row > span:nth-child(2) { min-width:0; overflow-wrap:anywhere; }
+  input[type=range],.seg button { min-height:44px; }
+  .seg { gap:4px; }
+  .seg button { border:1px solid var(--rule); border-radius:8px; }
+  input[type=number] { border-radius:8px; min-height:40px; }
+  @media (prefers-color-scheme:dark) {
+    :root:not([data-theme="light"]) .seg button.on { color:#18291D; }
+  }
+  @media (max-width:640px) { .row { grid-template-columns:16px minmax(0,1fr) 90px; } }
 </style>
 
 <div class="shell">
   <header class="masthead">
     <span class="ref" id="ref"></span>
     <h1 id="title"></h1>
-    <p>Eligibility was decided by the engine against the digest-verified
-    snapshot — the dials below cannot resurrect a rejected worker. What they
-    change is the <strong>weighting</strong>: what your hour is worth, how many
-    tasks amortise a worker's qualification cost, and how much of its latency
-    you actually sit through. Move them and watch the staffing re-rank.</p>
+    <p>See which models fit each task and how the estimated cost changes.
+    Adjust your hourly rate, the number of tasks sharing setup costs, and
+    how much time you spend waiting.</p>
   </header>
 
   <details class="measure">
@@ -165,17 +185,17 @@
       <input type="range" id="rate" min="0" max="300" step="1">
     </div>
     <div class="ctl">
-      <label for="vol">Tasks amortising setup</label>
+      <label for="vol">Tasks sharing setup costs</label>
       <span class="val" id="volVal"></span>
       <input type="number" id="vol" min="1" max="100000" step="1">
     </div>
     <div class="ctl">
-      <label>Waiting on the worker</label>
+      <label>Time spent waiting</label>
       <span class="val" id="blockVal"></span>
-      <div class="seg" id="blockSeg" role="group" aria-label="blocking fraction">
-        <button data-b="0">async</button>
-        <button data-b="0.25">quarter</button>
-        <button data-b="1">watching</button>
+      <div class="seg" id="blockSeg" role="group" aria-label="Time spent waiting">
+        <button data-b="0">None</button>
+        <button data-b="0.25">25%</button>
+        <button data-b="1">All</button>
       </div>
     </div>
   </div>
@@ -183,12 +203,12 @@
   <div class="tiles" id="tiles"></div>
 
   <section>
-    <h2>Assignments — live under your weighting</h2>
+    <h2>Recommended models</h2>
     <div class="tasks" id="tasks"></div>
   </section>
 
   <section>
-    <h2>What measurement would change this</h2>
+    <h2>Improve the estimates</h2>
     <div class="measure" id="measure"></div>
   </section>
 
@@ -311,9 +331,9 @@
     const total = cash + setup + time;
     document.getElementById("tiles").innerHTML = [
       ["", "Run + review cash", $(cash, 2)],
-      ["", "Amortised setup", $(setup, 2)],
+      ["", "Setup costs", $(setup, 2)],
       ["", "Your time", $(time, 2)],
-      ["headline", "Economic total", $(total, 2)],
+      ["headline", "Total estimated cost", $(total, 2)],
       ["", "Staffed", `${staffed}/${DATA.tasks.length}`],
     ].map(([cls, k, v]) =>
       `<div class="tile ${cls}"><span class="k">${k}</span>

@@ -93,8 +93,13 @@ async function main() {
   };
   const task = 'Rewrite this email politely: Please confirm delivery by Friday.';
   try {
-    await scenario('first visit, keyboard guide, persistence, and draft protection', {}, async (page, calls) => {
-      assert.equal(await page.locator('#guide').evaluate(e => e.open), true);
+    await scenario('simple first visit, optional keyboard guide, multiline task, and draft protection', {}, async (page, calls) => {
+      assert.equal(await page.locator('#guide').isVisible(), false);
+      assert.equal(await page.locator('#checkOptions').isVisible(), false);
+      assert.equal(await page.locator('#nextStep').isVisible(), false);
+      await page.locator('#guideTrigger').focus();
+      await page.keyboard.press('Enter');
+      assert.equal(await page.locator('#guideTrigger').getAttribute('aria-expanded'), 'true');
       await page.locator('#guideNext').focus();
       await page.keyboard.press('Enter');
       assert.match(await page.locator('#guideTitle').textContent(), /recommendation/);
@@ -108,8 +113,15 @@ async function main() {
       await page.locator('[data-example="email"]').click();
       assert.equal(await page.locator('#q').inputValue(), 'My unfinished draft');
       assert.match(await page.locator('#exampleNotice').textContent(), /draft is still here/);
-      await page.locator('#guide > summary').click();
+      await page.locator('#guideTrigger').click();
       assert.equal(await page.locator('#q').inputValue(), 'My unfinished draft');
+      await page.locator('#guideDone').click();
+      await page.locator('#q').press('End');
+      await page.keyboard.press('Enter');
+      assert.equal(await page.locator('#q').inputValue(), 'My unfinished draft\n');
+      assert.equal(await page.locator('#answer').isVisible(), false);
+      await page.keyboard.press('Control+Enter');
+      assert.equal(await page.locator('#answer').isVisible(), true);
       assert.equal(calls.runs.length, 0);
     });
     await scenario('examples classify correctly and compare without execution', {}, async (page, calls) => {
@@ -117,15 +129,23 @@ async function main() {
         await page.locator('#q').fill('');
         await page.locator('#checks').evaluate(e => {e.value = '';});
         await page.locator('[data-example="' + example + '"]').click();
+        assert.equal(await page.locator('#checkOptions').isVisible(), false);
         await choose(page);
         assert.equal(await page.evaluate(() => last.skill), skill);
         assert.match(await page.locator('#nextText').textContent(), /Copy the task/);
+        assert.equal(await page.locator('#comparison').evaluate(e => e.open), false);
+        assert.match(await page.locator('.pick').textContent(), /Claude Haiku/);
+        if (example === 'email' && process.env.OWI_GUIDANCE_SCREENSHOTS) {
+          await page.screenshot({path: path.join(process.env.OWI_GUIDANCE_SCREENSHOTS, 'result-desktop.png'), fullPage: true});
+        }
       }
       assert.deepEqual(calls, {data: 0, runs: [], outcomes: []});
     });
     await scenario('pasted result checks once and reset preserves the task', {}, async page => {
       await page.locator('[data-example="email"]').click();
       await choose(page);
+      assert.equal(await page.locator('#reviewDetails').evaluate(e => e.open), false);
+      await page.locator('#reviewDetails > summary').click();
       await page.locator('#checkbtn').click();
       assert.match(await page.locator('#nextTitle').textContent(), /Paste the answer/);
       await page.locator('#pasteback').fill('Hello Sam, please confirm delivery by Friday.');
@@ -140,6 +160,7 @@ async function main() {
       assert.equal(await page.evaluate(() => localStorage.getItem('owi-ask-v1')), null);
     });
     await scenario('blocked storage still supports onboarding and temporary feedback', {storageBlocked: true}, async page => {
+      await page.locator('#guideTrigger').click();
       await page.locator('#guideDone').click();
       await page.locator('#q').fill(task);
       await choose(page);
@@ -147,7 +168,8 @@ async function main() {
       assert.match(await page.locator('.learned').textContent(), /until reload/);
     });
     await scenario('connected mode identifies itself immediately and explains missing setup', {connected: true, runners: []}, async (page, calls) => {
-      assert.match(await page.locator('#modeNote').textContent(), /Connected mode/);
+      assert.match(await page.locator('#modeBadge').textContent(), /Connected/);
+      assert.match(await page.locator('#modeNote').textContent(), /0 model commands/);
       assert.doesNotMatch(await page.locator('#privacyHint').textContent(), /stays in this browser/);
       await page.locator('#q').fill(task);
       await choose(page);
@@ -165,6 +187,7 @@ async function main() {
       await choose(page);
       // Stale browser feedback must not contaminate the connected ledger.
       assert.equal(await page.evaluate(() => last.id), ids[0]);
+      await page.locator('#comparison > summary').click();
       await page.locator('#preferq').click();
       await page.locator('#go').click();
       assert.equal(await page.locator('#go').isDisabled(), true);
@@ -210,7 +233,12 @@ async function main() {
     await scenario('confidential no-match state explains why without lowering the gate', {}, async (page, calls) => {
       await page.locator('#q').fill(task);
       await choose(page);
+      await page.locator('#optionsToggle').click();
       await page.locator('#confid').check();
+      assert.match(await page.locator('#optionsToggle').getAttribute('aria-label'), /Confidential/);
+      await page.setViewportSize({width: 320, height: 780});
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      await page.locator('#optionsToggle').click();
       assert.equal(await page.locator('#answer').isVisible(), false);
       await choose(page);
       assert.match(await page.locator('#nextTitle').textContent(), /No suitable model/);
@@ -230,17 +258,19 @@ async function main() {
     });
     await scenario('mobile dark-mode guide and recommendation fit the screen', {mobile: true, dark: true}, async page => {
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-      assert.equal(await page.locator('#chooseButton').evaluate(e => getComputedStyle(e).color), 'rgb(15, 20, 32)');
+      assert.equal(await page.locator('#chooseButton').evaluate(e => getComputedStyle(e).color), 'rgb(24, 41, 29)');
+      const action = await page.locator('#chooseButton').boundingBox();
+      assert.ok(action.y + action.height <= 844, 'Primary action is visible without scrolling');
       if (process.env.OWI_GUIDANCE_SCREENSHOTS) {
         fs.mkdirSync(process.env.OWI_GUIDANCE_SCREENSHOTS, {recursive: true});
         await page.screenshot({path: path.join(process.env.OWI_GUIDANCE_SCREENSHOTS, 'guide-mobile.png'), fullPage: true});
       }
-      await page.locator('#guideDone').click();
       await page.locator('[data-example="email"]').click();
       await choose(page);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
       assert.equal(await page.locator('#answer a.golink').count(), 0);
       assert.equal(await page.locator('#copybtn').isVisible(), true);
+      assert.equal(await page.locator('#reviewDetails').evaluate(e => e.open), false);
       if (process.env.OWI_GUIDANCE_SCREENSHOTS) {
         await page.screenshot({path: path.join(process.env.OWI_GUIDANCE_SCREENSHOTS, 'result-mobile.png'), fullPage: true});
       }
