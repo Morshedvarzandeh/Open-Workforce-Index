@@ -23,6 +23,10 @@ become the stronger, private signal.
 
 ## Quick start — one command
 
+New to OWI? Start with the [first-task guide](docs/GETTING_STARTED.md).
+The ask page includes a three-step walkthrough, example tasks, and help for
+model connections, estimated prices, checklists, and feedback.
+
 ```bash
 tools/owi-do "rewrite this email to the supplier"
 ```

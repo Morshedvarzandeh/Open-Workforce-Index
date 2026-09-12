@@ -278,7 +278,10 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog="Open the printed address and choose Start here for a three-step "
+               "walkthrough. See docs/GETTING_STARTED.md for model setup and feedback.")
     parser.add_argument("--home", type=Path, default=REPO / ".owi-quick")
     parser.add_argument("--port", type=int, default=7787)
     parser.add_argument("--host", default="127.0.0.1",

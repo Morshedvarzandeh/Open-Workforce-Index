@@ -977,7 +977,10 @@ def run_split(arguments, stdin_text: str) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="New here? Read docs/GETTING_STARTED.md, or run tools/owi-serve "
+               "for the guided page. Without --run, this command compares "
+               "models. --run sends the task through a configured model command.")
     parser.add_argument("task", help="what you want done, in plain words")
     parser.add_argument("--skill", choices=sorted(SKILLS),
                         help="override the keyword guess")

@@ -1,3 +1,4 @@
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OWI Console — battery-design</title>
 <style>
   :root {
@@ -139,6 +140,23 @@
     tasks amortise a worker's qualification cost, and how much of its latency
     you actually sit through. Move them and watch the staffing re-rank.</p>
   </header>
+
+  <details class="measure">
+    <summary>New here? How to use this console</summary>
+    <ol>
+      <li>Set the value of your working hour. Use zero to compare cash costs alone.</li>
+      <li>Set how many tasks share the initial setup cost. Choose how much time
+        you spend waiting: none, a quarter, or the whole run.</li>
+      <li>Review the highlighted worker for each task and the estimated totals.
+        Moving a dial changes this comparison; it does not run models or spend money.</li>
+    </ol>
+    <p>If a task is unstaffed, inspect its rejection reasons. A higher budget
+      cannot supply missing tools, privacy clearance, or evidence.</p>
+    <p>To run an individual task, use the ask page:
+      <code>tools/owi-serve</code>. See the
+      <a href="https://github.com/Morshedvarzandeh/Open-Workforce-Index/blob/main/docs/GETTING_STARTED.md"
+        target="_blank" rel="noopener">getting-started guide</a>.</p>
+  </details>
 
   <div class="controls">
     <div class="ctl">

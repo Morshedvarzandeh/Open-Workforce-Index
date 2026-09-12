@@ -1,11 +1,14 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OWI — ask</title>
+<title>Open Workforce Index — choose an AI for your task</title>
 <style>
   :root {
     --ground:#EEF1F5; --panel:#FFFFFF; --panel-sunk:#F5F7FA;
     --rule:#D3DAE3; --rule-firm:#B4BECB;
     --ink:#14171C; --ink-2:#454E5B; --ink-3:#6B7686;
-    --accent:#2B5CE6; --accent-soft:#E4EAFB;
+    --accent:#2B5CE6; --accent-soft:#E4EAFB; --on-accent:#fff;
     --good:#0F6B47; --bad:#9E3B2C;
     --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
     --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -15,7 +18,7 @@
       --ground:#101318; --panel:#171B21; --panel-sunk:#1D222A;
       --rule:#2B323C; --rule-firm:#3D4653;
       --ink:#E8ECF2; --ink-2:#AEB8C6; --ink-3:#7C8797;
-      --accent:#7CA0FF; --accent-soft:#1C2740;
+      --accent:#7CA0FF; --accent-soft:#1C2740; --on-accent:#0F1420;
       --good:#4FC08D; --bad:#E0796A;
     }
   }
@@ -23,7 +26,7 @@
     --ground:#101318; --panel:#171B21; --panel-sunk:#1D222A;
     --rule:#2B323C; --rule-firm:#3D4653;
     --ink:#E8ECF2; --ink-2:#AEB8C6; --ink-3:#7C8797;
-    --accent:#7CA0FF; --accent-soft:#1C2740;
+    --accent:#7CA0FF; --accent-soft:#1C2740; --on-accent:#0F1420;
     --good:#4FC08D; --bad:#E0796A;
   }
   * { box-sizing:border-box; }
@@ -31,21 +34,63 @@
   body { margin:0; background:var(--ground); color:var(--ink);
     font-family:var(--mono); font-size:15px; line-height:1.55;
     -webkit-font-smoothing:antialiased; }
-  .shell { max-width:640px; margin:0 auto; padding:12vh 22px 60px;
+  .shell { max-width:720px; margin:0 auto; padding:48px 22px 60px;
     display:flex; flex-direction:column; gap:22px; }
   h1 { margin:0; font-size:20px; letter-spacing:-0.02em; }
   h1 small { color:var(--ink-3); font-weight:400; font-size:12px;
     margin-left:10px; letter-spacing:0.06em; }
   form { display:flex; gap:8px; }
-  input[type=text] { flex:1; font:inherit; padding:12px 14px;
+  input[type=text] { flex:1; min-width:0; font:inherit; padding:12px 14px;
     background:var(--panel); color:var(--ink);
     border:1.5px solid var(--rule-firm); }
   input[type=text]:focus-visible { outline:2px solid var(--accent);
     outline-offset:1px; }
   button { font:inherit; padding:12px 18px; background:var(--accent);
-    color:#fff; border:none; cursor:pointer; font-weight:700; }
+    color:var(--on-accent); border:none; cursor:pointer; font-weight:700; }
   :root[data-theme="dark"] button { color:#0F1420; }
   button:focus-visible { outline:2px solid var(--ink); outline-offset:1px; }
+  button:disabled { opacity:0.55; cursor:default; }
+  .intro, .guide, .help, .next-step, .mode-note, .task-label, .examples,
+  .privacy-note, .checks { font-family:var(--sans); }
+  .intro p { margin:8px 0 0; color:var(--ink-2); }
+  .brand { color:var(--ink-3); font-size:12px; margin-bottom:8px; }
+  .intro h1 { font-family:var(--sans); font-size:28px; line-height:1.2; }
+  .mode-note { border-left:3px solid var(--accent); padding:6px 12px;
+    color:var(--ink-2); font-size:13px; }
+  .mode-note strong { color:var(--ink); }
+  .guide, .help { border:1px solid var(--rule); background:var(--panel);
+    padding:12px 16px; font-size:14px; }
+  summary { cursor:pointer; padding:4px 0; min-height:32px; font-weight:600; }
+  summary:focus-visible, a:focus-visible { outline:2px solid var(--accent);
+    outline-offset:3px; }
+  .guide-steps { display:flex; gap:6px; margin:14px 0; }
+  .guide-steps button, .quiet { background:var(--panel-sunk);
+    color:var(--ink) !important; border:1px solid var(--rule); font-size:13px;
+    padding:8px 12px; min-height:44px; }
+  .guide-steps button { flex:1; font-family:var(--sans); }
+  .guide-steps button[aria-current="step"] { border-color:var(--accent);
+    background:var(--accent-soft); }
+  .guide h2 { font-size:16px; margin:0 0 6px; }
+  .guide p, .help p { margin:6px 0 12px; color:var(--ink-2); }
+  .guide-actions, .examples { display:flex; flex-wrap:wrap; gap:8px;
+    align-items:center; margin-top:12px; }
+  .guide-actions button { padding:8px 14px; font-size:13px; min-height:44px; }
+  .guide-actions .quiet:last-child { margin-left:auto; }
+  .task-label { display:block; font-weight:600; margin-bottom:8px; }
+  .examples { margin-top:10px; font-size:12px; color:var(--ink-2); }
+  .examples button { font-family:var(--sans); }
+  .next-step { padding:12px 16px; background:var(--accent-soft);
+    font-size:14px; color:var(--ink-2); }
+  .next-step strong { display:block; color:var(--ink); margin-bottom:4px; }
+  .next-step p { margin:0; }
+  .privacy-note { font-size:13px; color:var(--ink-2); }
+  .privacy-note label { display:block; margin-bottom:4px; }
+  .help details { border-top:1px solid var(--rule); padding-top:6px;
+    margin-top:8px; }
+  .help a { color:var(--accent); }
+  .help pre { overflow:auto; padding:10px; background:var(--panel-sunk); }
+  .help code { font-size:12px; overflow-wrap:anywhere; }
+  .answer { overflow-wrap:anywhere; }
 
   .checks { margin-top:-8px; }
   .checks label { display:block; font-size:12.5px; color:var(--ink-3); }
@@ -101,7 +146,7 @@
   .mode { font-size:11px; letter-spacing:0.08em; text-transform:uppercase;
     color:var(--good); }
   a.golink { display:inline-block; padding:7px 14px; background:var(--accent);
-    color:#fff; text-decoration:none; font-weight:700; font-size:13px; }
+    color:var(--on-accent); text-decoration:none; font-weight:700; font-size:13px; }
   :root[data-theme="dark"] a.golink { color:#0F1420; }
   a.golink.alt-link, :root[data-theme="dark"] a.golink.alt-link {
     background:var(--panel-sunk); color:var(--ink-2);
@@ -113,41 +158,138 @@
 </style>
 
 <div class="shell">
-  <h1>ask<small>Open Workforce Index</small></h1>
+  <header class="intro">
+    <div class="brand">Open Workforce Index</div>
+    <h1>Choose the right AI for your task.</h1>
+    <p>Describe the work. Compare suitable models, try a result, and tell OWI
+      how it went.</p>
+  </header>
 
-  <form id="form">
-    <input type="text" id="q" autocomplete="off" autofocus
-      placeholder='e.g. "rewrite this email to the supplier"'>
-    <button type="submit">ask</button>
-  </form>
+  <div class="mode-note" id="modeNote" role="status"></div>
 
-  <div class="checks">
-    <label for="checks">checklist — one line per item the result must pass
-      (optional; the live page writes one for you if empty)</label>
-    <textarea id="checks" rows="3" autocapitalize="off" autocorrect="off"
-      spellcheck="false" placeholder="contains:thermal · min-words:60 · anything else is judged by a different model (live page)"></textarea>
-    <label><input type="checkbox" id="confid"> confidential — only workers
-      cleared for confidential content; your text never leaves this browser
-      until you paste it somewhere yourself</label>
+  <details class="guide" id="guide">
+    <summary>Start here · a 3-step guide</summary>
+    <div class="guide-steps" role="group" aria-label="Guide steps">
+      <button type="button" data-step="0">1. Describe</button>
+      <button type="button" data-step="1">2. Choose</button>
+      <button type="button" data-step="2">3. Review</button>
+    </div>
+    <div id="guideContent" aria-live="polite">
+      <h2 id="guideTitle"></h2>
+      <p id="guideText"></p>
+    </div>
+    <div class="guide-actions">
+      <button type="button" class="quiet" id="guideBack">Back</button>
+      <button type="button" id="guideNext">Next</button>
+      <button type="button" class="quiet" id="guideDone">Start my task</button>
+    </div>
+  </details>
+
+  <div>
+    <label class="task-label" for="q">What would you like help with?</label>
+    <form id="form">
+      <input type="text" id="q" autocomplete="off" required
+        aria-describedby="taskHint"
+        placeholder="Describe the task and include the details">
+      <button type="submit" id="chooseButton">Choose a model</button>
+    </form>
+    <div class="examples" id="taskHint">
+      Try an example:
+      <button type="button" class="quiet" data-example="email">Write an email</button>
+      <button type="button" class="quiet" data-example="json">Extract JSON</button>
+      <button type="button" class="quiet" data-example="plan">Make a plan</button>
+    </div>
+    <div class="meta" id="exampleNotice" role="status"></div>
   </div>
 
-  <div class="answer" id="answer"></div>
+  <details class="checks" id="checkOptions">
+    <summary>Optional: describe a good result</summary>
+    <label for="checks">One requirement per line. You can use plain language.
+      <span id="checkHint"></span></label>
+    <textarea id="checks" rows="3"
+      placeholder="Use a polite tone&#10;Include the delivery date"></textarea>
+  </details>
+
+  <div class="privacy-note">
+    <label><input type="checkbox" id="confid"> This task contains confidential content</label>
+    <span id="privacyHint"></span>
+  </div>
+
+  <div class="next-step" role="status" aria-live="polite" aria-atomic="true">
+    <strong id="nextTitle">Your next step</strong>
+    <p id="nextText">Describe one task, or choose an example to try.</p>
+  </div>
+
+  <div class="answer" id="answer" aria-label="Model recommendation"></div>
+
+  <details class="help" id="help">
+    <summary>Help when you need it</summary>
+    <details id="costHelp">
+      <summary>What do the model and price mean?</summary>
+      <p>A worker is a model with a particular role and tools. The displayed
+        USD amount estimates the cost of a usable result, including possible
+        retries. It is not a bill or a guaranteed price. A recommendation
+        does not charge you; running a connected model may use your provider's
+        paid usage or subscription allowance.</p>
+      <p>OWI starts with assumed abilities and improves its estimates using
+        feedback. A quality option has a stronger estimated confidence bound;
+        it is not a guarantee that its answer will be correct.</p>
+    </details>
+    <details id="checksHelp">
+      <summary>How do I check a result?</summary>
+      <p>Review it against what you asked for. The optional requirements box
+        accepts plain language. For automatic checks, use one per line:
+        <code>contains:Friday</code>, <code>min-words:60</code>, or
+        <code>json</code>. Browser mode can check those against a pasted answer.
+        Subjective requirements need your review, or an available separate
+        checker in connected mode.</p>
+      <p>For a task split into parts, review each part separately. The shared
+        checklist applies to single-part tasks; connected mode creates a
+        checklist for each part. Later parts do not automatically receive
+        earlier results: include the needed context yourself.</p>
+    </details>
+    <details id="setupHelp">
+      <summary>How do I connect a model?</summary>
+      <p>On your computer, install the project's prerequisites: Git, Python 3,
+        and Rust 1.87 or newer. Open a terminal in this repository and run:</p>
+      <pre><code>tools/owi-serve</code></pre>
+      <p>Open the address it prints. First launch builds the engine and may
+        take a few minutes. Configure a supported model CLI on that computer,
+        then follow the
+        <a href="https://github.com/Morshedvarzandeh/Open-Workforce-Index/blob/main/docs/ROUTER.md"
+          target="_blank" rel="noopener">connection instructions</a>.
+        Custom commands go in <code>.owi-quick/runners.json</code> by default.
+        A configured command must also have working provider access.</p>
+      <p>Keep provider credentials in your CLI's credential store. The task
+        box is for the work you want done.</p>
+    </details>
+    <details id="blockedHelp">
+      <summary>Why is there no suitable model?</summary>
+      <p>The current roster may lack the task's tools, privacy clearance, or
+        sufficient quality evidence. Try a more specific task, connect a
+        suitable worker, or add verified evidence. Increasing your budget
+        does not remove these requirements.</p>
+      <p>For confidential work, the worker must be explicitly cleared for it.
+        This filter does not configure a private model for you.</p>
+    </details>
+    <details id="feedbackHelp">
+      <summary>Where does my feedback go?</summary>
+      <p id="feedbackHint"></p>
+      <p>Choose “worked” after reviewing a result. If it did not work, distinguish
+        a poor model answer from an unclear request or a setup problem; only
+        a model-caused failure should reduce that model's estimate.</p>
+      <button type="button" class="quiet" id="reset">Reset browser feedback</button>
+    </details>
+  </details>
 
   <footer>
-    <span class="mode">build __BUILT__</span> — if this stamp looks old,
-    close the tab and reopen the link.<br>
-    Prices are real (published, content-hashed import). Abilities are assumed
-    starting points; your <b>worked / didn't</b> answers reshape them with the
-    same Beta update the engine uses — stored only in this browser
-    (<a href="#" id="reset">reset</a>). This page ranks on <b>public evidence
-    only</b>: it runs the engine's exact arithmetic — same gates, same quality
-    floor, same micros, checked against it on every build — but it carries no
-    private ledger, so a terminal that has lived through real work knows more
-    and may rank differently. That gap is the privacy boundary, not a bug. "Run in Claude/ChatGPT" opens the
-    picked model's own chat with your task prefilled — your account, your
-    keys; this page never calls a provider. For real runs with nothing to
-    install, open this repo in Claude Code and say the task; on your own
-    machine, <code>tools/owi-serve</code>.
+    <span class="mode">Snapshot __BUILT__</span><br>
+    Prices come from published source snapshots; provider prices may change.
+    Abilities begin as assumptions, not measured guarantees.
+    <a href="https://github.com/Morshedvarzandeh/Open-Workforce-Index/blob/main/docs/GETTING_STARTED.md"
+      target="_blank" rel="noopener">Getting started</a> ·
+    <a href="https://github.com/Morshedvarzandeh/Open-Workforce-Index"
+      target="_blank" rel="noopener">Source · AGPLv3</a>
   </footer>
 </div>
 
@@ -177,8 +319,20 @@
        "styling"],
   };
   const STORE = "owi-ask-v1";
-  const local = () => JSON.parse(localStorage.getItem(STORE) || "{}");
-  const save = (d) => localStorage.setItem(STORE, JSON.stringify(d));
+  let memoryFeedback = {}, feedbackPersistent = true;
+  const local = () => {
+    if (LIVE) return {}; // Connected mode already includes its private ledger.
+    try {
+      const stored = JSON.parse(localStorage.getItem(STORE) || "{}");
+      return stored && typeof stored === "object" && !Array.isArray(stored)
+        ? stored : {};
+    } catch { feedbackPersistent = false; return memoryFeedback; }
+  };
+  const save = (d) => {
+    memoryFeedback = d;
+    try { localStorage.setItem(STORE, JSON.stringify(d)); }
+    catch { feedbackPersistent = false; }
+  };
 
   // >>> decision-math >>>
   // Everything between these markers is a second implementation of the
@@ -342,13 +496,113 @@
   const esc = (s) => String(s).replace(/[&<>"]/g,
     c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   let last = null;
-  let LIVE = null;   // replaced by /api/data when a local server is present
+  let busy = false;
+  let LIVE = DATA.local ? DATA : null;
   const data = () => LIVE || DATA;
-  fetch("/api/data").then(r => r.ok ? r.json() : null).then(d => {
-    if (d && d.local) { LIVE = d;
-      document.querySelector("h1 small").insertAdjacentHTML("afterend",
-        '<span class="mode"> · local — runs for real</span>'); }
-  }).catch(() => {});
+
+  const GUIDE_STORE = "owi-guide-v1";
+  let guideStep = 0;
+  const nextStep = (title, text) => {
+    document.getElementById("nextTitle").textContent = title;
+    document.getElementById("nextText").textContent = text;
+  };
+  function setBusy(value) {
+    busy = value;
+    document.querySelectorAll(
+      "#q, #chooseButton, #checks, #confid, [data-example], #go, #preferq, " +
+      "[data-run], [data-qswap], #yes, #no, [data-good], [data-bad], #reset"
+    ).forEach(control => { control.disabled = value; });
+  }
+  function showGuideStep(step) {
+    guideStep = Math.max(0, Math.min(2, step));
+    const steps = [
+      ["Describe one clear task",
+       "Say what you want, include the input, and describe the output. For example, give the text of an email and ask for a polite rewrite. The example buttons fill a task for you; nothing runs until you choose an action."],
+      ["Review the recommendation",
+       "Choose a model shows an estimated best fit for this kind of work. Compare the price and quality option. The recommendation itself does not run the task or charge you."],
+      ["Run it, review it, and give feedback",
+       LIVE
+         ? "Use Run task to send the task through a configured model command on your server. Review the output and any checklist results. Mark worked or explain why it did not work. Your feedback is saved to the connected server's private ledger."
+         : "Copy the task into your AI app, select the recommended model if available, and run it there. Return here to review the answer and give feedback. With a checklist, you can paste the answer back for supported checks. Feedback stays in this browser."]
+    ];
+    document.getElementById("guideTitle").textContent = steps[guideStep][0];
+    document.getElementById("guideText").textContent = steps[guideStep][1];
+    document.querySelectorAll("[data-step]").forEach(button => {
+      if (Number(button.dataset.step) === guideStep)
+        button.setAttribute("aria-current", "step");
+      else button.removeAttribute("aria-current");
+    });
+    document.getElementById("guideBack").disabled = guideStep === 0;
+    document.getElementById("guideNext").hidden = guideStep === 2;
+  }
+  function syncModeGuidance() {
+    const count = (data().runnable || []).length;
+    document.getElementById("modeNote").textContent = LIVE
+      ? "Connected mode · " + count + " model command(s) configured. Choosing compares models; Run task sends your task through your server."
+      : "Browser mode · Compare models here, run the task in your own AI app, and return with the result.";
+    document.getElementById("checkHint").textContent = LIVE
+      ? "Leave this empty to let the server create a checklist."
+      : "Browser checks support rules such as contains:Friday or json; review plain-language requirements yourself.";
+    document.getElementById("privacyHint").textContent = LIVE
+      ? "Only workers marked as cleared for confidential content are eligible. Running sends the task to the connected server and its configured worker."
+      : "Only workers marked as cleared for confidential content are eligible. Your task stays in this browser until you copy it or open an AI-app link.";
+    document.getElementById("feedbackHint").textContent = LIVE
+      ? "Connected mode saves feedback in the server's private ledger. Browser feedback is separate and is not added to these estimates."
+      : "Browser mode stores feedback on this browser and device. It is not sent to the server ledger. If browser storage is unavailable, feedback lasts only until you reload.";
+    document.getElementById("reset").hidden = Boolean(LIVE);
+    showGuideStep(guideStep);
+  }
+  function openHelp(id) {
+    document.getElementById("help").open = true;
+    const panel = document.getElementById(id);
+    panel.open = true;
+    panel.querySelector("summary").focus();
+    panel.scrollIntoView({block: "nearest"});
+  }
+  const EXAMPLES = {
+    email: ["Rewrite this email in a polite, professional tone: Hello Sam, our delivery has not arrived. Please confirm whether it will arrive by Friday. Thanks, Alex.", "contains:Friday"],
+    json: ['Extract the name and quantity as JSON from this order: "12 battery modules for Northwind". Use the keys name and quantity.', "json"],
+    plan: ["Create a roadmap for preparing a small product demo next week. List five milestones with one deliverable each.", ""]
+  };
+  document.querySelectorAll("[data-example]").forEach(button =>
+    button.addEventListener("click", () => {
+      const q = document.getElementById("q"), checks = document.getElementById("checks");
+      if (q.value.trim() || checks.value.trim()) {
+        document.getElementById("exampleNotice").textContent =
+          "Your draft is still here. Clear the task and requirements to load an example.";
+        q.focus(); return;
+      }
+      const example = EXAMPLES[button.dataset.example];
+      q.value = example[0]; checks.value = example[1];
+      document.getElementById("checkOptions").open = Boolean(example[1]);
+      document.getElementById("exampleNotice").textContent =
+        "Example loaded. Edit it if you like, then choose a model.";
+      nextStep("Ready to compare", "Choose a model to see a recommendation. This does not run the task.");
+      q.focus();
+    }));
+  document.querySelectorAll("[data-step]").forEach(button =>
+    button.addEventListener("click", () => showGuideStep(Number(button.dataset.step))));
+  document.getElementById("guideBack").onclick = () => showGuideStep(guideStep - 1);
+  document.getElementById("guideNext").onclick = () => showGuideStep(guideStep + 1);
+  document.getElementById("guideDone").onclick = () => {
+    document.getElementById("guide").open = false;
+    try { localStorage.setItem(GUIDE_STORE, "done"); } catch {}
+    document.getElementById("q").focus();
+  };
+  try { document.getElementById("guide").open = localStorage.getItem(GUIDE_STORE) !== "done"; }
+  catch { document.getElementById("guide").open = true; }
+  syncModeGuidance();
+  if (LIVE) fetch("/api/data").then(r => {
+    if (!r.ok) throw new Error("connection failed");
+    return r.json();
+  }).then(d => {
+    if (d && d.local) { LIVE = d; syncModeGuidance(); }
+  }).catch(() => nextStep("Check your connection",
+    "The server could not be reached. Keep your task here and reopen the address printed by tools/owi-serve, including its access token if required."));
+  document.getElementById("confid").addEventListener("change", () => {
+    document.getElementById("answer").classList.remove("show"); last = null;
+    nextStep("Privacy setting updated", "Choose a model again to apply this requirement to your task.");
+  });
 
   // Highest quality bound wins; among equals, cheaper. The counterpart to
   // the cost ranking — the other corner of the cost/quality/time triangle.
@@ -358,8 +612,12 @@
     : null;
 
   function render(learnedNote, preferId) {
+    if (busy) return;
     const text = document.getElementById("q").value.trim();
-    if (!text) return;
+    if (!text) {
+      nextStep("Add a task first", "Describe what you want done and include the input, or try an example.");
+      document.getElementById("q").focus(); return;
+    }
     // The checklist is given TO the task as acceptance criteria, then the
     // same items are verified against the output (live page only).
     const checks = document.getElementById("checks").value
@@ -381,16 +639,17 @@
       aria-label="close">✕</button>`;
     if (!rows.length) {
       last = null;
+      nextStep("No suitable model yet",
+        "The current roster has no worker that meets this task's requirements. Open Help when you need it for ways to resolve this.");
       const why = privacy === "confidential_content"
         ? `<div class="none">no worker on this roster is cleared for
            confidential content in this skill.</div>
            <div class="meta">confidential work belongs to workers on your own
            machine — the roster's local-llama (via ollama) is cleared; see
            docs/ROUTER.md. Cloud workers carry metadata clearance only.</div>`
-        : `<div class="none">nobody qualified — every capable worker has
-           fallen below the quality floor.</div>
-           <div class="meta">that is your own feedback speaking; reset below
-           to forgive, or measure for real with the terminal.</div>`;
+        : `<div class="none">No suitable model for this task.</div>
+           <div class="meta">The current roster may lack the required skills,
+           tools, privacy clearance, or quality evidence.</div>`;
       box.innerHTML = closeButton + `<div class="line">skill:
         ${skill.replace("skill:", "")}</div>` + why;
       wireClose();
@@ -400,6 +659,10 @@
     const cheapest = bench[0];
     const top = preferId
       ? (bench.find(r => r.id === preferId) || cheapest) : cheapest;
+    nextStep(learnedNote ? "Feedback updated" : "Review your recommendation",
+      learnedNote ? "Edit your task or describe the next one when you are ready."
+      : LIVE ? "Check the estimated cost, then select Run task. This sends the task through your configured model command."
+      : "Copy the task into your AI app and select the suggested model if available. Run it there, then come back to review the result.");
     const best = qualityBest(bench);
     const paper = rows[0].id !== bench[0].id ? rows[0] : null;
     last = { skill, id: top.id };
@@ -408,7 +671,7 @@
         &nbsp;·&nbsp; ~${tokensIn} in / 800 out tokens</div>
       <div class="pick">→ ${short(top.id)}
         <span class="price">${$(top.total)}</span>
-        <span class="meta">per accepted result</span></div>
+        <span class="meta">estimated USD per accepted result</span></div>
       ${top.id !== cheapest.id ? `<div class="meta">picked for quality —
         cheapest qualified is ${short(cheapest.id)}
         at ${$(cheapest.total)}</div>` : ""}
@@ -433,7 +696,7 @@
             href="${topLaunch.url}${encodeURIComponent(askText)}"
             >run in ${topLaunch.name}</a>` : "";
         const after = MOBILE
-          ? "paste it into your Claude, then bring the answer back"
+          ? "paste into your AI app, select the model, and bring the answer back"
           : (checks.length ? "run it there, paste the result below"
                            : "run it there, come back, answer below");
         const pasteback = checks.length ? `
@@ -442,26 +705,26 @@
             <button type="button" id="checkbtn">check the result</button>
             <span id="checkstate" class="meta"></span></div>
           <div class="checkrep" id="checkrep"></div>` : "";
-        const handoff = MOBILE ? `<div class="meta">phone apps drop link
-          hand-offs, so the page hands you the task instead. One-tap real
-          runs live in the router: open this repo in Claude Code and say
-          the task.</div>`
-          : (links ? `<div class="meta">Tapping run also copies the task.
-          The app still uses its own selected model — exact-model runs:
-          open this repo in Claude Code, or tools/owi-serve.</div>` : "");
+        const handoff = MOBILE ? `<div class="meta">Your AI app uses its own
+          model selection. Check it before running the task.</div>`
+          : (links ? `<div class="meta">Opening the AI app also copies the task.
+          Check which model the app has selected before running it.</div>` : "");
         return `<div class="verdict">${links}
           <button type="button" id="copybtn">copy task</button>
           <span class="meta">${after}</span>
         </div>${handoff}${pasteback}`;
       })() : ""}
       ${LIVE ? (() => {
-        const runnable = rows.find(r =>
-          (data().runnable || []).includes(modelOf(r.c ? r.c.id : r.id)));
-        const target = runnable ? (runnable.c ? runnable.c.id : runnable.id) : null;
-        if (!target) return `<div class="meta">no runner configured for any
-          eligible worker — fill in .owi-quick/runners.json</div>`;
+        const canRun = r => (data().runnable || []).includes(modelOf(r.id));
+        const runnable = canRun(top) ? top : rows.find(canRun);
+        const target = runnable ? runnable.id : null;
+        if (!target) {
+          nextStep("Connect a model to run this task",
+            "You can compare estimates now. Set up a model command on your server to run a task from this page.");
+          return '<button type="button" class="quiet" id="connectModel">Connect a model</button>';
+        }
         window.__runTarget = target;
-        const label = target === top.id ? "run it"
+        const label = target === top.id ? "Run task"
           : `run with ${short(target)}`;
         const why = target === top.id ? "" : `<span class="meta">
           ${modelOf(top.id)} has no runner here</span>`;
@@ -481,10 +744,13 @@
         <button type="button" class="no" data-cause="environment">my setup</button>
       </div>`;
     wireClose();
+    const connectButton = document.getElementById("connectModel");
+    if (connectButton) connectButton.onclick = () => openHelp("setupHelp");
     const copyButton = document.getElementById("copybtn");
     if (copyButton) copyButton.onclick = async () => {
       try { await navigator.clipboard.writeText(askText);
-            copyButton.textContent = "copied"; }
+            copyButton.textContent = "copied";
+            nextStep("Task copied", "Paste it into your AI app, select the suggested model if available, and run it. Return here with the result."); }
       catch { window.prompt("copy the task:", askText); }
     };
     // Copy the task in the same tap so nothing is ever lost, and point the
@@ -559,7 +825,11 @@
   function checkPasted(checks) {
     const output = document.getElementById("pasteback").value;
     const state = document.getElementById("checkstate");
-    if (!output.trim()) { state.textContent = "paste the result first"; return; }
+    if (!output.trim()) {
+      state.textContent = "paste the result first";
+      nextStep("Paste the answer to check it", "Run the task in your AI app, then copy its answer into the result box.");
+      return;
+    }
     const marks = { true: ["✓", "ok"], false: ["✗", "fail"], null: ["?", "open"] };
     const results = checks.map(item => {
       const [kind, pass, note] = checkItemJS(item, output);
@@ -572,12 +842,17 @@
     const failed = results.some(i => i.pass === false);
     const open = results.filter(i => i.pass === null).length;
     if (failed) {
+      nextStep("Some requirements failed", "Review the failed items below. Clarify the task or revise the result before using it.");
       state.textContent = "checklist failed → " + learn(false, "worker");
       hideManualVerdict();
+      document.getElementById("checkbtn").disabled = true;
     } else if (!open) {
+      nextStep("Automatic checks passed", "These checks passed, but still review the answer for correctness before using it.");
       state.textContent = "all items passed → " + learn(true);
       hideManualVerdict();
+      document.getElementById("checkbtn").disabled = true;
     } else {
+      nextStep("Your review is needed", "Some requirements need judgement. Review them yourself, then choose worked or explain what failed.");
       state.textContent =
         `${open} item(s) need judgement — your call below, or use the live page`;
     }
@@ -587,6 +862,8 @@
   // part and a text part land on different workers — one model never gets
   // everything by default.
   function renderParts(parts, checks, learnedNote) {
+    nextStep("Review each part separately",
+      "OWI split your request into parts. Run and review each one. If a later part needs an earlier answer, include that answer in its task; results are not passed between parts automatically.");
     const box = document.getElementById("answer");
     box.classList.add("show");
     window.__partsArgs = { parts, checks };
@@ -646,13 +923,19 @@
             <button type="button" class="mini" data-good="${i}">worked</button>
             <button type="button" class="mini no" data-bad="${i}">didn't</button>
             <span class="meta" id="pstate-${i}"></span></div>
+          <div class="verdict" id="pcauses-${i}" hidden>
+            <span>What caused the problem?</span>
+            <button type="button" class="mini" data-pcause="worker" data-part="${i}">the model</button>
+            <button type="button" class="mini no" data-pcause="task_spec" data-part="${i}">unclear task</button>
+            <button type="button" class="mini no" data-pcause="environment" data-part="${i}">my setup</button>
+          </div>
           <pre class="out" id="pout-${i}" hidden></pre>
           <div class="checkrep" id="prep-${i}"></div></div>`;
       }).join("")}
       <div class="meta">all parts: ${$(total)} ·
         ${distinct} different worker(s)${checks.length
           ? " · your checklist applies to single-part asks; the live page writes one per part"
-          : ""}${LIVE ? "" : (MOBILE ? " · copy each part, paste it into your Claude, mark worked/didn't here · one-tap real runs: open this repo in Claude Code and say the task" : " · tapping run also copies the part · exact-model runs: open this repo in Claude Code and say the task")}</div>
+          : ""}${LIVE ? "" : " · copy each part into your AI app, select the model, and return here with feedback"}</div>
       ${learnedNote ? `<div class="learned ${learnedNote.cls}">
         ${learnedNote.text}</div>` : ""}`;
     wireClose();
@@ -669,8 +952,11 @@
       }));
     box.querySelectorAll("[data-good]").forEach(b => b.onclick = () =>
       partVerdict(+b.dataset.good, true));
-    box.querySelectorAll("[data-bad]").forEach(b => b.onclick = () =>
-      partVerdict(+b.dataset.bad, false));
+    box.querySelectorAll("[data-bad]").forEach(b => b.onclick = () => {
+      document.getElementById("pcauses-" + b.dataset.bad).hidden = false;
+    });
+    box.querySelectorAll("[data-pcause]").forEach(b => b.onclick = () =>
+      partVerdict(+b.dataset.part, false, b.dataset.pcause));
     box.querySelectorAll("[data-run]").forEach(b => b.onclick = () =>
       runPart(+b.dataset.run));
     box.querySelectorAll("[data-qswap]").forEach(b => b.onclick = () => {
@@ -681,20 +967,35 @@
     });
   }
 
-  async function partVerdict(i, worked) {
+  async function partVerdict(i, worked, cause) {
+    if (busy) return;
     const d = window.__parts[i];
     if (!d.top) return;
     const who = { skill: d.skill, id: d.ran || d.top.id };
     const state = document.getElementById("pstate-" + i);
     if (LIVE) {
-      await postOutcome(worked, worked ? null : "worker", "", d.text, [], who, "");
+      setBusy(true);
+      const saved = await postOutcome(worked, worked ? null : cause, "", d.text, [], who, "");
+      setBusy(false);
+      if (!saved) { state.textContent = "Feedback was not saved; please retry."; return; }
       state.textContent = worked ? "recorded accepted" : "recorded rejected";
     } else {
-      state.textContent = learn(worked, worked ? null : "worker", who);
+      state.textContent = learn(worked, worked ? null : cause, who);
     }
+    hidePartVerdict(i);
+    nextStep("Part feedback saved", "Review the remaining parts. A task or setup problem does not reduce the model's estimate.");
+  }
+
+  function hidePartVerdict(i) {
+    for (const action of ["good", "bad"]) {
+      const button = document.querySelector('[data-' + action + '="' + i + '"]');
+      if (button) button.hidden = true;
+    }
+    document.getElementById("pcauses-" + i).hidden = true;
   }
 
   async function runPart(i) {
+    if (busy) return;
     const d = window.__parts[i];
     if (!d.top) return;
     const who = { skill: d.skill, id: d.top.id };
@@ -705,19 +1006,30 @@
       const { rows } = evaluate(d.skill, 1500 + Math.floor(d.text.length / 4),
                                 800, window.__privacy);
       const alt = rows.find(r => (data().runnable || []).includes(modelOf(r.id)));
-      if (!alt) { state.textContent = "no runner configured"; return; }
+      if (!alt) {
+        state.textContent = "no runner configured";
+        nextStep("Connect a model for this part", "Open Help when you need it, then How do I connect a model?");
+        return;
+      }
       who.id = alt.id; model = modelOf(alt.id);
       state.textContent = `running with ${short(alt.id)} (cheapest runnable)…`;
     } else {
       state.textContent = "running via your CLI…";
     }
+    setBusy(true);
+    nextStep("Running this part", "Wait for the result and its checks. Keep this page open; other run buttons are paused to avoid duplicate requests.");
+    d.ran = who.id;
     try {
       const response = await fetch("/api/run", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model, task: d.text, skill: d.skill, check: [] }) });
       const result = await response.json();
       out.hidden = false;
-      if (!response.ok) { out.textContent = result.error; state.textContent = ""; return; }
+      if (!response.ok) {
+        out.textContent = result.error; state.textContent = "Could not run this part";
+        nextStep("Check the model connection", "Review the error below and check the model command on your server before trying again.");
+        return;
+      }
       out.textContent = result.output || result.stderr || "(no output)";
       const inspection = result.inspection ? result.inspection.level : "";
       const rep = document.getElementById("prep-" + i);
@@ -725,6 +1037,9 @@
         rep.innerHTML = `<div class="open">inspection:
           ${esc(result.inspection.level)} — ${esc(result.inspection.why)}</div>`;
       if (!result.check) {
+        nextStep(result.exit === 0 ? "Review this part" : "Check the command error",
+          result.exit === 0 ? "Review the output, give feedback for this part, and continue with the others."
+            : "Read the error below. A connection or command failure should be marked as my setup.");
         state.textContent = result.exit === 0
           ? "done — worked or didn't?" : `exit ${result.exit}`;
         return;
@@ -736,23 +1051,36 @@
       }).join("");
       const judged = result.check.judge ? ` · judge: ${result.check.judge}` : "";
       if (result.check.verdict === "accepted") {
-        await postOutcome(true, null, "", d.text, result.check.items, who, inspection);
+        const saved = await postOutcome(true, null, "", d.text, result.check.items, who, inspection);
+        if (!saved) { state.textContent = "Checks passed; feedback was not saved. Retry with worked."; return; }
+        nextStep("Part checks passed", "Feedback was saved. Review this output and continue with the remaining parts.");
+        hidePartVerdict(i);
         state.textContent = `passed${judged} → recorded accepted`;
       } else if (result.check.verdict === "rejected") {
         const det = result.check.items.filter(x => x.pass === false)
           .map(x => `failed: ${x.item} (${x.note})`).join("; ");
-        await postOutcome(false, "worker", det, d.text, result.check.items, who, inspection);
+        const saved = await postOutcome(false, "worker", det, d.text, result.check.items, who, inspection);
+        if (!saved) { state.textContent = "Checks failed; feedback was not saved. Retry with didn't."; return; }
+        nextStep("Part checks failed", "Feedback was saved. Review the failed items before using this part's result.");
+        hidePartVerdict(i);
         state.textContent = `failed${judged} → recorded rejected`;
       } else {
+        nextStep("Review the unchecked items", "Some requirements need your judgement. Review this part and give feedback.");
         state.textContent = `not fully checked${judged} — worked/didn't is your call`;
       }
-    } catch (error) { state.textContent = "server went away"; }
+    } catch (error) {
+      state.textContent = "Could not complete the request";
+      nextStep("Check your server connection", "Keep your task here. Reopen the server address if needed, and check whether the command completed before running it again.");
+    } finally { setBusy(false); }
   }
 
   async function runIt(text, checks) {
+    if (busy) return;
+    setBusy(true);
     const state = document.getElementById("runstate");
     const out = document.getElementById("out");
     state.textContent = "running via your CLI…";
+    nextStep("Running your task", "Wait for the model and its checks. Keep this page open; the run button is paused to avoid duplicate requests.");
     try {
       const response = await fetch("/api/run", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -760,16 +1088,26 @@
                                skill: last.skill, check: checks || [] }) });
       const result = await response.json();
       out.hidden = false;
-      if (!response.ok) { out.textContent = result.error; state.textContent = ""; return; }
+      if (!response.ok) {
+        out.textContent = result.error; state.textContent = "Could not run the task";
+        nextStep("Check the model connection", "Review the error below and check the model command on your server before trying again.");
+        return;
+      }
       out.textContent = result.output || result.stderr || "(no output)";
       window.__inspection = result.inspection ? result.inspection.level : "";
       if (result.inspection)
         document.getElementById("checkrep").innerHTML =
           `<div class="open">inspection: ${esc(result.inspection.level)} — ${esc(result.inspection.why)}</div>`;
       if (result.check) { await applyCheck(result.check, text); return; }
+      nextStep(result.exit === 0 ? "Review the result" : "The command did not finish successfully",
+        result.exit === 0 ? "Read the output against your requirements, then choose worked or explain what failed."
+          : "Review the error below. If this is a connection or command problem, choose my setup rather than the model.");
       state.textContent = result.exit === 0 ? "done — worked or didn't?"
                                             : `exit ${result.exit}`;
-    } catch (error) { state.textContent = "server went away"; }
+    } catch (error) {
+      state.textContent = "Could not complete the request";
+      nextStep("Check your server connection", "Keep your task here. Reopen the server address if needed, and check whether the command completed before running it again.");
+    } finally { setBusy(false); }
   }
 
   // The checklist verdict is earned, not asked for: decisive results are
@@ -784,17 +1122,22 @@
     const state = document.getElementById("runstate");
     const judged = report.judge ? ` · judge: ${report.judge}` : "";
     if (report.verdict === "accepted") {
-      await postOutcome(true, null, "", task, report.items);
+      const saved = await postOutcome(true, null, "", task, report.items);
+      if (!saved) { state.textContent = "Checks passed; feedback was not saved. Retry with worked."; return; }
+      nextStep("Checks passed and feedback saved", "Review the answer before using it. You can now describe your next task.");
       state.textContent = `checklist passed${judged} → recorded accepted`;
       hideManualVerdict();
     } else if (report.verdict === "rejected") {
       const detail = report.items.filter(i => i.pass === false)
         .map(i => `failed: ${i.item} (${i.note})`).join("; ");
-      await postOutcome(false, "worker", detail, task, report.items);
+      const saved = await postOutcome(false, "worker", detail, task, report.items);
+      if (!saved) { state.textContent = "Checks failed; feedback was not saved. Retry with didn't."; return; }
+      nextStep("Some requirements failed", "The failure was recorded. Review the failed items, clarify your task if needed, and try again.");
       state.textContent =
         `checklist failed${judged} → recorded rejected (worker)`;
       hideManualVerdict();
     } else {
+      nextStep("Your review is needed", "Some requirements could not be verified automatically. Review those items, then choose worked or explain what failed.");
       state.textContent = `could not verify every item${judged} — your call below`;
     }
   }
@@ -812,8 +1155,13 @@
           inspection: inspection !== undefined ? inspection
                       : (window.__inspection || "") }) });
       const result = await response.json();
-      if (result.ok) LIVE = result.data;
-    } catch (error) { /* server went away; the report stays on screen */ }
+      if (!response.ok || !result.ok) throw new Error("feedback not saved");
+      LIVE = result.data;
+      return true;
+    } catch (error) {
+      nextStep("Feedback was not saved", "Check your connection to the server and retry your feedback. Your result is still shown below.");
+      return false;
+    }
   }
 
   function hideManualVerdict() {
@@ -823,23 +1171,22 @@
   }
 
   async function verdict(worked, cause) {
-    if (!last) return;
+    if (!last || busy) return;
     if (LIVE) {
-      try {
-        const response = await fetch("/api/outcome", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ worker: last.id, skill: last.skill,
-                                 accepted: worked, cause,
-                                 task: document.getElementById("q").value }) });
-        const result = await response.json();
-        if (result.ok) { LIVE = result.data;
-          render({ cls: worked ? "up" : "down",
-                   text: `${short(last.id)} ${worked ? "credited" : "marked down"}
-                     — recorded to your real ledger` });
-          return; }
-      } catch (error) { /* fall through to browser-only */ }
+      setBusy(true);
+      const saved = await postOutcome(worked, cause, "",
+        document.getElementById("q").value, []);
+      setBusy(false);
+      if (!saved) return;
+      render({ cls: worked ? "up" : "down",
+        text: worked ? "Success saved to your private ledger."
+          : cause === "worker" ? "Model failure saved to your private ledger."
+          : "Feedback saved. This task or setup problem does not count against the model." });
+      hideManualVerdict();
+      return;
     }
     render({ cls: worked ? "up" : "down", text: learn(worked, cause) });
+    hideManualVerdict();
   }
 
   // The browser-only Beta update, shared by the buttons, the paste-back
@@ -855,29 +1202,43 @@
     store[who.skill][who.id] = mine;
     save(store);
     const p = posterior(who.skill, who.id);
-    return `${short(who.id)} ${worked ? "credited" : "marked down"} — its
-      estimate is now ${(p.a / (p.a + p.b)).toFixed(2)}
-      (${mine.s} worked / ${mine.f} didn't, this browser only)`;
+    const effect = worked ? "Success recorded" : (!cause || cause === "worker")
+      ? "Model failure recorded" : "Task or setup feedback recorded; model estimate unchanged";
+    const scope = feedbackPersistent ? "this browser only" : "this tab until reload; browser storage is unavailable";
+    return effect + " — estimate " + (p.a / (p.a + p.b)).toFixed(2) +
+      " (" + mine.s + " worked / " + mine.f + " didn't, " + scope + ")";
   }
 
   function wireClose() {
     const btn = document.getElementById("closeAnswer");
     if (btn) btn.onclick = () => {
+      if (busy) return;
       document.getElementById("answer").classList.remove("show");
       const q = document.getElementById("q");
       q.select(); q.focus();
+      nextStep("Ready for another task", "Edit your task or describe a new one, then choose a model.");
     };
   }
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape")
+    if (e.key === "Escape" && !busy)
       document.getElementById("answer").classList.remove("show");
   });
   document.getElementById("form").addEventListener("submit", (e) => {
     e.preventDefault(); window.__qpref = {}; render();
   });
   document.getElementById("reset").addEventListener("click", (e) => {
-    e.preventDefault(); localStorage.removeItem(STORE);
+    e.preventDefault();
+    try { localStorage.removeItem(STORE); } catch {}
+    memoryFeedback = {};
     document.getElementById("answer").classList.remove("show");
-    document.getElementById("q").value = ""; document.getElementById("q").focus();
+    nextStep("Browser feedback reset", "Your task and requirements are still here. Choose a model to compare using the starting estimates.");
+    document.getElementById("q").focus();
   });
+  for (const id of ["q", "checks"]) {
+    document.getElementById(id).addEventListener("input", () => {
+      document.getElementById("answer").classList.remove("show"); last = null;
+      nextStep("Task updated", "Choose a model again to use your latest task and requirements.");
+    });
+  }
 </script>
+</html>

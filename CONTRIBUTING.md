@@ -23,6 +23,11 @@ cargo test --workspace --all-targets
 Keep changes narrow and include tests for routing, money, identity, privacy, or
 storage invariants. New architectural decisions belong in `docs/adr/`.
 
+For ask-page interaction changes, run `node tools/check_ask_guidance.cjs`
+with Node.js, Playwright, and Chromium available. The browser scenarios use
+local fixtures and mocked server responses; they never call a model.
+`OWI_CHROMIUM_PATH` can select an existing Chromium executable.
+
 ## Adding public evidence
 
 Do not paste a leaderboard number without its protocol. A record must identify:

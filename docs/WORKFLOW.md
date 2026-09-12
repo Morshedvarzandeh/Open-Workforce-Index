@@ -1,5 +1,8 @@
 # The complete workflow
 
+For your first task, use the shorter [getting-started guide](GETTING_STARTED.md)
+or open **Start here** in the ask page.
+
 Every step below was executed and verified before being written down. The
 ladder has five rungs; each works on its own, and each records into the same
 loop. Start at the top and climb only when you want to.
@@ -97,8 +100,8 @@ tools/owi-serve        # open http://127.0.0.1:7787
 ```
 
 The same one-box page, served locally: it detects the server, shows
-"local — runs for real", and grows a run button. Output streams into the
-page; `worked` / `didn't` goes to the real ledger and every number refreshes
+"Connected mode", and grows a run button. Output appears when the run finishes;
+`worked` / `didn't` goes to the real ledger and every number refreshes
 from the engine immediately. Localhost by default; the browser can only
 *name* a model — the command executed is resolved server-side from
 `runners.json`. `--host 0.0.0.0` opens it to your own network behind a
