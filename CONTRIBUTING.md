@@ -2,6 +2,14 @@
 
 Thank you for helping build a transparent AI workforce allocator.
 
+## Licensing contributions
+
+OWI uses the GNU Affero General Public License, version 3 only
+(`AGPL-3.0-only`); see [LICENSE](LICENSE). By intentionally submitting a
+contribution for inclusion in OWI, you agree to license it under these terms
+unless a separate arrangement is explicitly agreed. Only submit material you
+have the right to contribute, and retain any required third-party notices.
+
 ## Development
 
 Use Rust 1.87 or newer, then run:
@@ -32,8 +40,10 @@ exact worker merely to make release-level evidence fit the schema; the
 estimator must transfer such evidence with lower confidence.
 
 Store a link and digest rather than copying a large third-party dataset unless
-its license explicitly permits redistribution. Apache-2.0 covers OWI code and
-project-authored data; it does not relicense imported benchmark material.
+its license explicitly permits redistribution. AGPL-3.0-only covers OWI code and
+project-authored data unless separately licensed; it does not relicense imported
+benchmark material. Keep evidence-record and test-fixture source-license values
+intact: they describe the represented source, not the license of OWI itself.
 
 Environmental factors additionally require an exact offering or deployment,
 functional unit, scaling rule, lifecycle phase, measurement boundary, units,

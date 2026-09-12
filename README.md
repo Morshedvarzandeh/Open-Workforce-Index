@@ -313,9 +313,31 @@ never leave the user's machine.
 See the [roadmap](docs/ROADMAP.md) for automatic source adapters, signed index
 snapshots, model execution, repository sandboxes, and a simple dashboard.
 
+## License
+
+Copyright (C) 2026 Morshed Varzandeh.
+
+Open Workforce Index is licensed under the **GNU Affero General Public License,
+version 3 only** (`AGPL-3.0-only`). You may redistribute and modify it under
+the terms in [LICENSE](LICENSE). It is provided without warranty, including
+the implied warranties of merchantability and fitness for a particular purpose.
+
+Commercial use is permitted. If you modify OWI and let users interact with that
+version over a network, you must prominently offer those users its corresponding
+source under AGPLv3, as required by section 13. Distributing copies also carries
+the license's notice and source requirements.
+
+This license applies to OWI code, documentation, ontology, and project-authored
+data unless a separate license is explicitly stated. Dependencies and imported
+benchmark material retain their own licenses. License values inside evidence
+records and test fixtures describe the represented source material; they do not
+set the license of the surrounding OWI software.
+
+Earlier revisions published under Apache-2.0 remain available under those terms.
+This change does not revoke permissions already granted for those revisions.
+
 ## Contributing
 
-OWI is licensed under Apache-2.0. Benchmark datasets may have their own licenses
-and are never implicitly relicensed by this repository. Read
+Read
 [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md) before adding a
 source or execution adapter.

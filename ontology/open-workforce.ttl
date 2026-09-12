@@ -14,7 +14,7 @@
     owl:versionInfo "0.1.0" ;
     dct:title "Open Workforce Index ontology"@en ;
     dct:description "Provider-neutral vocabulary for evidence-backed AI worker allocation."@en ;
-    dct:license <https://spdx.org/licenses/Apache-2.0.html> ;
+    dct:license <https://spdx.org/licenses/AGPL-3.0-only.html> ;
     dct:issued "2026-08-07"^^xsd:date .
 
 # The unversioned owf: namespace is stable. Released ontology documents receive
