@@ -24,11 +24,13 @@ def install_copy():
     if not re.fullmatch(r'[0-9a-f]{40}', revision):
         raise ValueError('Invalid download version. Download OWI again from its release page.')
     source = Path(sys.executable).resolve().parent
-    parent = (platform.default_home()/'app').resolve()
+    data_home = platform.default_home()
+    data_home.mkdir(parents=True, exist_ok=True, mode=0o700)
+    parent = (data_home/'app').resolve()
     destination = parent/revision[:12]
     if source == destination:
         return None
-    parent.mkdir(parents=True, exist_ok=True)
+    parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     if not destination.exists():
         temporary = Path(tempfile.mkdtemp(prefix='.install-', dir=parent))
         try:

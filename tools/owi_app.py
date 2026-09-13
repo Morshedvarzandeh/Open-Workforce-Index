@@ -10,6 +10,11 @@ def main():
     if action == 'setup':
         from owi_setup import main as setup
         return setup()
+    if action == 'install':
+        import json
+        from owi_setup import install_copy
+        print(json.dumps({'executable':str(install_copy() or sys.executable)}))
+        return 0
     if action == 'openrouter':
         import owi_openrouter
         sys.argv = [sys.argv[0], *sys.argv[2:]]

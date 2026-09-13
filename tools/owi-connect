@@ -36,7 +36,7 @@ def merge_config(path, root_key, definition):
 
 
 def prepare(home):
-    home=Path(home).resolve();home.mkdir(parents=True,exist_ok=True)
+    home=Path(home).resolve();home.mkdir(parents=True,exist_ok=True,mode=0o700)
     if not os.environ.get('OWI_BINARY'):
         cargo=shutil.which('cargo')
         if not cargo: raise ValueError('One-time engine build needs Rust 1.87+; install Rust or set OWI_BINARY')

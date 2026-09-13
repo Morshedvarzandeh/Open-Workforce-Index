@@ -74,6 +74,8 @@ def main():
             return result['result']
         try:
             rpc(1, 'initialize', {'protocolVersion':'2025-11-25'})
+            process.stdin.write(json.dumps({'jsonrpc':'2.0', 'method':'notifications/initialized'})+'\n')
+            process.stdin.flush()
             status = rpc(2, 'tools/call', {'name':'owi_status', 'arguments':{}})
             assert '"ready": true' in status['content'][0]['text'], status
             result = rpc(3, 'tools/call', {'name':'owi_work', 'arguments':{
@@ -96,6 +98,12 @@ def main():
         rejected = run('openrouter', '--profile', str(profile), input='hello')
         assert rejected.returncode == 1, rejected
         assert 'OPENROUTER_API_KEY' in rejected.stderr, rejected.stderr
+        installed = Path(json.loads(run('install', check=True).stdout)['executable'])
+        assert installed != app
+        app.parent.rename(base/'deleted original download')
+        app = installed
+        assert json.loads(run('diagnose', check=True).stdout)['packaged']
+        assert Path(json.loads(run('install', check=True).stdout)['executable']) == app
         print('Extracted download passed: no Python/Rust on PATH; engine, all four connections, MCP work and deterministic feedback; no paid calls.')
 
 
