@@ -6,28 +6,33 @@ Keep working in Copilot, Cursor or Claude Code. OWI can receive a delegated
 task, choose a configured model, run it, check supported requirements, and
 return the result to the same chat. The GUI is optional for review and settings.
 
-[Connect to your AI tool](docs/INTEGRATIONS.md) ·
+[Download and connect](docs/DESKTOP.md) ·
 [How routing works](docs/WORKFLOW.md) ·
 [Optional browser example](demo/index.html)
 
 ## Connect once, then keep working
 
-With Python 3, Rust 1.87+ and this repository cloned:
+Download the [OWI desktop preview](https://github.com/Morshedvarzandeh/Open-Workforce-Index/releases)
+for your computer, extract it, and open OWI. Choose your AI app and project,
+then click **Connect**. The engine and runtime are included: **no Rust, Python,
+Git or package-manager installation is required**.
 
-```bash
-python3 tools/owi-connect --client vscode --prepare
-```
+Use your existing Claude Code login, or enter an OpenRouter API key once.
+The desktop setup keeps keys in your system credential store and installs a
+stable copy so deleting the original download will not break the connection.
+See the [short installation guide](docs/DESKTOP.md) for your operating system.
 
-For OpenRouter-backed execution, add `--openrouter` and make your existing
-`OPENROUTER_API_KEY` available to the client environment. Copilot CLI, Cursor
-and Claude Code have connection options in the [integration guide](docs/INTEGRATIONS.md).
 The host controls delegation and tool permissions; OWI does not intercept
 inline autocomplete or replace every Copilot model call. OpenRouter usage
 is billed separately from your Copilot subscription.
 
-The core builds once. Normal tool calls use one worker attempt and local
+Normal tool calls use the included engine, one worker attempt and local
 checks, with no OWI page or acceptance prompt. Starting ability estimates are
 assumptions; measured savings and general speedups remain unproven.
+
+Developers can use the [source connection commands](docs/INTEGRATIONS.md#connect-from-source-developers).
+The desktop downloads are unsigned previews; signing and Marketplace
+distribution are still pending.
 
 ## What works today
 

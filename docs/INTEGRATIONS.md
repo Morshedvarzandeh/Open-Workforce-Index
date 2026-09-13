@@ -28,6 +28,15 @@ by this local installer.
 
 ## Connect once
 
+Use the [desktop download](DESKTOP.md): extract it, open OWI, choose your AI
+app and project, then click **Connect**. The runtime and engine are included;
+users do not install Rust or Python. Desktop OpenRouter keys can be saved in
+the operating system's credential store directly from the setup screen.
+
+The following commands are for developers running OWI from source.
+
+## Connect from source (developers)
+
 Prerequisites: a local OWI checkout, Python 3, and Rust 1.87+ for the initial
 engine build. Existing authenticated model CLIs remain usable. Run from OWI:
 

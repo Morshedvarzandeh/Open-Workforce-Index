@@ -12,6 +12,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import owi_platform as platform
 
 API = 'https://openrouter.ai/api/v1'
 # Explicit model/provider selections; neither OpenRouter auto nor model fallback is used.
@@ -30,7 +31,13 @@ def request_json(endpoint, body=None, key=None):
     request = urllib.request.Request(API+endpoint,
         data=json.dumps(body).encode() if body is not None else None, headers=headers)
     try:
-        with urllib.request.build_opener(NoRedirect).open(request, timeout=15 if body is None else 110) as response:
+        handlers = [NoRedirect]
+        if platform.frozen():
+            import certifi
+            import ssl
+            handlers.append(urllib.request.HTTPSHandler(context=ssl.create_default_context(
+                cafile=os.environ.get('SSL_CERT_FILE') or certifi.where())))
+        with urllib.request.build_opener(*handlers).open(request, timeout=15 if body is None else 110) as response:
             content = response.read(5000001)
             if len(content)>5000000: raise ValueError('Provider response too large')
             return json.loads(content)
@@ -161,7 +168,7 @@ def configure(home, catalog=None):
             runners.pop(old,None)
     for model,profile in profiles.items():
         profile_path=home/(model+'.json');profile_path.write_text(json.dumps(profile))
-        args=[sys.executable,str(Path(__file__).resolve()),'--profile',str(profile_path.resolve())]
+        args=[*platform.command('openrouter'),'--profile',str(profile_path.resolve())]
         runners[model]=subprocess.list2cmdline(args) if os.name=='nt' else shlex.join(args)
         settings['billing'][model]={'mode':'api','plan':'OpenRouter API'}
         settings['formats'][model]='owi-json'

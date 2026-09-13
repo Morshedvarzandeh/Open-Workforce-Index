@@ -47,8 +47,9 @@ import tempfile
 import time
 from pathlib import Path
 import owi_runtime as runtime
+import owi_platform as platform
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = platform.resources()
 MICROS = 1_000_000
 # The instant decisions are dated at. Offerings carry effective-from dates, so
 # this must sit after the newest price revision or its workers look
@@ -164,7 +165,7 @@ def owi(*args: str) -> dict:
     completed = subprocess.run(
         ([binary, *args] if binary else
          ["cargo", "run", "-q", "-p", "workforce-cli", "--", *args]),
-        cwd=REPO, capture_output=True, text=True)
+        cwd=REPO, capture_output=True, text=True, env=platform.external_env())
     if completed.returncode != 0:
         sys.stderr.write(completed.stderr[-1500:])
         raise SystemExit(f"owi {args[0]} failed")

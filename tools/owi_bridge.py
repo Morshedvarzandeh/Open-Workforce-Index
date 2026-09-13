@@ -10,8 +10,9 @@ import subprocess
 import sys
 import tempfile
 import time
+import owi_platform as platform
 
-TOOLS = Path(__file__).resolve().parent
+TOOLS = platform.resources()/'tools'
 loader = importlib.machinery.SourceFileLoader('owi_bridge_do', str(TOOLS / 'owi-do'))
 spec = importlib.util.spec_from_loader('owi_bridge_do', loader)
 do = importlib.util.module_from_spec(spec)
@@ -74,7 +75,7 @@ def execute_command(home, model, payload, checks, cancel, timeout=120):
             process = subprocess.Popen(command, shell=True, stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=scratch,
                 start_new_session=os.name != 'nt',
-                env={**os.environ,'OWI_NESTED_WORKER':'1'})
+                env={**platform.external_env(),'OWI_NESTED_WORKER':'1'})
             started = time.monotonic()
             first = True
             while True:

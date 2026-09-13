@@ -1,0 +1,87 @@
+name: Desktop downloads
+
+on:
+  pull_request:
+    paths: ['tools/**', 'packaging/**', 'crates/**', 'Cargo.*', '.github/workflows/desktop.yml', 'docs/DESKTOP.md']
+  push:
+    branches: [main]
+    paths: ['tools/**', 'packaging/**', 'crates/**', 'Cargo.*', '.github/workflows/desktop.yml', 'docs/DESKTOP.md']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Package ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-2022, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build engine
+        run: cargo build --release --locked -p workforce-cli --bin owi
+      - name: Core verification
+        if: runner.os == 'Linux'
+        run: |
+          cargo test --workspace --all-targets --locked
+          python tools/test_integrations.py
+          python tools/test_runtime.py
+          python tools/owi-selftest --no-cargo
+      - name: Setup and credential boundaries
+        run: python tools/test_desktop.py
+      - name: Install build dependencies
+        run: python -m pip install -r packaging/requirements.txt
+      - name: Package
+        shell: bash
+        run: |
+          engine=target/release/owi
+          if [ "$RUNNER_OS" = Windows ]; then engine="$engine.exe"; fi
+          python packaging/build.py --engine "$engine"
+      - name: Verify downloaded bundle without developer tools on PATH
+        run: python packaging/check_bundle.py
+      - name: Setup window on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a dist/OWI/OWI gui-smoke
+      - name: Setup window on Windows and macOS
+        if: runner.os != 'Linux'
+        shell: bash
+        run: |
+          app=dist/OWI/OWI
+          if [ "$RUNNER_OS" = Windows ]; then app="$app.exe"; fi
+          "$app" gui-smoke
+      - uses: actions/upload-artifact@v6
+        with:
+          name: desktop-${{ matrix.os }}
+          path: |
+            dist/OWI-*.zip
+            dist/OWI-*.tar.gz
+            dist/OWI-*.sha256
+          if-no-files-found: error
+
+  publish:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          path: downloads
+          merge-multiple: true
+      - name: Publish verified preview downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="desktop-${GITHUB_SHA:0:12}"
+          gh release create "$tag" downloads/* --target "$GITHUB_SHA" --prerelease \
+            --title 'OWI desktop preview — no Rust or Python installation' \
+            --notes-file packaging/RELEASE-NOTES.md

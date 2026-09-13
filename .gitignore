@@ -12,6 +12,9 @@
 /.owi/.work/
 /.owi/plan.json
 __pycache__/
+/build/
+/dist/
+/.packaging-venv/
 /.owi-quick/
 
 /docs/promotion/recording/

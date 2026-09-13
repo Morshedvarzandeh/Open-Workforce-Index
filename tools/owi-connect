@@ -10,6 +10,7 @@ import sys
 import tempfile
 
 from owi_bridge import do
+import owi_platform as platform
 
 
 def merge_config(path, root_key, definition):
@@ -50,19 +51,20 @@ def prepare(home):
 
 
 def definition(home, ceiling):
-    return {'command':sys.executable,'args':[str(Path(__file__).resolve().parent/'owi-mcp'),
-            '--home',str(Path(home).resolve()),'--max-estimated-cost-micros',str(ceiling)]}
+    command = platform.command('mcp')
+    return {'command':command[0],'args':[*command[1:], '--home',str(Path(home).resolve()),
+            '--max-estimated-cost-micros',str(ceiling)]}
 
 
-def main():
+def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--client',choices=['vscode','copilot-cli','cursor','claude-code'])
     parser.add_argument('--project',type=Path)
-    parser.add_argument('--home',type=Path,default=do.REPO/'.owi-quick')
+    parser.add_argument('--home',type=Path,default=platform.default_home())
     parser.add_argument('--prepare',action='store_true',help='Build the engine once and initialize the private index')
     parser.add_argument('--openrouter',action='store_true',help='Use distinct OpenRouter workers; existing API key must be in the client environment')
     parser.add_argument('--max-estimated-cost-micros',type=int,default=100000)
-    args=parser.parse_args()
+    args=parser.parse_args(argv)
     if not args.client and not args.prepare and not args.openrouter:
         parser.error('Choose a client or --prepare')
     if not 0<=args.max_estimated_cost_micros<=1000000000: parser.error('Invalid estimated-cost ceiling')
@@ -73,7 +75,7 @@ def main():
             configure(args.home.resolve())
             print('OpenRouter workers configured from its model catalog. Usage is billed separately by OpenRouter.')
         entry=definition(args.home,args.max_estimated_cost_micros)
-        if (args.home/'bridge.json').exists():
+        if (args.home/'bridge.json').exists() and not platform.frozen():
             # References only: never copy an API key into client configuration.
             variable = '${env:OPENROUTER_API_KEY}' if args.client in ('vscode','cursor') else '${OPENROUTER_API_KEY}'
             entry['env'] = {'OPENROUTER_API_KEY':variable}
