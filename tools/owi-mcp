@@ -134,11 +134,16 @@ class Server:
 
 
 def main():
+    import owi_platform as platform
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--home', type=Path, default=Path(__file__).resolve().parent.parent/'.owi-quick')
+    parser.add_argument('--home', type=Path, default=platform.default_home())
     parser.add_argument('--max-estimated-cost-micros', type=int, default=100000)
     parser.add_argument('--timeout', type=int, default=120)
     args = parser.parse_args()
+    if platform.frozen() and (args.home/'bridge.json').exists() and any(
+        model.startswith('or-') for model in json.loads((args.home/'bridge.json').read_text()).get('models', [])):
+        from owi_credentials import activate
+        activate(args.home)
     if not 0 <= args.max_estimated_cost_micros <= 1000000000 or not 1 <= args.timeout <= 600:
         parser.error('Invalid execution limits')
     if not os.environ.get('OWI_BINARY'):

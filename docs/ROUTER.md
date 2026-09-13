@@ -6,9 +6,11 @@ can substitute the model.
 
 ## Use it inside your existing tool
 
-[Connect OWI through MCP](INTEGRATIONS.md) to VS Code Copilot, Copilot CLI,
+[Download and connect OWI](DESKTOP.md) to VS Code Copilot, Copilot CLI,
 Cursor or Claude Code. The host can delegate tasks automatically after one-time
 setup. No OWI page or acceptance question is needed for each task.
+The desktop download includes everything OWI needs; the source-development
+steps below are optional.
 
 Opening this repository in an AI tool does not itself establish provider
 credentials or free usage. Client trust, tool permissions and model access

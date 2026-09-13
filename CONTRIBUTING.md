@@ -39,6 +39,14 @@ With the engine built, also run
 Both use fake model responses. The latter validates actual Rust imports,
 worker identities, allocation and recorded deterministic feedback.
 
+For desktop packaging, run `python3 tools/test_desktop.py`. Build the release
+engine, install `packaging/requirements.txt` in a build virtual environment,
+then run `python packaging/build.py --engine target/release/owi` (use `.exe`
+on Windows). Run `python packaging/check_bundle.py` to exercise the actual
+extracted download with developer tools absent from PATH. The desktop workflow
+also opens the packaged setup window on all four supported platforms before
+publishing a preview. Build prerequisites never become user prerequisites.
+
 ## Adding public evidence
 
 Do not paste a leaderboard number without its protocol. A record must identify:

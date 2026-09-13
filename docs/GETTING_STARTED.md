@@ -4,8 +4,9 @@ OWI helps you choose an AI worker for a task, compare its estimated cost,
 and learn from whether the result worked. A worker is a model together with
 its role and tools. Choosing a model and running it are separate actions.
 
-Already using Copilot, Cursor or Claude Code? [Connect OWI as an add-on](INTEGRATIONS.md)
-once and keep working in that chat. The page described below is optional.
+Already using Copilot, Cursor or Claude Code? [Download and connect OWI](DESKTOP.md)
+once and keep working in that chat. Rust and Python are included in the
+desktop download. The page described below is optional.
 
 ## Choose where to start
 
