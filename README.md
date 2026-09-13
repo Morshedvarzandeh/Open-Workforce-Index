@@ -1,22 +1,38 @@
 # Open Workforce Index
 
-**Choose an AI model for your task, compare estimated costs, and check the result.**
+**An AI routing add-on for the tools you already use.**
 
-OWI is an early, local-first tool for developers who already use multiple AI
-models. It learns from checked outcomes to inform later choices, while keeping
-subscription allowance separate from API cost estimates.
+Keep working in Copilot, Cursor or Claude Code. OWI can receive a delegated
+task, choose a configured model, run it, check supported requirements, and
+return the result to the same chat. The GUI is optional for review and settings.
 
-[Try the browser example](demo/index.html) · [Watch the short demo](docs/promotion/demo.mp4) ·
-[Connect your models](docs/GETTING_STARTED.md) · [Report your first-task experience](https://github.com/Morshedvarzandeh/Open-Workforce-Index/issues/new?template=first-task.yml)
+[Connect to your AI tool](docs/INTEGRATIONS.md) ·
+[How routing works](docs/WORKFLOW.md) ·
+[Optional browser example](demo/index.html)
 
-The browser example is a self-contained HTML file: use GitHub's **Download raw
-file** button and open it in your browser. No account, Rust installation, or API
-key is needed. It uses labelled sample prices and assumed abilities; it does
-not run models or demonstrate measured savings.
+## Connect once, then keep working
+
+With Python 3, Rust 1.87+ and this repository cloned:
+
+```bash
+python3 tools/owi-connect --client vscode --prepare
+```
+
+For OpenRouter-backed execution, add `--openrouter` and make your existing
+`OPENROUTER_API_KEY` available to the client environment. Copilot CLI, Cursor
+and Claude Code have connection options in the [integration guide](docs/INTEGRATIONS.md).
+The host controls delegation and tool permissions; OWI does not intercept
+inline autocomplete or replace every Copilot model call. OpenRouter usage
+is billed separately from your Copilot subscription.
+
+The core builds once. Normal tool calls use one worker attempt and local
+checks, with no OWI page or acceptance prompt. Starting ability estimates are
+assumptions; measured savings and general speedups remain unproven.
 
 ## What works today
 
-- A simple GUI to describe a task, compare models, and review a result.
+- An MCP tool for automatic task routing inside existing agents.
+- An optional GUI to compare models and review results.
 - Connected execution through your own configured model commands.
 - Deterministic result checks and private outcome feedback.
 - Subscription-aware routing and reported usage, with manual allowance refresh.
@@ -28,7 +44,7 @@ Instruction updates do not retrain model weights. See the
 [24-task benchmark protocol](benchmarks/launch/README.md) and
 [current limitations](docs/GETTING_STARTED.md).
 
-## Run the connected GUI
+## Optional: open the review GUI
 
 Install Git, Python 3, and Rust 1.87 or newer, then:
 

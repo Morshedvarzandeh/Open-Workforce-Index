@@ -4,18 +4,15 @@ The hosted ask page can only *request* a model — provider apps keep their own
 selection. The router is this repo executing the picks itself, where no app
 can substitute the model.
 
-## Zero install — open it in Claude Code and speak
+## Use it inside your existing tool
 
-The simplest router requires nothing at all: open this repository in Claude
-Code (claude.ai/code, also inside the Claude app) and say what you want
-done. The session clones the repo itself, reads `CLAUDE.md`, and routes your
-task through the engine: split into parts, priced picks, Anthropic models
-executed on your existing Claude login, checklists verified by a non-maker
-judge, outcomes recorded to the ledger. No git, no keys, no tokens — the
-subscription you already have is the credential.
+[Connect OWI through MCP](INTEGRATIONS.md) to VS Code Copilot, Copilot CLI,
+Cursor or Claude Code. The host can delegate tasks automatically after one-time
+setup. No OWI page or acceptance question is needed for each task.
 
-Everything below is the optional, on-your-own-machine version — for adding
-OpenAI models with your own key, or running the page locally.
+Opening this repository in an AI tool does not itself establish provider
+credentials or free usage. Client trust, tool permissions and model access
+must work independently. The local GUI below is an optional review interface.
 
 Your actual billing follows the CLI's authentication. Declare API or
 subscription billing under **My plan & self-updating agents** in the connected
