@@ -1,0 +1,44 @@
+name: First-task feedback
+description: Tell us where your first OWI task worked or got stuck.
+title: "First task: "
+body:
+  - type: markdown
+    attributes:
+      value: "This report is public. Do not include API keys, personal information, private prompts, or confidential outputs."
+  - type: dropdown
+    id: mode
+    attributes:
+      label: What did you try?
+      options:
+        - Browser example
+        - Connected GUI
+        - Command line
+    validations:
+      required: true
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: How far did you get?
+      options:
+        - Could not open or install it
+        - Compared models
+        - Ran a real task
+        - Checked and accepted a result
+        - Came back for another task
+    validations:
+      required: true
+  - type: textarea
+    id: friction
+    attributes:
+      label: What helped or got in your way?
+      description: Include OS/browser and error text if relevant, with secrets removed.
+    validations:
+      required: true
+  - type: textarea
+    id: alternative
+    attributes:
+      label: What would you normally use for this task?
+  - type: textarea
+    id: return
+    attributes:
+      label: Would you use OWI again? Why?

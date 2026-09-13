@@ -18,6 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Browser example stays in sync
+        run: |
+          python3 tools/build_demo.py
+          git diff --exit-code -- demo/index.html docs/demo.html
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy,rustfmt

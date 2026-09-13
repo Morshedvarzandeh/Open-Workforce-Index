@@ -1,70 +1,61 @@
 # Open Workforce Index
 
-Open Workforce Index (OWI) is a local-first, provider-neutral system for using
-AI models as a measured workforce. It selects the lowest expected-cost worker
-that can satisfy a task's quality, latency, privacy, tool, and budget
-requirements—and explains the evidence behind that choice.
+**Choose an AI model for your task, compare estimated costs, and check the result.**
 
-The project is not a universal model leaderboard. Public benchmarks provide a
-weak starting prior. Verified results from your own tasks and repositories
-become the stronger, private signal.
+OWI is an early, local-first tool for developers who already use multiple AI
+models. It learns from checked outcomes to inform later choices, while keeping
+subscription allowance separate from API cost estimates.
 
-> **Status:** v0.1 decision kernel, storage foundation, and a closed decision
-> loop. `owi seed → allocate → outcome → allocate` derives candidates from
-> stored evidence, records the decision, and lets verified local outcomes
-> change the next one.
->
-> **Prices are real; ability evidence is not.** `owi prices` imports published
-> per-token prices and context windows with their source URL and a content
-> digest. No benchmark measures these exact worker configurations on a given
-> skill, so ability evidence remains the missing piece — and the allocator
-> refuses to route without it rather than guessing. Provider execution and the
-> benchmark runner are the v0.2 work.
+[Try the browser example](demo/index.html) · [Watch the short demo](docs/promotion/demo.mp4) ·
+[Connect your models](docs/GETTING_STARTED.md) · [Report your first-task experience](https://github.com/Morshedvarzandeh/Open-Workforce-Index/issues/new?template=first-task.yml)
 
-## Quick start — one command
+The browser example is a self-contained HTML file: use GitHub's **Download raw
+file** button and open it in your browser. No account, Rust installation, or API
+key is needed. It uses labelled sample prices and assumed abilities; it does
+not run models or demonstrate measured savings.
 
-New to OWI? Start with the [first-task guide](docs/GETTING_STARTED.md).
-The ask page includes a three-step walkthrough, example tasks, and help for
-model connections, estimated prices, checklists, and feedback.
+## What works today
 
-Connected mode also supports [subscription-aware routing and usage reports](docs/USAGE_AND_PLANS.md)
-and [self-updating agent instructions](docs/ADAPTIVE_AGENTS.md), with version
-history, probation, and rollback. Find both under **Help when you need it →
-My plan & self-updating agents**.
+- A simple GUI to describe a task, compare models, and review a result.
+- Connected execution through your own configured model commands.
+- Deterministic result checks and private outcome feedback.
+- Subscription-aware routing and reported usage, with manual allowance refresh.
+- Versioned working reminders, trial checks, pause and rollback.
 
-```bash
-tools/owi-do "rewrite this email to the supplier"
-```
+**Early release:** starting ability estimates are assumptions. General quality
+improvement and cost savings are not yet established by a model benchmark.
+Instruction updates do not retrain model weights. See the
+[24-task benchmark protocol](benchmarks/launch/README.md) and
+[current limitations](docs/GETTING_STARTED.md).
 
-It guesses the kind of work, picks the cheapest qualified model from real
-published prices, shows the pick and two alternates, and records the decision.
-First run bootstraps a private workspace automatically.
+## Run the connected GUI
 
-To actually execute, put your own CLI (your key, never ours) in
-`.owi-quick/runners.json`, then:
+Install Git, Python 3, and Rust 1.87 or newer, then:
 
 ```bash
-tools/owi-do "rewrite this email to the supplier" --run
+git clone https://github.com/Morshedvarzandeh/Open-Workforce-Index.git
+cd Open-Workforce-Index
+python3 tools/owi-serve
 ```
 
-After the run it asks `accepted? [y/n]` — and that answer changes the next
-pick. Reject a worker often enough and it stops being chosen. That is the
-entire idea, in one command.
+Open the local address printed by the server. The first build can take several
+minutes. Follow [model connection instructions](docs/ROUTER.md) to configure your
+own provider commands. Choosing a model does not execute it; **Run task** may
+consume provider credits or subscription allowance.
 
-Prefer a page over a terminal? One more command serves the same experience at
-a local link, with a run button and learning recorded to the real ledger:
+Prefer the terminal? Run `python3 tools/owi-do "rewrite this email to the supplier"`.
+Add `--run` only when your model command is configured and you want execution.
 
-```bash
-tools/owi-serve        # open http://127.0.0.1:7787
-```
+[Usage and plans](docs/USAGE_AND_PLANS.md) ·
+[Agent instruction updates](docs/ADAPTIVE_AGENTS.md) ·
+[Complete workflow](docs/WORKFLOW.md) · [Early-user launch kit](docs/promotion/README.md)
 
-The complete workflow, every level from this link to real measurement, is
-written in [docs/WORKFLOW.md](docs/WORKFLOW.md).
+## Help shape the project
 
-Everything below this line is the advanced layer: manifests that plan whole
-projects from a file in git, consoles with live weighting dials, benchmark
-harnesses, and total-cost-of-ownership scenarios. Start with `owi-do`; go
-deeper only when you want to.
+Try one non-sensitive task you actually need to do, and tell us where you got
+stuck. Successful first tasks and repeat use matter more than stars.
+[First-task feedback](https://github.com/Morshedvarzandeh/Open-Workforce-Index/issues/new?template=first-task.yml)
+is public; remove private data and credentials before submitting.
 
 ## Why OWI
 
@@ -300,10 +291,12 @@ OWI makes safety and cost separate stages:
 If no worker clears the quality floor, OWI returns the conflict. It does not
 silently lower the requested quality to meet a budget.
 
-In v0.1 the checker is only an authorized distinct ID with a caller-supplied
+In the Rust decision kernel, the checker is an authorized distinct ID with a caller-supplied
 review-cost assumption. Full checker availability, clearance, review skill,
-evidence, context, and tariff validation—and all provider execution—remain
-disabled until the planned v0.2 checker candidate plan is implemented.
+evidence, context, and tariff validation remain future work in that kernel.
+The Python connected runtime already executes configured provider commands
+and supports a separate checker; it does not establish those full checker
+qualification guarantees.
 
 ## Updating for newly released models
 
@@ -320,7 +313,8 @@ low-strength priors, while private verified outcomes update immediately and
 never leave the user's machine.
 
 See the [roadmap](docs/ROADMAP.md) for automatic source adapters, signed index
-snapshots, model execution, repository sandboxes, and a simple dashboard.
+snapshots, expanded execution support, and repository sandboxes. The simple
+GUI and configured-command execution described above are available today.
 
 ## License
 

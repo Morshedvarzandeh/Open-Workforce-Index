@@ -1,0 +1,278 @@
+[
+  {
+    "id": "edit-01",
+    "skill": "skill:text-editing",
+    "task": "Rewrite this supplier email politely in 40\u201380 words. Preserve the order number, quantity, and deadline: Order OWI-1001 is missing 3 units. Please confirm delivery by Friday. Do not invent reasons or promise compensation.",
+    "checks": [
+      "contains:OWI-1001",
+      "contains:3",
+      "contains:Friday",
+      "min-words:40"
+    ],
+    "human_review": "40\u201380 words; polite; preserves all facts; no invented commitments."
+  },
+  {
+    "id": "extract-01",
+    "skill": "skill:structured-extraction",
+    "task": "Return only JSON with keys order_id, units, city. Source: Send order OWI-2001, 4 units, to Brussels.",
+    "checks": [
+      "json",
+      "contains:OWI-2001",
+      "contains:Brussels"
+    ],
+    "human_review": "Exact keys; order_id OWI-2001; units is integer 4; city Brussels; no extra prose."
+  },
+  {
+    "id": "edit-02",
+    "skill": "skill:text-editing",
+    "task": "Rewrite this supplier email politely in 40\u201380 words. Preserve the order number, quantity, and deadline: Order OWI-1002 is missing 6 units. Please confirm delivery by Friday. Do not invent reasons or promise compensation.",
+    "checks": [
+      "contains:OWI-1002",
+      "contains:6",
+      "contains:Friday",
+      "min-words:40"
+    ],
+    "human_review": "40\u201380 words; polite; preserves all facts; no invented commitments."
+  },
+  {
+    "id": "extract-02",
+    "skill": "skill:structured-extraction",
+    "task": "Return only JSON with keys order_id, units, city. Source: Send order OWI-2002, 8 units, to Brussels.",
+    "checks": [
+      "json",
+      "contains:OWI-2002",
+      "contains:Brussels"
+    ],
+    "human_review": "Exact keys; order_id OWI-2002; units is integer 8; city Brussels; no extra prose."
+  },
+  {
+    "id": "edit-03",
+    "skill": "skill:text-editing",
+    "task": "Rewrite this supplier email politely in 40\u201380 words. Preserve the order number, quantity, and deadline: Order OWI-1003 is missing 9 units. Please confirm delivery by Friday. Do not invent reasons or promise compensation.",
+    "checks": [
+      "contains:OWI-1003",
+      "contains:9",
+      "contains:Friday",
+      "min-words:40"
+    ],
+    "human_review": "40\u201380 words; polite; preserves all facts; no invented commitments."
+  },
+  {
+    "id": "extract-03",
+    "skill": "skill:structured-extraction",
+    "task": "Return only JSON with keys order_id, units, city. Source: Send order OWI-2003, 12 units, to Brussels.",
+    "checks": [
+      "json",
+      "contains:OWI-2003",
+      "contains:Brussels"
+    ],
+    "human_review": "Exact keys; order_id OWI-2003; units is integer 12; city Brussels; no extra prose."
+  },
+  {
+    "id": "edit-04",
+    "skill": "skill:text-editing",
+    "task": "Rewrite this supplier email politely in 40\u201380 words. Preserve the order number, quantity, and deadline: Order OWI-1004 is missing 12 units. Please confirm delivery by Friday. Do not invent reasons or promise compensation.",
+    "checks": [
+      "contains:OWI-1004",
+      "contains:12",
+      "contains:Friday",
+      "min-words:40"
+    ],
+    "human_review": "40\u201380 words; polite; preserves all facts; no invented commitments."
+  },
+  {
+    "id": "extract-04",
+    "skill": "skill:structured-extraction",
+    "task": "Return only JSON with keys order_id, units, city. Source: Send order OWI-2004, 16 units, to Brussels.",
+    "checks": [
+      "json",
+      "contains:OWI-2004",
+      "contains:Brussels"
+    ],
+    "human_review": "Exact keys; order_id OWI-2004; units is integer 16; city Brussels; no extra prose."
+  },
+  {
+    "id": "edit-05",
+    "skill": "skill:text-editing",
+    "task": "Rewrite this supplier email politely in 40\u201380 words. Preserve the order number, quantity, and deadline: Order OWI-1005 is missing 15 units. Please confirm delivery by Friday. Do not invent reasons or promise compensation.",
+    "checks": [
+      "contains:OWI-1005",
+      "contains:15",
+      "contains:Friday",
+      "min-words:40"
+    ],
+    "human_review": "40\u201380 words; polite; preserves all facts; no invented commitments."
+  },
+  {
+    "id": "extract-05",
+    "skill": "skill:structured-extraction",
+    "task": "Return only JSON with keys order_id, units, city. Source: Send order OWI-2005, 20 units, to Brussels.",
+    "checks": [
+      "json",
+      "contains:OWI-2005",
+      "contains:Brussels"
+    ],
+    "human_review": "Exact keys; order_id OWI-2005; units is integer 20; city Brussels; no extra prose."
+  },
+  {
+    "id": "edit-06",
+    "skill": "skill:text-editing",
+    "task": "Rewrite this supplier email politely in 40\u201380 words. Preserve the order number, quantity, and deadline: Order OWI-1006 is missing 18 units. Please confirm delivery by Friday. Do not invent reasons or promise compensation.",
+    "checks": [
+      "contains:OWI-1006",
+      "contains:18",
+      "contains:Friday",
+      "min-words:40"
+    ],
+    "human_review": "40\u201380 words; polite; preserves all facts; no invented commitments."
+  },
+  {
+    "id": "extract-06",
+    "skill": "skill:structured-extraction",
+    "task": "Return only JSON with keys order_id, units, city. Source: Send order OWI-2006, 24 units, to Brussels.",
+    "checks": [
+      "json",
+      "contains:OWI-2006",
+      "contains:Brussels"
+    ],
+    "human_review": "Exact keys; order_id OWI-2006; units is integer 24; city Brussels; no extra prose."
+  },
+  {
+    "id": "edit-07",
+    "skill": "skill:text-editing",
+    "task": "Rewrite this supplier email politely in 40\u201380 words. Preserve the order number, quantity, and deadline: Order OWI-1007 is missing 21 units. Please confirm delivery by Friday. Do not invent reasons or promise compensation.",
+    "checks": [
+      "contains:OWI-1007",
+      "contains:21",
+      "contains:Friday",
+      "min-words:40"
+    ],
+    "human_review": "40\u201380 words; polite; preserves all facts; no invented commitments."
+  },
+  {
+    "id": "extract-07",
+    "skill": "skill:structured-extraction",
+    "task": "Return only JSON with keys order_id, units, city. Source: Send order OWI-2007, 28 units, to Brussels.",
+    "checks": [
+      "json",
+      "contains:OWI-2007",
+      "contains:Brussels"
+    ],
+    "human_review": "Exact keys; order_id OWI-2007; units is integer 28; city Brussels; no extra prose."
+  },
+  {
+    "id": "edit-08",
+    "skill": "skill:text-editing",
+    "task": "Rewrite this supplier email politely in 40\u201380 words. Preserve the order number, quantity, and deadline: Order OWI-1008 is missing 24 units. Please confirm delivery by Friday. Do not invent reasons or promise compensation.",
+    "checks": [
+      "contains:OWI-1008",
+      "contains:24",
+      "contains:Friday",
+      "min-words:40"
+    ],
+    "human_review": "40\u201380 words; polite; preserves all facts; no invented commitments."
+  },
+  {
+    "id": "extract-08",
+    "skill": "skill:structured-extraction",
+    "task": "Return only JSON with keys order_id, units, city. Source: Send order OWI-2008, 32 units, to Brussels.",
+    "checks": [
+      "json",
+      "contains:OWI-2008",
+      "contains:Brussels"
+    ],
+    "human_review": "Exact keys; order_id OWI-2008; units is integer 32; city Brussels; no extra prose."
+  },
+  {
+    "id": "edit-09",
+    "skill": "skill:text-editing",
+    "task": "Rewrite this supplier email politely in 40\u201380 words. Preserve the order number, quantity, and deadline: Order OWI-1009 is missing 27 units. Please confirm delivery by Friday. Do not invent reasons or promise compensation.",
+    "checks": [
+      "contains:OWI-1009",
+      "contains:27",
+      "contains:Friday",
+      "min-words:40"
+    ],
+    "human_review": "40\u201380 words; polite; preserves all facts; no invented commitments."
+  },
+  {
+    "id": "extract-09",
+    "skill": "skill:structured-extraction",
+    "task": "Return only JSON with keys order_id, units, city. Source: Send order OWI-2009, 36 units, to Brussels.",
+    "checks": [
+      "json",
+      "contains:OWI-2009",
+      "contains:Brussels"
+    ],
+    "human_review": "Exact keys; order_id OWI-2009; units is integer 36; city Brussels; no extra prose."
+  },
+  {
+    "id": "edit-10",
+    "skill": "skill:text-editing",
+    "task": "Rewrite this supplier email politely in 40\u201380 words. Preserve the order number, quantity, and deadline: Order OWI-1010 is missing 30 units. Please confirm delivery by Friday. Do not invent reasons or promise compensation.",
+    "checks": [
+      "contains:OWI-1010",
+      "contains:30",
+      "contains:Friday",
+      "min-words:40"
+    ],
+    "human_review": "40\u201380 words; polite; preserves all facts; no invented commitments."
+  },
+  {
+    "id": "extract-10",
+    "skill": "skill:structured-extraction",
+    "task": "Return only JSON with keys order_id, units, city. Source: Send order OWI-2010, 40 units, to Brussels.",
+    "checks": [
+      "json",
+      "contains:OWI-2010",
+      "contains:Brussels"
+    ],
+    "human_review": "Exact keys; order_id OWI-2010; units is integer 40; city Brussels; no extra prose."
+  },
+  {
+    "id": "edit-11",
+    "skill": "skill:text-editing",
+    "task": "Rewrite this supplier email politely in 40\u201380 words. Preserve the order number, quantity, and deadline: Order OWI-1011 is missing 33 units. Please confirm delivery by Friday. Do not invent reasons or promise compensation.",
+    "checks": [
+      "contains:OWI-1011",
+      "contains:33",
+      "contains:Friday",
+      "min-words:40"
+    ],
+    "human_review": "40\u201380 words; polite; preserves all facts; no invented commitments."
+  },
+  {
+    "id": "extract-11",
+    "skill": "skill:structured-extraction",
+    "task": "Return only JSON with keys order_id, units, city. Source: Send order OWI-2011, 44 units, to Brussels.",
+    "checks": [
+      "json",
+      "contains:OWI-2011",
+      "contains:Brussels"
+    ],
+    "human_review": "Exact keys; order_id OWI-2011; units is integer 44; city Brussels; no extra prose."
+  },
+  {
+    "id": "edit-12",
+    "skill": "skill:text-editing",
+    "task": "Rewrite this supplier email politely in 40\u201380 words. Preserve the order number, quantity, and deadline: Order OWI-1012 is missing 36 units. Please confirm delivery by Friday. Do not invent reasons or promise compensation.",
+    "checks": [
+      "contains:OWI-1012",
+      "contains:36",
+      "contains:Friday",
+      "min-words:40"
+    ],
+    "human_review": "40\u201380 words; polite; preserves all facts; no invented commitments."
+  },
+  {
+    "id": "extract-12",
+    "skill": "skill:structured-extraction",
+    "task": "Return only JSON with keys order_id, units, city. Source: Send order OWI-2012, 48 units, to Brussels.",
+    "checks": [
+      "json",
+      "contains:OWI-2012",
+      "contains:Brussels"
+    ],
+    "human_review": "Exact keys; order_id OWI-2012; units is integer 48; city Brussels; no extra prose."
+  }
+]

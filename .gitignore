@@ -13,3 +13,6 @@
 /.owi/plan.json
 __pycache__/
 /.owi-quick/
+
+/docs/promotion/recording/
+/docs/promotion/recording-path.txt
