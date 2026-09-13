@@ -64,6 +64,11 @@ jobs:
       - name: Automatic task bridge against the real engine
         run: OWI_BINARY="$PWD/target/debug/owi" python3 tools/check_bridge_engine.py
 
+      - name: Hosted accounts, browser connections and Telegram
+        run: |
+          python3 tools/test_hosted.py
+          OWI_BINARY="$PWD/target/debug/owi" python3 tools/check_hosted_engine.py
+
       - name: Page math matches the engine
         run: python3 tools/check_page_math.py
 

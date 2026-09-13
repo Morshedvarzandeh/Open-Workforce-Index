@@ -6,7 +6,9 @@ can substitute the model.
 
 ## Use it inside your existing tool
 
-[Download and connect OWI](DESKTOP.md) to VS Code Copilot, Copilot CLI,
+[Connect to a hosted OWI service](HOSTED.md) from compatible browser tools
+or Telegram, without installing OWI. For local operation, the optional
+[desktop package](DESKTOP.md) connects to VS Code Copilot, Copilot CLI,
 Cursor or Claude Code. The host can delegate tasks automatically after one-time
 setup. No OWI page or acceptance question is needed for each task.
 The desktop download includes everything OWI needs; the source-development
