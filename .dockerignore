@@ -1,0 +1,16 @@
+.git
+.owi-quick
+.data
+.bench
+.mgr
+target
+dist
+build
+__pycache__
+**/__pycache__
+*.sqlite*
+*.db*
+.env
+*.env
+node_modules
+docs/promotion/recording

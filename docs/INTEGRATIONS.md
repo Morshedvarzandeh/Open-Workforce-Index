@@ -6,8 +6,12 @@ to choose a configured worker, execute a subtask, check its requirements and
 return the result to the same conversation. There is no per-task GUI launch,
 model picker, copy/paste step, or OWI acceptance question.
 
-The GUI remains an optional review and settings screen. OWI is currently a
-local MCP integration, not a published VS Code Marketplace extension.
+For browser tools and Telegram, start with the [hosted connection](HOSTED.md).
+The operator deploys the service once; end users install nothing. That guide
+states the current private-pilot, authentication and deployment limits.
+
+The GUI remains optional. Local MCP and desktop downloads are alternative
+paths; OWI is not a published VS Code Marketplace extension.
 
 ## Where it fits
 
@@ -28,7 +32,8 @@ by this local installer.
 
 ## Connect once
 
-Use the [desktop download](DESKTOP.md): extract it, open OWI, choose your AI
+Prefer the [hosted connection](HOSTED.md) for supported web tools and Telegram.
+For optional local operation, use the [desktop download](DESKTOP.md): extract it, open OWI, choose your AI
 app and project, then click **Connect**. The runtime and engine are included;
 users do not install Rust or Python. Desktop OpenRouter keys can be saved in
 the operating system's credential store directly from the setup screen.

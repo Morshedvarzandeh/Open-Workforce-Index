@@ -47,6 +47,12 @@ extracted download with developer tools absent from PATH. The desktop workflow
 also opens the packaged setup window on all four supported platforms before
 publishing a preview. Build prerequisites never become user prerequisites.
 
+For hosted connections, run `python3 tools/test_hosted.py` and, with a built
+engine, `OWI_BINARY=... python3 tools/check_hosted_engine.py`. The hosted
+workflow additionally builds `hosting/Dockerfile` and verifies the real
+Gunicorn entry point and isolated execution inside that image. These checks
+use fake model outputs and Telegram senders, never live provider credits.
+
 ## Adding public evidence
 
 Do not paste a leaderboard number without its protocol. A record must identify:

@@ -2,41 +2,44 @@
 
 **An AI routing add-on for the tools you already use.**
 
-Keep working in Copilot, Cursor or Claude Code. OWI can receive a delegated
-task, choose a configured model, run it, check supported requirements, and
-return the result to the same chat. The GUI is optional for review and settings.
+Keep working in your browser editor, connected AI tool or Telegram. OWI can
+receive a delegated task, choose a configured model, run it, check supported
+requirements, and return the result to the same conversation.
 
-[Download and connect](docs/DESKTOP.md) ·
+[Use OWI online](docs/HOSTED.md) ·
 [How routing works](docs/WORKFLOW.md) ·
 [Optional browser example](demo/index.html)
 
 ## Connect once, then keep working
 
-Download the [OWI desktop preview](https://github.com/Morshedvarzandeh/Open-Workforce-Index/releases)
-for your computer, extract it, and open OWI. Choose your AI app and project,
-then click **Connect**. The engine and runtime are included: **no Rust, Python,
-Git or package-manager installation is required**.
+OWI's primary experience is a **hosted connection**: stay in your browser
+editor, compatible AI chat, or Telegram. Users install nothing. The operator
+runs the engine once on a server; connected tools send it delegated tasks and
+receive the answers in the same conversation.
 
-Use your existing Claude Code login, or enter an OpenRouter API key once.
-The desktop setup keeps keys in your system credential store and installs a
-stable copy so deleting the original download will not break the connection.
-See the [short installation guide](docs/DESKTOP.md) for your operating system.
+The [hosted implementation](docs/HOSTED.md) provides authenticated remote MCP,
+an HTTP API, a browser connection screen and a Telegram webhook adapter.
+Accounts have separate provider keys, private histories and task allowances.
+**Private-pilot status:** it still needs an operator deployment and bot/account
+configuration before a public URL or Telegram bot can be announced.
 
-The host controls delegation and tool permissions; OWI does not intercept
-inline autocomplete or replace every Copilot model call. OpenRouter usage
-is billed separately from your Copilot subscription.
+An existing website or third-party bot must support a connection or add an
+integration. OWI cannot intercept every chat or replace all Copilot requests.
+The current hosted pilot uses Bearer keys; web products requiring OAuth need
+an additional OAuth adapter. OpenRouter usage has separate API billing.
 
 Normal tool calls use the included engine, one worker attempt and local
 checks, with no OWI page or acceptance prompt. Starting ability estimates are
 assumptions; measured savings and general speedups remain unproven.
 
-Developers can use the [source connection commands](docs/INTEGRATIONS.md#connect-from-source-developers).
-The desktop downloads are unsigned previews; signing and Marketplace
-distribution are still pending.
+Prefer local operation? The optional [desktop download](docs/DESKTOP.md)
+includes its engine and runtime, so Rust/Python installation is unnecessary.
+Developers can also use the [source commands](docs/INTEGRATIONS.md#connect-from-source-developers).
 
 ## What works today
 
 - An MCP tool for automatic task routing inside existing agents.
+- A hosted API and Telegram adapter for a pilot without end-user downloads.
 - An optional GUI to compare models and review results.
 - Connected execution through your own configured model commands.
 - Deterministic result checks and private outcome feedback.
@@ -49,23 +52,12 @@ Instruction updates do not retrain model weights. See the
 [24-task benchmark protocol](benchmarks/launch/README.md) and
 [current limitations](docs/GETTING_STARTED.md).
 
-## Optional: open the review GUI
+## Optional local review
 
-Install Git, Python 3, and Rust 1.87 or newer, then:
-
-```bash
-git clone https://github.com/Morshedvarzandeh/Open-Workforce-Index.git
-cd Open-Workforce-Index
-python3 tools/owi-serve
-```
-
-Open the local address printed by the server. The first build can take several
-minutes. Follow [model connection instructions](docs/ROUTER.md) to configure your
-own provider commands. Choosing a model does not execute it; **Run task** may
-consume provider credits or subscription allowance.
-
-Prefer the terminal? Run `python3 tools/owi-do "rewrite this email to the supplier"`.
-Add `--run` only when your model command is configured and you want execution.
+For local review and settings, use the optional [desktop package](docs/DESKTOP.md).
+Source contributors can follow the [developer setup](docs/ROUTER.md).
+Choosing a model does not execute it; **Run task** may consume provider credits
+or subscription allowance.
 
 [Usage and plans](docs/USAGE_AND_PLANS.md) ·
 [Agent instruction updates](docs/ADAPTIVE_AGENTS.md) ·
@@ -156,7 +148,7 @@ The generalized application/task/artifact capability tuples and portable
 evidence-tracing eligibility query are also forward contracts for that v0.2
 projection; the current Rust DTOs still route on declared skills and tools.
 
-## Quick start
+## Developer quick start
 
 Prerequisites: Rust 1.87 or newer.
 
@@ -330,8 +322,9 @@ discovered → smoke-tested → benchmarked → eligible → locally calibrated
 Model releases, prices, aliases, benchmarks, and raw observations are
 append-only or time-bounded revisions. Each rebuild produces a new immutable
 snapshot; last week's result is still reproducible. Public observations seed
-low-strength priors, while private verified outcomes update immediately and
-never leave the user's machine.
+low-strength priors, while private verified outcomes update immediately in
+the account's private ledger. Hosted ledgers stay on the operator's server;
+local installations keep them on the user's machine.
 
 See the [roadmap](docs/ROADMAP.md) for automatic source adapters, signed index
 snapshots, expanded execution support, and repository sandboxes. The simple

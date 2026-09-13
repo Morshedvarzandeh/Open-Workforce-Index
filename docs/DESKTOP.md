@@ -1,4 +1,8 @@
-# Install OWI
+# Optional desktop installation
+
+For browser tools and Telegram, use the [hosted connection](HOSTED.md).
+End users of that service install nothing. This guide is the optional local
+alternative for people who want OWI running on their own computer.
 
 OWI desktop downloads include the compiled engine, Python runtime and setup
 screen. You do **not** need Git, Rust, Python, pip or Cargo on your computer.
