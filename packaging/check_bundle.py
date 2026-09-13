@@ -38,7 +38,7 @@ def main():
         env.update(HOME=str(fake_user), USERPROFILE=str(fake_user),
             LOCALAPPDATA=str(fake_user/'AppData/Local'), XDG_DATA_HOME=str(fake_user/'data'),
             COPILOT_HOME=str(fake_user/'copilot'),
-            PATH=str(Path(env['SystemRoot'])/'System32') if os.name == 'nt' else '')
+            PATH=str(Path(os.environ['SystemRoot'])/'System32') if os.name == 'nt' else '')
         def run(*args, **options):
             return subprocess.run([str(app), *args], env=env, cwd=base,
                 capture_output=True, text=True, timeout=60, **options)

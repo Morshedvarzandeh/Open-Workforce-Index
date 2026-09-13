@@ -29,9 +29,17 @@ def main():
     if action == 'diagnose':
         import json
         import subprocess
+        import certifi
+        import ssl
+        from owi_credentials import backend
+        credential_backend = type(backend()).__name__
+        certificates = ssl.create_default_context(cafile=certifi.where()).cert_store_stats()['x509_ca']
+        if certificates == 0:
+            raise ValueError('The downloaded certificate bundle is empty.')
         result = subprocess.run([__import__('os').environ['OWI_BINARY'], 'ontology', 'validate'],
             capture_output=True, text=True, env=platform.external_env(), check=True)
-        print(json.dumps({'packaged':platform.frozen(), 'engine':json.loads(result.stdout)}))
+        print(json.dumps({'packaged':platform.frozen(), 'engine':json.loads(result.stdout),
+            'credential_backend':credential_backend, 'trusted_certificates':certificates}))
         return 0
     if action == 'gui-smoke':
         from owi_setup import window
