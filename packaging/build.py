@@ -32,6 +32,7 @@ def main():
     # Ship licenses next to the executable, including dependency-specific terms.
     notices = build/'licenses'
     notices.mkdir(exist_ok=True)
+    shutil.copytree(ROOT/'packaging/licenses', notices/'runtime', dirs_exist_ok=True)
     shutil.copy2(ROOT/'LICENSE', notices/'OWI-AGPL-3.0.txt')
     for distribution in importlib.metadata.distributions():
         for path in distribution.files or []:

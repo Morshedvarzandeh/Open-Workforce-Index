@@ -71,9 +71,14 @@ class DesktopTests(unittest.TestCase):
             (resources/'build.json').write_text(json.dumps({'revision':'a'*40}))
             app = download/'OWI'
             app.write_text('test executable')
+            user_data = base/'user data'
+            if os.name != 'nt':
+                real_data = base/'real data'
+                real_data.mkdir()
+                user_data.symlink_to(real_data, target_is_directory=True)
             with patch.object(platform, 'frozen', return_value=True), \
                  patch.object(platform, 'resources', return_value=resources), \
-                 patch.object(platform, 'default_home', return_value=base/'user data'), \
+                 patch.object(platform, 'default_home', return_value=user_data), \
                  patch.object(sys, 'executable', str(app)):
                 installed = setup.install_copy()
                 self.assertEqual(installed.read_text(), 'test executable')

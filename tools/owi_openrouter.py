@@ -148,6 +148,15 @@ def catalog_seed(catalog, now):
     return seed, profiles
 
 
+def runner_arguments(profile):
+    return [*platform.command('openrouter'), '--profile', str(Path(profile).resolve())]
+
+
+def runner_command(profile):
+    args = runner_arguments(profile)
+    return subprocess.list2cmdline(args) if os.name == 'nt' else shlex.join(args)
+
+
 def configure(home, catalog=None):
     from owi_bridge import do, runtime
     home=Path(home); now=time.time()
@@ -168,8 +177,7 @@ def configure(home, catalog=None):
             runners.pop(old,None)
     for model,profile in profiles.items():
         profile_path=home/(model+'.json');profile_path.write_text(json.dumps(profile))
-        args=[*platform.command('openrouter'),'--profile',str(profile_path.resolve())]
-        runners[model]=subprocess.list2cmdline(args) if os.name=='nt' else shlex.join(args)
+        runners[model]=runner_command(profile_path)
         settings['billing'][model]={'mode':'api','plan':'OpenRouter API'}
         settings['formats'][model]='owi-json'
     runners_path.write_text(json.dumps(runners,indent=2)+'\n')

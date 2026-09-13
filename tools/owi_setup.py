@@ -24,7 +24,7 @@ def install_copy():
     if not re.fullmatch(r'[0-9a-f]{40}', revision):
         raise ValueError('Invalid download version. Download OWI again from its release page.')
     source = Path(sys.executable).resolve().parent
-    parent = platform.default_home()/'app'
+    parent = (platform.default_home()/'app').resolve()
     destination = parent/revision[:12]
     if source == destination:
         return None
@@ -176,9 +176,16 @@ def window():
 
 
 def main():
+    if platform.frozen() and os.name == 'nt':
+        import ctypes
+        # Setup is graphical. MCP retains its real stdin/stdout protocol streams.
+        sys.stdout = open(os.devnull, 'w')
+        sys.stderr = open(os.devnull, 'w')
+        ctypes.windll.kernel32.FreeConsole()
     installed = install_copy()
     if installed:
-        subprocess.Popen([str(installed), 'setup'], env=platform.external_env())
+        subprocess.Popen([str(installed), 'setup'], env=platform.external_env(),
+            **platform.process_options())
         return 0
     root = window()
     root.mainloop()

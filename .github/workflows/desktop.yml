@@ -26,6 +26,8 @@ jobs:
           python-version: '3.12'
       - uses: dtolnay/rust-toolchain@stable
       - name: Build engine
+        env:
+          RUSTFLAGS: ${{ runner.os == 'Windows' && '-C target-feature=+crt-static' || '' }}
         run: cargo build --release --locked -p workforce-cli --bin owi
       - name: Core verification
         if: runner.os == 'Linux'

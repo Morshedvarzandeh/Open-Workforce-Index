@@ -72,10 +72,19 @@ def execute_command(home, model, payload, checks, cancel, timeout=120):
     code = -1
     try:
         with tempfile.TemporaryDirectory(prefix='owi-bridge-run-') as scratch:
-            process = subprocess.Popen(command, shell=True, stdin=subprocess.PIPE,
+            launch = command
+            use_shell = True
+            if model.startswith('or-'):
+                from owi_openrouter import runner_arguments, runner_command
+                profile = home/(model+'.json')
+                if command == runner_command(profile):
+                    launch = runner_arguments(profile)
+                    use_shell = False
+            process = subprocess.Popen(launch, shell=use_shell, stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=scratch,
                 start_new_session=os.name != 'nt',
-                env={**platform.external_env(),'OWI_NESTED_WORKER':'1'})
+                env={**platform.external_env(),'OWI_NESTED_WORKER':'1'},
+                **platform.process_options())
             started = time.monotonic()
             first = True
             while True:

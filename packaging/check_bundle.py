@@ -25,7 +25,7 @@ def main():
         else:
             with tarfile.open(archives[0]) as archive:
                 archive.extractall(base, filter='data')
-        app = base/'OWI'/('OWI.exe' if os.name == 'nt' else 'OWI')
+        app = (base/'OWI'/('OWI.exe' if os.name == 'nt' else 'OWI')).resolve()
         project = base/'My project'
         project.mkdir()
         home = base/'private data'

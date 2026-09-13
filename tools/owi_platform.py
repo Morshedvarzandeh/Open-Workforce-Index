@@ -54,6 +54,13 @@ def external_env():
     return env
 
 
+def process_options():
+    if frozen() and os.name == 'nt':
+        import subprocess
+        return {'creationflags':subprocess.CREATE_NO_WINDOW}
+    return {}
+
+
 def initialize():
     if frozen():
         engine = resources()/'engine'/('owi.exe' if os.name == 'nt' else 'owi')
