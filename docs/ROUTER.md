@@ -17,6 +17,12 @@ subscription you already have is the credential.
 Everything below is the optional, on-your-own-machine version — for adding
 OpenAI models with your own key, or running the page locally.
 
+Your actual billing follows the CLI's authentication. Declare API or
+subscription billing under **My plan & self-updating agents** in the connected
+page; OWI does not infer included allowance from a login or a dollar estimate.
+See [usage and plans](USAGE_AND_PLANS.md). Built-in Claude commands request JSON
+telemetry; existing commands keep their configured output format.
+
 ## Step 1 — prerequisites (once)
 
 ```bash

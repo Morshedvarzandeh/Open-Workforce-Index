@@ -38,6 +38,7 @@ _loader = importlib.machinery.SourceFileLoader("owi_do", str(TOOLS / "owi-do"))
 _spec = importlib.util.spec_from_loader("owi_do", _loader)
 owi_do = importlib.util.module_from_spec(_spec)
 _loader.exec_module(owi_do)
+runtime = owi_do.runtime
 
 SKILL_TOOLS = {skill: spec["tools"] for skill, spec in owi_do.SKILLS.items()}
 SKILL_ROLE = {"skill:text-editing": "text",
@@ -138,6 +139,12 @@ class Handler(BaseHTTPRequestHandler):
     def _route(self) -> str:
         return self.path.split("?", 1)[0]
 
+    def live_data(self) -> dict:
+        models = {w["id"].split(":")[1].split("/")[0]
+                  for w in self.data.get("workers", [])}
+        return {**self.data, "runtime": runtime.snapshot(self.home, models),
+                "runnable": sorted(m for m in models if owi_do.resolve_runner(self.home, m))}
+
     def _authorized(self) -> bool:
         if self.token is None:
             return True
@@ -154,11 +161,11 @@ class Handler(BaseHTTPRequestHandler):
     def _body(self) -> dict:
         length = int(self.headers.get("Content-Length") or 0)
         if length <= 0 or length > 1_000_000:
-            return {}
-        try:
-            return json.loads(self.rfile.read(length))
-        except json.JSONDecodeError:
-            return {}
+            raise ValueError("Expected a JSON object under 1 MB")
+        body = json.loads(self.rfile.read(length))
+        if not isinstance(body, dict):
+            raise ValueError("Expected a JSON object")
+        return body
 
     def do_GET(self) -> None:  # noqa: N802 (stdlib naming)
         if not self._authorized():
@@ -169,14 +176,15 @@ class Handler(BaseHTTPRequestHandler):
         if route == "/":
             template = (TOOLS / "owi_ask_template.html").read_text()
             with self.lock:
-                payload = json.dumps(self.data).replace("</", "<\\/")
+                data = self.live_data()
+                payload = json.dumps(data).replace("</", "<\\/")
             page = (template.replace("__DATA__", payload)
                     .replace("__BUILT__", "local — always current"))
             self._send(200, page.encode(), "text/html; charset=utf-8",
                        set_cookie=True)
         elif route == "/api/data":
             with self.lock:
-                self._json(200, self.data)
+                self._json(200, self.live_data())
         else:
             self._json(404, {"error": "not found"})
 
@@ -184,11 +192,50 @@ class Handler(BaseHTTPRequestHandler):
         if not self._authorized():
             self._json(401, {"error": "missing or wrong token"})
             return
-        body = self._body()
+        origin = self.headers.get("Origin")
+        if (origin and urlparse(origin).netloc != self.headers.get("Host")) \
+                or self.headers.get("Content-Type", "").split(";")[0] != "application/json":
+            self._json(403, {"error": "Use same-origin JSON requests"})
+            return
+        try:
+            body = self._body()
+        except (ValueError, UnicodeDecodeError):
+            self._json(400, {"error": "Invalid JSON request"})
+            return
+        if self._route() == "/api/settings":
+            try:
+                runtime.save_settings(self.home, body)
+                self._json(200, {"ok": True, "data": self.live_data()})
+            except (ValueError, TypeError) as error:
+                self._json(400, {"error": str(error)})
+            return
+        if self._route() == "/api/agents/rollback":
+            try:
+                runtime.rollback(self.home, str(body.get("model", "")))
+                self._json(200, {"ok": True, "data": self.live_data()})
+            except ValueError as error:
+                self._json(400, {"error": str(error)})
+            return
         if self._route() == "/api/run":
+            operation = runtime.start_operation()
             model = str(body.get("model", ""))
             task = str(body.get("task", ""))[:100_000]
             skill = str(body.get("skill", ""))
+            privacy = body.get("privacy", "private_metadata")
+            levels = ["public", "private_metadata", "confidential_content", "secret"]
+            if privacy not in levels:
+                self._json(400, {"error": "Invalid task privacy"})
+                return
+            workers = [w for w in self.data.get("workers", [])
+                       if w["id"].split(":")[1].split("/")[0] == model and skill in w["skills"]]
+            if not any(levels.index(w.get("clearance", "private_metadata")) >= levels.index(privacy)
+                       for w in workers):
+                self._json(400, {"error": "Model does not meet this task's skill/privacy requirements"})
+                return
+            billing = runtime.model_billing(self.home, model)
+            if not billing["eligible"]:
+                self._json(409, {"error": billing["reason"], "runtime": runtime.snapshot(self.home)})
+                return
             checklist = [str(item).strip() for item in body.get("check", [])
                          if str(item).strip()][:10] \
                 if isinstance(body.get("check"), list) else []
@@ -212,7 +259,8 @@ class Handler(BaseHTTPRequestHandler):
                 # task server-side — smartest model under full inspection, a
                 # cheap one once the worker has earned reduced inspection.
                 _, checklist = owi_do.auto_checklist(
-                    self.home, task, tier=inspection["level"])
+                    self.home, task, tier=inspection["level"], privacy=privacy,
+                    included_only=billing["mode"] == "subscription")
             notes = (owi_do.prevention_notes(self.home, skill)
                      if skill in owi_do.SKILLS else [])
             payload = owi_do.build_payload(task, "", checklist, notes)
@@ -221,28 +269,28 @@ class Handler(BaseHTTPRequestHandler):
                 # is the whole task, and an agentic CLI must not pick up a repo
                 # to wander — nor the standing instructions above it, which in
                 # this repo tell a session it is the router, not the worker.
-                with tempfile.TemporaryDirectory(prefix="owi-run-") as scratch:
-                    completed = subprocess.run(
-                        command, shell=True, input=payload, text=True,
-                        capture_output=True, timeout=300, cwd=scratch)
+                stdout, stderr, code = owi_do.run_command(
+                    self.home, model, payload, timeout=300, checklist=checklist)
             except subprocess.TimeoutExpired:
                 self._json(200, {"output": "", "stderr": "timed out after 300s",
-                                 "exit": -1, "notes": len(notes)})
+                                 "exit": -1, "notes": len(notes),
+                                 "usage": runtime.operation_usage(self.home, operation)})
                 return
-            response = {"output": completed.stdout[-100_000:],
-                        "stderr": completed.stderr[-4_000:],
-                        "exit": completed.returncode, "notes": len(notes),
+            response = {"output": stdout[-100_000:],
+                        "stderr": stderr[-4_000:],
+                        "exit": code, "notes": len(notes),
                         "inspection": {"level": inspection["level"],
                                        "why": inspection["why"]}}
-            if checklist and completed.returncode == 0 \
-                    and completed.stdout.strip():
+            if checklist and code == 0 and stdout.strip():
                 # Maker is never checker: judgement items go to a different
                 # model, resolved server-side like everything else — and only
                 # when this run's inspection level says to look. Empty output
                 # is plumbing, never checked against the worker.
                 response["check"] = owi_do.run_checklist(
-                    self.home, task, completed.stdout, checklist,
-                    maker_model=model, judge_enabled=inspection["judge"])
+                    self.home, task, stdout, checklist,
+                    maker_model=model, judge_enabled=inspection["judge"], privacy=privacy)
+            response["usage"] = runtime.operation_usage(self.home, operation)
+            response["runtime"] = runtime.snapshot(self.home)
             self._json(200, response)
         elif self._route() == "/api/outcome":
             worker, skill = str(body.get("worker", "")), str(body.get("skill", ""))
@@ -269,7 +317,7 @@ class Handler(BaseHTTPRequestHandler):
                                   else "private_metadata")
             with self.lock:
                 Handler.data = harvest(self.home)
-                self._json(200, {"ok": True, "data": self.data})
+                self._json(200, {"ok": True, "data": {**self.data, "runtime": runtime.snapshot(self.home)}})
         else:
             self._json(404, {"error": "not found"})
 

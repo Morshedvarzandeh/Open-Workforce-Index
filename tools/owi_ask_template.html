@@ -120,6 +120,14 @@
   .help details { padding:10px 8px; border-top:1px solid var(--rule); }
   .help pre { overflow:auto; padding:10px; background:var(--panel-sunk); border-radius:8px; }
   .help code { font-size:12px; overflow-wrap:anywhere; }
+  .runtime-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin:12px 0; }
+  .runtime-fields label { display:flex; flex-direction:column; gap:5px; font-size:12px; color:var(--ink-2); }
+  .runtime-fields input,.runtime-fields select { width:100%; min-width:0; padding:10px; min-height:44px;
+    border:1px solid var(--rule-firm); border-radius:10px; background:var(--panel); color:var(--ink); font:inherit; }
+  .runtime-fields input:focus-visible,.runtime-fields select:focus-visible {
+    outline:2px solid var(--accent); outline-offset:2px; }
+  #agentVersions .alt { border-bottom:1px solid var(--rule); }
+  #agentVersions button { font-size:12px; padding:8px 12px; }
   .next-step { border-left:2px solid var(--accent); padding:2px 0 2px 14px;
     margin:0 0 18px; color:var(--ink-2); font-size:13px; }
   .next-step strong { color:var(--ink); display:block; font-weight:550; margin-bottom:3px; }
@@ -202,6 +210,7 @@
     .price-block .meta { font-size:10px; max-width:12ch; }
     .guide { padding:14px; }
     .guide-actions button { padding:8px 10px; }
+    .runtime-fields { grid-template-columns:1fr; }
   }
   @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
 </style>
@@ -310,14 +319,17 @@
     <details id="costHelp">
       <summary>What do the model and price mean?</summary>
       <p>A worker is a model with a particular role and tools. The displayed
-        USD amount estimates the cost of a usable result, including possible
+        USD amount is an API-equivalent estimate for a usable result, including possible
         retries. It is not a bill or a guaranteed price. A recommendation
         does not charge you; running a connected model may use your provider's
         paid usage or subscription allowance.</p>
       <p>OWI starts with assumed abilities and improves its estimates using
         feedback. A quality option has a stronger estimated confidence bound;
         it is not a guarantee that its answer will be correct.</p>
-      <p>Prices come from published source snapshots; provider prices may change.</p>
+      <p>Prices come from published source snapshots; provider prices may change.
+        Connected subscription routes use your declared allowance. Quota value influences
+        ranking but is not a cash charge. Planner/checker calls add usage; their actual
+        token counts appear when runners report them. Unknown charges stay unknown.</p>
     </details>
     <details id="checksHelp">
       <summary>How do I check a result?</summary>
@@ -363,6 +375,42 @@
         a poor model answer from an unclear request or a setup problem; only
         a model-caused failure should reduce that model's estimate.</p>
       <button type="button" class="quiet" id="reset">Reset browser feedback</button>
+    </details>
+    <details id="runtimeHelp">
+      <summary>My plan &amp; self-updating agents</summary>
+      <p id="runtimeHint">Connect a local server to set your billing method and manage agent updates.
+        Browser recommendations use API-equivalent estimates.</p>
+      <form id="runtimeForm" hidden>
+        <div class="runtime-fields">
+          <label>Claude billing
+            <select id="billingMode">
+              <option value="unknown">Not confirmed</option>
+              <option value="api">API — pay per use</option>
+              <option value="subscription">Subscription — included allowance</option>
+            </select>
+          </label>
+          <label>Plan name <input id="billingPlan" maxlength="60" placeholder="For example, Claude Pro"></label>
+        </div>
+        <div class="runtime-fields" id="allowanceFields" hidden>
+          <label>Lowest remaining allowance (%) <input type="number" id="remainingAllowance" min="0" max="100" step="1"></label>
+          <label>Next reset <input type="datetime-local" id="allowanceReset"></label>
+          <label>Value of preserving quota per task (USD)
+            <input type="number" id="quotaValue" min="0" max="1000" step="0.000001" value="0"></label>
+          <button type="button" class="quiet" id="refreshAllowance">Refresh these limits</button>
+        </div>
+        <p>Read the session and weekly limits in your provider's usage screen; enter the lower
+          remaining percentage. This is your declaration, not a live account connection.
+          Refresh it after an hour or a reset. OWI does not convert tokens into plan percentages.</p>
+        <p>Included usage is separate from your monthly subscription fee. Keep paid extra usage off
+          in your provider account if you want to stay within the allowance.</p>
+        <label><input type="checkbox" id="learningEnabled" checked> Automatically improve working instructions</label>
+        <p>Repeated check failures can add a fixed working reminder for that model. A trial revision
+          needs three consecutive fully checked passes to become stable; two failed checks roll it back.
+          These are instruction updates, not model-weight or software updates.</p>
+        <button type="submit" id="saveRuntime">Save settings</button>
+      </form>
+      <p id="runtimeStatus" role="status"></p>
+      <div id="agentVersions"></div>
     </details>
   </details>
   </main>
@@ -597,6 +645,116 @@
   let busy = false;
   let LIVE = DATA.local ? DATA : null;
   const data = () => LIVE || DATA;
+  let runtimeDirty = false, billingDirty = false;
+  function accountRows(rows) {
+    return rows.map(row => {
+      const billing = data().runtime?.billing?.[modelOf(row.id)];
+      const expired = billing?.mode === "subscription" &&
+        (!billing.expires_at || Date.now() / 1000 >= billing.expires_at);
+      if (billing?.eligible === false || expired) return null;
+      return {...row, billing, apiTotal: row.total,
+        total: billing?.mode === "subscription" ? (billing.quota_value_micros || 0) : row.total};
+    }).filter(Boolean).sort((a,b) => a.total-b.total || b.bound-a.bound || a.id.localeCompare(b.id));
+  }
+  function evaluateForAccount(...args) {
+    const result = evaluate(...args), rows = accountRows(result.rows);
+    return {rows, turnedAway: result.turnedAway + result.rows.length - rows.length,
+      billingBlocked: result.rows.length - rows.length};
+  }
+  const priceText = row => row.billing?.mode === "subscription" ? "Included" : $(row.total);
+  const priceCaption = row => row.billing?.mode === "subscription" ? "Declared allowance"
+    : row.billing?.mode === "local" ? "Local estimate" : "API-equivalent / result";
+  function syncRuntimeForm() {
+    const form = document.getElementById("runtimeForm");
+    form.hidden = !LIVE;
+    if (!LIVE) return;
+    document.getElementById("runtimeHint").textContent =
+      "Billing and agent updates are stored on this server. API estimates are separate from actual charges.";
+    const runtime = data().runtime || {}, value = runtime.settings || {};
+    if (!runtimeDirty) {
+      const billing = value.billing?.["haiku-4-5"] || {};
+      document.getElementById("billingMode").value = billing.mode === "local" ? "unknown" : (billing.mode || "unknown");
+      document.getElementById("billingPlan").value = billing.plan || "";
+      document.getElementById("remainingAllowance").value = billing.remaining_percent ?? "";
+      const date = billing.reset_at ? new Date(billing.reset_at * 1000) : null;
+      document.getElementById("allowanceReset").value = date
+        ? new Date(date.getTime() - date.getTimezoneOffset()*60000).toISOString().slice(0,16) : "";
+      document.getElementById("quotaValue").value = ((billing.quota_value_micros || 0)/1e6).toFixed(6);
+      document.getElementById("learningEnabled").checked = value.learning !== false;
+    }
+    document.getElementById("allowanceFields").hidden = document.getElementById("billingMode").value !== "subscription";
+    document.getElementById("agentVersions").innerHTML = Object.entries(runtime.agents || {}).map(([model,agent]) => {
+      const revision = agent.revisions.find(r => r.id === agent.active);
+      return `<div class="alt"><span>${esc(model)} · v${agent.active} · ${esc(revision?.state || "original")}</span>
+        ${revision?.parent !== null && revision?.parent !== undefined
+          ? `<button type="button" class="quiet" data-rollback="${esc(model)}">Roll back</button>` : ""}</div>`;
+    }).join("") || '<p>Agents start at v0. Updates appear after repeated deterministic check failures.</p>';
+    document.querySelectorAll("[data-rollback]").forEach(button => button.onclick = async () => {
+      if (busy) return;
+      button.disabled = true;
+      await updateRuntime("/api/agents/rollback", {model:button.dataset.rollback});
+    });
+  }
+  async function updateRuntime(url, payload) {
+    const status = document.getElementById("runtimeStatus");
+    try {
+      const response = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(payload)});
+      const result = await response.json();
+      if (!response.ok || !result.ok || !result.data) throw new Error(result.error || "Settings were not saved");
+      LIVE = result.data; runtimeDirty = billingDirty = false;
+      document.getElementById("answer").classList.remove("show"); last = null;
+      syncModeGuidance(); status.textContent = "Saved. Choose a model again to use these settings.";
+    } catch(error) { status.textContent = error.message; }
+    finally { document.getElementById("saveRuntime").disabled = false; syncRuntimeForm(); }
+  }
+  document.getElementById("runtimeForm").addEventListener("input", e => {
+    runtimeDirty = true;
+    if (e.target.id !== "learningEnabled") billingDirty = true;
+    document.getElementById("allowanceFields").hidden = document.getElementById("billingMode").value !== "subscription";
+  });
+  document.getElementById("runtimeForm").addEventListener("submit", e => {
+    e.preventDefault(); if (!LIVE || busy) return;
+    const value = JSON.parse(JSON.stringify(data().runtime?.settings || {billing:{}, formats:{}}));
+    value.learning = document.getElementById("learningEnabled").checked;
+    if (billingDirty) {
+      const mode = document.getElementById("billingMode").value;
+      const remaining = document.getElementById("remainingAllowance").value;
+      const reset = document.getElementById("allowanceReset").value;
+      const quota = (document.getElementById("quotaValue").valueAsNumber || 0).toFixed(6);
+      const [whole, fraction=""] = quota.split(".");
+      const profile = {mode, plan:document.getElementById("billingPlan").value,
+        remaining_percent: mode === "subscription" && remaining !== "" ? Number(remaining) : null,
+        reset_at:mode === "subscription" && reset ? Date.parse(reset)/1000 : null,
+        quota_value_micros:mode === "subscription" ? Number(whole)*1e6+Number((fraction+"000000").slice(0,6)) : 0};
+      for (const model of ["haiku-4-5","sonnet-4-5","opus-4-5","sonnet-5","opus-5"]) value.billing[model] = profile;
+    }
+    document.getElementById("saveRuntime").disabled = true;
+    updateRuntime("/api/settings", value);
+  });
+  document.getElementById("refreshAllowance").onclick = () => {
+    if (busy) return;
+    billingDirty = runtimeDirty = true;
+    document.getElementById("runtimeForm").requestSubmit();
+  };
+  function showRunUsage(result, out) {
+    if (result.runtime && LIVE) { LIVE.runtime = result.runtime; syncRuntimeForm(); }
+    const previous = document.getElementById(out.id + "-usage");
+    if (previous) previous.remove();
+    if (!result.usage) return;
+    const details = document.createElement("details");
+    details.id = out.id + "-usage"; details.className = "comparison";
+    details.innerHTML = '<summary>Usage &amp; agent version</summary>' +
+      (result.usage.runs || []).map(run => {
+        const u = run.usage || {}, count = key => u[key] == null ? "unknown" : Number(u[key]).toLocaleString();
+        return `<p class="meta">${esc(run.model)} · ${esc(run.role)} · v${run.revision ?? 0}<br>
+          Input ${count("input_tokens")} · output (including thinking) ${count("output_tokens")}<br>
+          Cache read ${count("cache_read_input_tokens")} · cache write ${count("cache_creation_input_tokens")}<br>
+          API equivalent: ${u.api_equivalent_micros == null ? "unknown" : $(u.api_equivalent_micros)} ·
+          runner-reported charge: ${u.reported_charge_micros == null ? "unknown" : $(u.reported_charge_micros)}</p>`;
+      }).join("") + '<p class="meta">Includes planner and checker calls. These are runner reports; invoice charges are not verified.</p>';
+    out.after(details);
+  }
 
   let guideStep = 0;
   const nextStep = (title, text) => {
@@ -633,6 +791,8 @@
       "#q, #chooseButton, #checks, #confid, [data-example], #go, #preferq, " +
       "[data-run], [data-qswap], #yes, #no, [data-good], [data-bad], #reset"
     ).forEach(control => { control.disabled = value; });
+    document.querySelectorAll("#runtimeForm input,#runtimeForm select,#runtimeForm button,[data-rollback]")
+      .forEach(control => { control.disabled = value; });
   }
   function showGuideStep(step) {
     guideStep = Math.max(0, Math.min(2, step));
@@ -672,6 +832,7 @@
       ? "Connected mode saves feedback in the server's private ledger. Browser feedback is separate and is not added to these estimates."
       : "Browser mode stores feedback on this browser and device. It is not sent to the server ledger. If browser storage is unavailable, feedback lasts only until you reload.";
     document.getElementById("reset").hidden = Boolean(LIVE);
+    syncRuntimeForm();
     showGuideStep(guideStep);
   }
   function openHelp(id) {
@@ -765,7 +926,7 @@
     const privacy = requiredPrivacy();
     window.__privacy = privacy;
     const tokensIn = 1500 + Math.floor(text.length / 4);
-    const { rows, turnedAway } = evaluate(skill, tokensIn, 800, privacy);
+    const { rows, turnedAway, billingBlocked } = evaluateForAccount(skill, tokensIn, 800, privacy);
     const box = document.getElementById("answer");
     box.classList.add("show");
 
@@ -775,6 +936,8 @@
       last = null;
       nextStep("No suitable model yet",
         "The current roster has no worker that meets this task's requirements. Open Help when you need it for ways to resolve this.");
+      if (billingBlocked) nextStep("Check your plan allowance",
+        "Suitable models are blocked by your billing settings. Open My plan & self-updating agents to refresh the allowance or choose API billing explicitly.");
       const why = privacy === "confidential_content"
         ? `<div class="none">No suitable model is cleared for this confidential task.</div>
            <div class="meta">Connect a model with the required skills and privacy clearance.
@@ -808,10 +971,10 @@
           <div><div class="pick">${esc(displayName(top.id))}</div>
             <div class="meta">${esc(skillLabel(skill))}</div></div>
         </div>
-        <div class="price-block"><div class="price">${$(top.total)}</div>
-          <div class="meta">Est. USD / usable result</div></div>
+        <div class="price-block"><div class="price">${priceText(top)}</div>
+          <div class="meta">${priceCaption(top)}</div></div>
       </div>
-      <div class="line">${top.id === cheapest.id
+      <div class="line">${top.billing?.mode === "subscription" ? "Uses your declared allowance; monthly fee and quota value are separate." : top.id === cheapest.id
         ? "Lowest estimated cost among the suitable models compared."
         : "Selected for its stronger estimated quality."}</div>
       ${learnedNote ? `<div class="learned ${learnedNote.cls}">
@@ -844,7 +1007,7 @@
       })() : ""}
       ${LIVE ? (() => {
         const canRun = r => (data().runnable || []).includes(modelOf(r.id));
-        const runnable = canRun(top) ? top : rows.find(canRun);
+        const runnable = canRun(top) ? top : top.billing?.mode === "subscription" ? null : rows.find(canRun);
         const target = runnable ? runnable.id : null;
         if (!target) {
           nextStep("Connect a model to run this task",
@@ -878,7 +1041,7 @@
         <summary>Compare models &amp; details</summary>
         <div class="comparison-body">
           ${bench.filter(r => r.id !== top.id).slice(0, 2).map(r => `<div class="alt">
-            <span>${esc(displayName(r.id))}</span><span>${$(r.total)} / result</span></div>`).join("")}
+            <span>${esc(displayName(r.id))}</span><span>${priceText(r)}</span></div>`).join("")}
           ${best && best.id !== top.id ? `<div class="alt">
             <span>Stronger quality estimate: ${esc(displayName(best.id))}</span>
             <button type="button" class="quiet mini" id="preferq">Choose quality option</button>
@@ -891,6 +1054,8 @@
             ? ` · quality option: ${best.bound.toFixed(2)}` : ""}. Estimates start from assumptions.</div>
           <div class="meta">Worker: ${esc(short(top.id))} · ~${tokensIn} input / 800 output tokens.<br>
             ${data().workers.length} workers checked; ${turnedAway} did not meet the requirements.</div>
+          ${top.billing?.mode === "subscription" ? `<div class="meta">API-equivalent estimate: ${$(top.apiTotal)}.
+            Your quota value: ${$(top.total)} per task; this is a ranking preference, not a cash charge.</div>` : ""}
         </div>
       </details>`;
     wireClose();
@@ -1021,7 +1186,7 @@
     window.__privacy = privacy;
     const detail = parts.map((p, i) => {
       const skill = guess(p);
-      const { rows } = evaluate(skill, 1500 + Math.floor(p.length / 4), 800,
+      const { rows } = evaluateForAccount(skill, 1500 + Math.floor(p.length / 4), 800,
                                 privacy);
       const bench = launchBench(rows);
       const cheapest = bench[0] || null;
@@ -1064,8 +1229,8 @@
              ${esc(displayName(d.cheapest.id))} at ${$(d.cheapest.total)}</div>` : "";
         return `<div class="part">${head}
           <div class="recommend-header"><div class="pick">${esc(displayName(d.top.id))}</div>
-            <div class="price-block"><div class="price">${$(d.top.total)}</div>
-              <div class="meta">Est. USD / usable result</div></div></div>
+            <div class="price-block"><div class="price">${priceText(d.top)}</div>
+              <div class="meta">${priceCaption(d.top)}</div></div></div>
           ${preferred || paperNote || quality ? `<details class="comparison">
             <summary>Compare models</summary>${preferred}${paperNote}${quality}</details>` : ""}
           <div class="verdict">${runButton}
@@ -1082,7 +1247,7 @@
           <pre class="out" id="pout-${i}" hidden></pre>
           <div class="checkrep" id="prep-${i}"></div></div>`;
       }).join("")}
-      <div class="meta">all parts: ${$(total)} ·
+      <div class="meta">Comparison value, all parts: ${$(total)} (cash estimates + assigned quota value) ·
         ${distinct} different worker(s)${checks.length
           ? " · your checklist applies to single-part asks; the live page writes one per part"
           : ""}${LIVE ? "" : " · copy each part into your AI app, select the model, and return here with feedback"}</div>
@@ -1153,9 +1318,10 @@
     const out = document.getElementById("pout-" + i);
     let model = modelOf(who.id);
     if (!(data().runnable || []).includes(model)) {
-      const { rows } = evaluate(d.skill, 1500 + Math.floor(d.text.length / 4),
+      const { rows } = evaluateForAccount(d.skill, 1500 + Math.floor(d.text.length / 4),
                                 800, window.__privacy);
-      const alt = rows.find(r => (data().runnable || []).includes(modelOf(r.id)));
+      const alt = d.top.billing?.mode === "subscription" ? null
+        : rows.find(r => (data().runnable || []).includes(modelOf(r.id)));
       if (!alt) {
         state.textContent = "no runner configured";
         nextStep("Connect a model for this part", "Open Help when you need it, then How do I connect a model?");
@@ -1172,7 +1338,7 @@
     try {
       const response = await fetch("/api/run", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model, task: d.text, skill: d.skill, check: [] }) });
+        body: JSON.stringify({ model, task: d.text, skill: d.skill, check: [], privacy: window.__privacy }) });
       const result = await response.json();
       out.hidden = false;
       if (!response.ok) {
@@ -1181,6 +1347,7 @@
         return;
       }
       out.textContent = result.output || result.stderr || "(no output)";
+      showRunUsage(result, out);
       const inspection = result.inspection ? result.inspection.level : "";
       const rep = document.getElementById("prep-" + i);
       if (result.inspection)
@@ -1235,7 +1402,7 @@
       const response = await fetch("/api/run", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model: modelOf(last.id), task: text,
-                               skill: last.skill, check: checks || [] }) });
+                               skill: last.skill, check: checks || [], privacy: window.__privacy }) });
       const result = await response.json();
       out.hidden = false;
       if (!response.ok) {
@@ -1244,6 +1411,7 @@
         return;
       }
       out.textContent = result.output || result.stderr || "(no output)";
+      showRunUsage(result, out);
       window.__inspection = result.inspection ? result.inspection.level : "";
       if (result.inspection)
         document.getElementById("checkrep").innerHTML =
@@ -1307,6 +1475,7 @@
       const result = await response.json();
       if (!response.ok || !result.ok) throw new Error("feedback not saved");
       LIVE = result.data;
+      syncModeGuidance();
       return true;
     } catch (error) {
       nextStep("Feedback was not saved", "Check your connection to the server and retry your feedback. Your result is still shown below.");

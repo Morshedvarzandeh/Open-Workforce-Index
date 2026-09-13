@@ -51,6 +51,9 @@ jobs:
       - name: Frozen high-level suite
         run: python3 tools/owi-selftest
 
+      - name: Account routing and instruction updates
+        run: python3 tools/test_runtime.py
+
       - name: Page math matches the engine
         run: python3 tools/check_page_math.py
 

@@ -96,6 +96,8 @@ def run(no_cargo: bool) -> int:
 
         owi_serve.Handler.token = "frozen-suite-token"
         owi_serve.Handler.data = {}
+        runtime_home = tempfile.TemporaryDirectory()
+        owi_serve.Handler.home = Path(runtime_home.name)
         server = ThreadingHTTPServer(("127.0.0.1", 0), owi_serve.Handler)
         threading.Thread(target=server.serve_forever, daemon=True).start()
         base = f"http://127.0.0.1:{server.server_address[1]}"
@@ -111,6 +113,8 @@ def run(no_cargo: bool) -> int:
         suite.check("localhost mode stays gate-free",
                     status(f"{base}/api/data") == 200)
         server.shutdown()
+        server.server_close()
+        runtime_home.cleanup()
 
     qc = frozen.get("qc_expectations")
     if qc:

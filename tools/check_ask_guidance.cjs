@@ -25,6 +25,12 @@ function fixture(connected = false, runnable = ['haiku-4-5', 'opus-4-5']) {
   };
 }
 let passed = 0;
+function runtimeFixture(profiles = {}) {
+  return {settings:{billing:profiles, learning:true, formats:{}},
+    billing:Object.fromEntries(Object.entries(profiles).map(([model,p]) => [model,{
+      ...p, eligible:p.remaining_percent !== 0, expires_at:p.expires_at || Date.now()/1000+3600,
+    }])), agents:{}, updates:[]};
+}
 async function main() {
   const browser = await chromium.launch({
     headless: true,
@@ -32,6 +38,7 @@ async function main() {
   });
   async function scenario(name, options, check) {
     const data = fixture(options.connected, options.runners);
+    if (options.runtime) data.runtime = options.runtime;
     const context = await browser.newContext({
       viewport: options.mobile ? {width: 390, height: 844} : {width: 1280, height: 900},
       isMobile: Boolean(options.mobile), hasTouch: Boolean(options.mobile),
@@ -69,6 +76,18 @@ async function main() {
         return route.fulfill(options.failSave
           ? {status: 500, json: {error: 'Save failed'}}
           : {json: {ok: true, data}});
+      }
+      if (url.pathname === '/api/settings') {
+        const value = route.request().postDataJSON();
+        calls.settings = value;
+        if (options.failSettings) return route.fulfill({status:400, json:{error:'Settings were not saved'}});
+        data.runtime = {...runtimeFixture(value.billing), settings:value};
+        return route.fulfill({json:{ok:true,data}});
+      }
+      if (url.pathname === '/api/agents/rollback') {
+        calls.rollback = route.request().postDataJSON();
+        data.runtime.agents[calls.rollback.model].active = 0;
+        return route.fulfill({json:{ok:true,data}});
       }
       return route.fulfill({status: 404, body: 'Not found'});
     });
@@ -274,6 +293,93 @@ async function main() {
       if (process.env.OWI_GUIDANCE_SCREENSHOTS) {
         await page.screenshot({path: path.join(process.env.OWI_GUIDANCE_SCREENSHOTS, 'result-mobile.png'), fullPage: true});
       }
+    });
+    await scenario('subscription allowance changes the recommendation without claiming a cash bill', {
+      connected:true, runtime:runtimeFixture({'opus-4-5':{
+        mode:'subscription', remaining_percent:50, quota_value_micros:0,
+      }}),
+    }, async (page,calls) => {
+      await page.locator('#q').fill(task);
+      await choose(page);
+      assert.equal(await page.evaluate(() => last.id), ids[1]);
+      assert.equal(await page.locator('#answer .price').textContent(), 'Included');
+      await page.locator('#comparison > summary').click();
+      assert.match(await page.locator('#comparison').textContent(), /not a cash charge/);
+      assert.equal(calls.runs.length, 0);
+    });
+    await scenario('expired subscription allowance cannot produce a runnable recommendation', {
+      connected:true, runtime:runtimeFixture(Object.fromEntries(['haiku-4-5','opus-4-5'].map(m => [m,{
+        mode:'subscription', remaining_percent:50, expires_at:Date.now()/1000-1,
+      }]))),
+    }, async (page,calls) => {
+      await page.locator('#q').fill(task);
+      await choose(page);
+      assert.equal(await page.locator('#go').count(), 0);
+      assert.match(await page.locator('#nextTitle').textContent(), /plan allowance/);
+      assert.equal(calls.runs.length, 0);
+    });
+    await scenario('mobile billing controls save exact quota value, preserve draft, and pause updates', {
+      connected:true,mobile:true,dark:true,runtime:runtimeFixture(),
+    }, async (page,calls) => {
+      await page.locator('#q').fill(task);
+      await page.locator('#help > summary').click();
+      await page.locator('#runtimeHelp > summary').click();
+      await page.locator('#billingMode').selectOption('subscription');
+      await page.locator('#billingPlan').fill('Claude Pro');
+      await page.locator('#remainingAllowance').fill('50');
+      const reset = new Date(Date.now()+7200000).toISOString().slice(0,16);
+      await page.locator('#allowanceReset').fill(reset);
+      await page.locator('#quotaValue').fill('1.2345e-2');
+      await page.locator('#learningEnabled').uncheck();
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      if (process.env.OWI_GUIDANCE_SCREENSHOTS) {
+        await page.screenshot({path:path.join(process.env.OWI_GUIDANCE_SCREENSHOTS,'runtime-mobile.png'),fullPage:true});
+      }
+      await page.locator('#saveRuntime').click();
+      await page.waitForFunction(() => document.getElementById('runtimeStatus').textContent.startsWith('Saved.'));
+      assert.equal(calls.settings.learning, false);
+      assert.equal(calls.settings.billing['haiku-4-5'].quota_value_micros, 12345);
+      assert.equal(calls.settings.billing['opus-4-5'].remaining_percent, 50);
+      assert.equal(await page.locator('#q').inputValue(),task);
+      calls.settings = null;
+      await page.locator('#refreshAllowance').click();
+      await page.waitForFunction(() => !document.getElementById('saveRuntime').disabled);
+      assert.equal(calls.settings.billing['haiku-4-5'].verified_at, undefined);
+      assert.equal(calls.settings.billing['haiku-4-5'].quota_value_micros, 12345);
+    });
+    await scenario('a failed settings save preserves the current billing and unsaved choice', {
+      connected:true,runtime:runtimeFixture(),failSettings:true,
+    }, async page => {
+      await page.locator('#help > summary').click();
+      await page.locator('#runtimeHelp > summary').click();
+      await page.locator('#billingMode').selectOption('api');
+      await page.locator('#saveRuntime').click();
+      await page.waitForFunction(() => document.getElementById('runtimeStatus').textContent.includes('not saved'));
+      assert.equal(await page.locator('#billingMode').inputValue(),'api');
+      assert.equal(await page.locator('#saveRuntime').isEnabled(),true);
+      assert.deepEqual(await page.evaluate(() => data().runtime.settings.billing),{});
+    });
+    const revisions = {active:1,stable:0,revisions:[
+      {id:0,parent:null,state:'stable'},{id:1,parent:0,state:'probation'},
+    ]};
+    await scenario('usage reports stay distinct from charges and agent versions can roll back', {
+      connected:true,runtime:{...runtimeFixture(),agents:{'haiku-4-5':revisions}},
+      runResult:{usage:{runs:[{model:'haiku-4-5',role:'worker',revision:1,usage:{
+        input_tokens:100,output_tokens:20,cache_read_input_tokens:900,
+        api_equivalent_micros:12000,reported_charge_micros:null,
+      }}]}},
+    }, async (page,calls) => {
+      await page.locator('#q').fill(task);
+      await choose(page);
+      await page.locator('#go').click();
+      await page.locator('#out-usage > summary').click();
+      assert.match(await page.locator('#out-usage').textContent(), /reported charge: unknown/);
+      await page.locator('#help > summary').click();
+      await page.locator('#runtimeHelp > summary').click();
+      await page.locator('[data-rollback="haiku-4-5"]').click();
+      await page.waitForFunction(() => document.getElementById('runtimeStatus').textContent.startsWith('Saved.'));
+      assert.equal(calls.rollback.model,'haiku-4-5');
+      assert.match(await page.locator('#agentVersions').textContent(), /v0/);
     });
     console.log('\n' + passed + ' browser guidance scenarios passed; no provider calls.');
   } finally { await browser.close(); }

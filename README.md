@@ -27,6 +27,11 @@ New to OWI? Start with the [first-task guide](docs/GETTING_STARTED.md).
 The ask page includes a three-step walkthrough, example tasks, and help for
 model connections, estimated prices, checklists, and feedback.
 
+Connected mode also supports [subscription-aware routing and usage reports](docs/USAGE_AND_PLANS.md)
+and [self-updating agent instructions](docs/ADAPTIVE_AGENTS.md), with version
+history, probation, and rollback. Find both under **Help when you need it →
+My plan & self-updating agents**.
+
 ```bash
 tools/owi-do "rewrite this email to the supplier"
 ```

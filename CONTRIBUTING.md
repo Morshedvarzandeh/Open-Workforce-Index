@@ -28,6 +28,11 @@ with Node.js, Playwright, and Chromium available. The browser scenarios use
 local fixtures and mocked server responses; they never call a model.
 `OWI_CHROMIUM_PATH` can select an existing Chromium executable.
 
+For billing, runner telemetry, or adaptive-instruction changes, also run
+`python3 tools/test_runtime.py` and `python3 tools/owi-selftest --no-cargo`.
+The runtime suite uses local fake commands and a temporary server; it makes
+no provider calls.
+
 ## Adding public evidence
 
 Do not paste a leaderboard number without its protocol. A record must identify:

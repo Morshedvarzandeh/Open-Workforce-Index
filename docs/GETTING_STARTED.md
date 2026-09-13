@@ -16,6 +16,11 @@ The ask page tells you its mode near the top. “How it works” opens a short
 walkthrough. You can reopen it at any time without clearing your work.
 Contextual guidance appears when you run, check, or review a result.
 
+Using a Claude subscription? Open **Help when you need it → My plan &
+self-updating agents** to declare the billing method and remaining allowance.
+The same panel controls automatic instruction updates and rollback. See
+[usage and plans](USAGE_AND_PLANS.md) and [adaptive agents](ADAPTIVE_AGENTS.md).
+
 ## 1. Describe the work
 
 Include the input and say what the output should look like. For example:

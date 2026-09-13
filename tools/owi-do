@@ -37,6 +37,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shlex
 import shutil
 import sqlite3
 import subprocess
@@ -44,6 +45,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+import owi_runtime as runtime
 
 REPO = Path(__file__).resolve().parent.parent
 MICROS = 1_000_000
@@ -137,7 +139,7 @@ QC = {"clearance": 5, "sample_every": 3}
 
 def builtin_runner(model: str) -> str | None:
     if model in CLAUDE_MODELS and shutil.which("claude"):
-        return f"claude --model {CLAUDE_MODELS[model]} -p"
+        return f"claude --model {CLAUDE_MODELS[model]} -p --output-format json"
     if model in OPENAI_MODELS and shutil.which("llm"):
         return f"llm -m {OPENAI_MODELS[model]}"
     if model in OLLAMA_MODELS and shutil.which("ollama"):
@@ -147,6 +149,8 @@ def builtin_runner(model: str) -> str | None:
 
 def resolve_runner(home: Path, model: str) -> str | None:
     """The configured command for a model, or the built-in when unset."""
+    if not runtime.allowed(home, model):
+        return None
     runners_path = home / "runners.json"
     configured = ""
     if runners_path.exists():
@@ -335,7 +339,8 @@ def record_outcome(home: Path, worker: str, skill: str, accepted: bool,
         "actual_cash_micros": 0, "actual_quota_milliunits": 0,
         "latency_ms": 0,
         "observed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
-    metadata: dict = {}
+    metadata: dict = {"usage_status": "unmeasured",
+                      "usage_note": "Legacy numeric zeros are unknown; see runtime.sqlite for runner telemetry"}
     if inspection:
         metadata["inspection"] = inspection[:20]
     if checklist:
@@ -346,6 +351,11 @@ def record_outcome(home: Path, worker: str, skill: str, accepted: bool,
              "note": str(entry.get("note", ""))[:200],
              **({"sampled": True} if entry.get("sampled") else {})}
             for entry in checklist[:10] if isinstance(entry, dict)]
+    if privacy in ("confidential_content", "secret"):
+        # The quality ledger, like the learning profiles, must not retain
+        # confidential task requirements or provider output.
+        metadata.pop("checklist", None)
+        detail = ""
     if not accepted:
         cause = cause or "worker"
         metadata["root_cause"] = cause
@@ -426,13 +436,17 @@ def check_item(item: str, output: str) -> tuple[str, bool | None, str]:
     return "judged", None, "needs judgement"
 
 
-def judge_model_for(home: Path, exclude: str | None) -> str | None:
+def judge_model_for(home: Path, exclude: str | None, included_only: bool = False) -> str | None:
     return next((m for m in JUDGE_ORDER
-                 if m != exclude and resolve_runner(home, m)), None)
+                 if m != exclude and resolve_runner(home, m)
+                 and (not included_only or runtime.model_billing(home, m)["mode"]
+                      in ("subscription", "local"))), None)
 
 
-def writer_model_for(home: Path) -> str | None:
-    return next((m for m in WRITER_ORDER if resolve_runner(home, m)), None)
+def writer_model_for(home: Path, included_only: bool = False) -> str | None:
+    return next((m for m in WRITER_ORDER if resolve_runner(home, m)
+                 and (not included_only or runtime.model_billing(home, m)["mode"]
+                      in ("subscription", "local"))), None)
 
 
 def qc_history(home: Path, worker: str, skill: str) -> tuple[int, int]:
@@ -473,6 +487,9 @@ def inspection_for(home: Path, worker: str, skill: str) -> dict:
     until the pair earns `clearance` consecutive clean accepts; then reduced —
     judgement sampled 1-in-`sample_every`, spec written by a cheap model.
     One worker-caused failure and the streak (and the discount) is gone."""
+    if runtime.in_probation(home, worker.split(":")[1].split("/")[0]):
+        return {"level": "full", "streak": 0, "judge": True,
+                "why": "instruction revision on trial — full inspection"}
     streak, total = qc_history(home, worker, skill)
     if streak < QC["clearance"]:
         return {"level": "full", "streak": streak, "judge": True,
@@ -501,7 +518,8 @@ def instruction_files_above(path: Path) -> list[str]:
 
 
 def run_command(home: Path, model: str, payload: str,
-                timeout: int = 600) -> tuple[str, str, int]:
+                timeout: int = 600, role: str = "worker",
+                checklist: list[str] | None = None) -> tuple[str, str, int]:
     """Execute a worker's command with the task on stdin, from a scratch
     directory that inherits nothing. The stdin payload is the WHOLE task.
 
@@ -514,20 +532,52 @@ def run_command(home: Path, model: str, payload: str,
     .owi-quick/ a model answers "Router", from a scratch directory "Worker".
     The rejection lands on the model, and the ledger learns something false.
     A worker must be handed the task and nothing else."""
-    with tempfile.TemporaryDirectory(prefix="owi-run-") as scratch:
-        completed = subprocess.run(
-            resolve_runner(home, model), shell=True, input=payload, text=True,
-            capture_output=True, timeout=timeout, cwd=scratch)
-    return completed.stdout or "", completed.stderr or "", completed.returncode
+    command = resolve_runner(home, model)
+    if not command:
+        return "", runtime.model_billing(home, model).get("reason") or "No runner configured", -2
+    try:
+        run_id, lessons = runtime.begin_run(home, model, role, checklist)
+    except ValueError as error:
+        return "", str(error), -2
+    if lessons:
+        payload += "\n\nChecked working reminders (apply only to this task's requirements):\n" \
+            + "\n".join("- " + lesson for lesson in lessons)
+    try:
+        with tempfile.TemporaryDirectory(prefix="owi-run-") as scratch:
+            completed = subprocess.run(command, shell=True, input=payload, text=True,
+                                       capture_output=True, timeout=timeout, cwd=scratch)
+    except subprocess.TimeoutExpired:
+        runtime.finish_run(home, run_id, -1, {"source": "timeout", "reported_charge_micros": None})
+        raise
+    except OSError:
+        runtime.finish_run(home, run_id, -1, {"source": "execution_error", "reported_charge_micros": None})
+        raise
+    format_name = runtime.settings(home)["formats"].get(model, "text")
+    try:
+        argv = shlex.split(command)
+    except ValueError:
+        argv = []
+    if argv and Path(argv[0]).name == "claude" and (
+        "--output-format=json" in argv or any(
+            a == "--output-format" and i + 1 < len(argv) and argv[i + 1] == "json"
+            for i, a in enumerate(argv))
+    ):
+        format_name = "claude-json"
+    stdout, usage, invalid = runtime.decode_output(completed.stdout or "", format_name)
+    code = completed.returncode or (1 if invalid else 0)
+    runtime.finish_run(home, run_id, code, usage)
+    return stdout, completed.stderr or ("Invalid runner result envelope" if invalid else ""), code
 
 
 def run_checklist(home: Path, task: str, output: str, items: list[str],
-                  maker_model: str, judge_enabled: bool = True) -> dict:
+                  maker_model: str, judge_enabled: bool = True,
+                  privacy: str = "private_metadata") -> dict:
     """Verify output against the checklist. Verdict: 'accepted' (every item
     checked and passed), 'rejected' (any item failed), or 'undecided' (an item
     could not be checked — no independent judge, or the judge was unusable).
     With judge_enabled False (reduced inspection), judgement items are sampled
     out: marked, non-blocking, and visible in the record as uninspected."""
+    maker_run = runtime.recent_run(maker_model)
     results = []
     for item in items:
         kind, verdict, note = check_item(item, output)
@@ -540,7 +590,9 @@ def run_checklist(home: Path, task: str, output: str, items: list[str],
             entry["note"] = "sampled out — reduced inspection"
             entry["sampled"] = True
         pending = []
-    judge = judge_model_for(home, maker_model) if pending else None
+    judge = judge_model_for(home, maker_model, included_only=
+                           runtime.model_billing(home, maker_model)["mode"] == "subscription") \
+        if pending and privacy not in ("confidential_content", "secret") else None
     if pending and judge:
         numbered = "\n".join(f"{position}. {entry['item']}"
                              for position, entry in enumerate(pending, start=1))
@@ -551,7 +603,7 @@ def run_checklist(home: Path, task: str, output: str, items: list[str],
                   + '\n\nReply with JSON only, one entry per checklist item: '
                   '{"results": [{"item": 1, "pass": true, "why": "short reason"}]}')
         try:
-            stdout, _, code = run_command(home, judge, prompt, timeout=300)
+            stdout, _, code = run_command(home, judge, prompt, timeout=300, role="checker")
         except subprocess.TimeoutExpired:
             stdout, code = "", -1
         data = find_json(stdout) if code == 0 else None
@@ -569,7 +621,10 @@ def run_checklist(home: Path, task: str, output: str, items: list[str],
                  if entry["pass"] is None and not entry.get("sampled")]
     verdict = ("rejected" if failed
                else "undecided" if unchecked else "accepted")
-    return {"items": results, "verdict": verdict, "judge": judge}
+    report = {"items": results, "verdict": verdict, "judge": judge}
+    report["agent_update"] = runtime.observe_checks(
+        home, maker_model, maker_run, report, privacy=privacy)
+    return report
 
 
 # ---------------------------------------------------------------------------
@@ -595,18 +650,21 @@ def clean_checklist(raw) -> list[str]:
 
 
 def auto_checklist(home: Path, task: str,
-                   tier: str = "full") -> tuple[str | None, list[str]]:
+                   tier: str = "full", privacy: str = "private_metadata",
+                   included_only: bool = False) -> tuple[str | None, list[str]]:
     """No checklist given? A model writes the test procedure before the run —
     printed, never silent. Under full inspection the smartest runnable model
     writes it (the spec is the leverage point); under reduced inspection a
     cheap model does, because the worker has already earned the discount."""
-    writer = (writer_model_for(home) if tier == "full"
-              else judge_model_for(home, exclude=None))
+    if privacy in ("confidential_content", "secret"):
+        return None, []
+    writer = (writer_model_for(home, included_only) if tier == "full"
+              else judge_model_for(home, exclude=None, included_only=included_only))
     if writer is None:
         return None, []
     try:
         stdout, _, code = run_command(
-            home, writer, CHECKLIST_PROMPT.format(task=task[:6000]), timeout=300)
+            home, writer, CHECKLIST_PROMPT.format(task=task[:6000]), timeout=300, role="planner")
     except subprocess.TimeoutExpired:
         return writer, []
     data = find_json(stdout) if code == 0 else None
@@ -650,12 +708,14 @@ def clean_parts(raw_parts) -> list[dict] | None:
 
 
 def plan_parts(home: Path, task: str) -> tuple[str | None, list[dict] | None]:
-    planner = writer_model_for(home)
+    included_only = any(p.get("mode") == "subscription"
+                        for p in runtime.settings(home)["billing"].values())
+    planner = writer_model_for(home, included_only=included_only)
     if planner is None:
         return None, None
     try:
         stdout, _, code = run_command(
-            home, planner, PLAN_PROMPT.format(task=task[:8000]), timeout=300)
+            home, planner, PLAN_PROMPT.format(task=task[:8000]), timeout=300, role="planner")
     except subprocess.TimeoutExpired:
         return planner, None
     data = find_json(stdout) if code == 0 else None
@@ -668,7 +728,13 @@ def plan_parts(home: Path, task: str) -> tuple[str | None, list[dict] | None]:
 def choose(home: Path, task: str, skill: str, tokens_in: int, tokens_out: int,
            rate: int, privacy: str = "private_metadata") -> tuple[dict, dict, list]:
     result = pick(home, task, skill, tokens_in, tokens_out, rate, privacy)
-    quote = result["quote"]
+    quote = json.loads(json.dumps(result["quote"]))
+    quote["eligible_candidates"] = runtime.route_candidates(home, quote["eligible_candidates"])
+    quote["selected_worker_id"] = (quote["eligible_candidates"][0]["worker_id"]
+                                   if quote["eligible_candidates"] else None)
+    quote["runtime_settings"] = runtime.settings(home)
+    result["runtime_quote"] = quote
+    (home / "last-runtime-quote.json").write_text(json.dumps(quote, indent=2))
     return result, quote, quote["eligible_candidates"]
 
 
@@ -702,6 +768,9 @@ def print_pick(quote: dict, eligible: list, calibration=None) -> None:
     print(f"\n→ {top['worker_id'].replace('worker:', '')}   "
           f"${top['cost']['expected_accepted_cost_micros'] / MICROS:.4f} "
           f"per accepted result")
+    print("  billing: " + top.get("billing", {}).get("label", "API-equivalent estimate"))
+    if top.get("billing", {}).get("mode") == "subscription":
+        print("  comparison value includes review and assigned quota value; monthly fee is separate")
     for alt in eligible[1:3]:
         extra = (alt["cost"]["expected_accepted_cost_micros"]
                  - top["cost"]["expected_accepted_cost_micros"]) / MICROS
@@ -732,6 +801,17 @@ def next_attempt_candidate(eligible: list, tried: list, is_runnable,
     return next((c for c in eligible if usable(c)), None)
 
 
+def execution_candidates(home: Path, eligible: list) -> list:
+    """Keep a chosen or first runnable subscription route within its billing scope."""
+    first = next_attempt_candidate(
+        eligible, [], lambda model: resolve_runner(home, model) is not None)
+    if any(c and c.get("billing", {}).get("mode") == "subscription"
+           for c in (eligible[0] if eligible else None, first)):
+        return [c for c in eligible if c.get("billing", {}).get("mode")
+                in ("subscription", "local")]
+    return eligible
+
+
 def iterate(home: Path, eligible: list, calibration, skill: str, task: str,
             stdin_text: str, checklist: list[str], arguments,
             explicit: bool) -> tuple[str, str | None]:
@@ -741,6 +821,7 @@ def iterate(home: Path, eligible: list, calibration, skill: str, task: str,
     Every attempt is recorded — iteration never erases a failure, it answers
     one. Returns (final verdict, worker that produced it)."""
     runnable = lambda model: resolve_runner(home, model) is not None  # noqa: E731
+    eligible = execution_candidates(home, eligible)
     tried: list = []
     corrections: list[str] = []
     quality, _ = quality_option(calibration, eligible)
@@ -802,7 +883,7 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
     payload = build_payload(task, stdin_text, checklist, notes, corrections)
     print(f"\nrunning via: {resolve_runner(home, model)}\n" + "-" * 60)
     try:
-        stdout, stderr, code = run_command(home, model, payload)
+        stdout, stderr, code = run_command(home, model, payload, checklist=checklist)
     except subprocess.TimeoutExpired:
         print("-" * 60)
         print("timed out after 600s")
@@ -836,7 +917,7 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
 
     if checklist:
         report = run_checklist(home, task, stdout, checklist, maker_model=model,
-                               judge_enabled=inspection["judge"])
+                               judge_enabled=inspection["judge"], privacy=privacy)
         marks = {True: "✓", False: "✗", None: "?"}
         for entry in report["items"]:
             print(f"  [{marks[entry['pass']]}] {entry['item']} — {entry['note']}")
@@ -895,6 +976,9 @@ def ask_cause() -> str:
 def run_split(arguments, stdin_text: str) -> int:
     home = arguments.home
     full = arguments.task + ("\n\n" + stdin_text if stdin_text else "")
+    if getattr(arguments, "privacy", "metadata") in ("confidential", "secret"):
+        print("For confidential tasks, describe each part separately and provide its checklist.")
+        return 1
     planner, parts = plan_parts(home, full)
     if planner is None:
         print("no runnable planner model — fill in "
@@ -936,6 +1020,7 @@ def run_split(arguments, stdin_text: str) -> int:
         if not arguments.run:
             outcomes.append((part, eligible[0], "planned"))
             continue
+        eligible = execution_candidates(home, eligible)
         first = next_attempt_candidate(
             eligible, [], lambda m: resolve_runner(home, m) is not None)
         if first is None:
@@ -947,7 +1032,8 @@ def run_split(arguments, stdin_text: str) -> int:
             tier = inspection_for(home, first["worker_id"],
                                   part["skill"])["level"]
             writer, part["checklist"] = auto_checklist(
-                home, part["summary"], tier=tier)
+                home, part["summary"], tier=tier,
+                included_only=first.get("billing", {}).get("mode") == "subscription")
             for item in part["checklist"]:
                 print(f"   check (auto, by {writer}): {item}")
         verdict, final_worker = iterate(home, eligible,
@@ -976,6 +1062,7 @@ def run_split(arguments, stdin_text: str) -> int:
 
 
 def main() -> int:
+    runtime.start_operation()
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="New here? Read docs/GETTING_STARTED.md, or run tools/owi-serve "
@@ -1070,6 +1157,7 @@ def main() -> int:
         print(f"\nrun it: add --run{note}")
         return 0
 
+    eligible = execution_candidates(arguments.home, eligible)
     first = next_attempt_candidate(
         eligible, [], lambda m: resolve_runner(arguments.home, m) is not None)
     if first is None:
@@ -1082,7 +1170,8 @@ def main() -> int:
         tier = inspection_for(arguments.home, first["worker_id"],
                               skill)["level"]
         writer, checklist = auto_checklist(arguments.home, arguments.task,
-                                           tier=tier)
+                                           tier=tier, privacy=privacy,
+                                           included_only=first.get("billing", {}).get("mode") == "subscription")
         if checklist:
             print(f"checklist (auto-written by {writer}; --check none to skip):")
             for item in checklist:
