@@ -79,7 +79,8 @@ def main():
             status = rpc(2, 'tools/call', {'name':'owi_status', 'arguments':{}})
             assert '"ready": true' in status['content'][0]['text'], status
             result = rpc(3, 'tools/call', {'name':'owi_work', 'arguments':{
-                'task':'Write a delivery confirmation', 'checks':['contains:Friday']}})
+                'task':'Write a delivery confirmation', 'context':'سلام — café',
+                'checks':['contains:Friday']}})
             assert not result.get('isError'), result
             value = json.loads(result['content'][0]['text'])
             assert value['verdict'] == 'accepted', value

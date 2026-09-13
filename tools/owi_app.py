@@ -5,6 +5,10 @@ import owi_platform as platform
 
 
 def main():
+    # MCP and provider text use UTF-8 on Windows as well as Unix.
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        if stream is not None and hasattr(stream, 'reconfigure'):
+            stream.reconfigure(encoding='utf-8')
     platform.initialize()
     action = sys.argv[1] if len(sys.argv) > 1 else 'setup'
     if action == 'setup':

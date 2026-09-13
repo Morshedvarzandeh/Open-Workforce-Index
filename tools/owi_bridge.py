@@ -81,7 +81,7 @@ def execute_command(home, model, payload, checks, cancel, timeout=120):
                     launch = runner_arguments(profile)
                     use_shell = False
             process = subprocess.Popen(launch, shell=use_shell, stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=scratch,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8', cwd=scratch,
                 start_new_session=os.name != 'nt',
                 env={**platform.external_env(),'OWI_NESTED_WORKER':'1'},
                 **platform.process_options())
