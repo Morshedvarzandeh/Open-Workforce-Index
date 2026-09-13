@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shlex
 import shutil
@@ -159,8 +160,10 @@ def resolve_runner(home: Path, model: str) -> str | None:
 
 
 def owi(*args: str) -> dict:
+    binary = os.environ.get("OWI_BINARY")
     completed = subprocess.run(
-        ["cargo", "run", "-q", "-p", "workforce-cli", "--", *args],
+        ([binary, *args] if binary else
+         ["cargo", "run", "-q", "-p", "workforce-cli", "--", *args]),
         cwd=REPO, capture_output=True, text=True)
     if completed.returncode != 0:
         sys.stderr.write(completed.stderr[-1500:])
@@ -211,11 +214,13 @@ def classify(task: str) -> str:
 
 
 def pick(home: Path, task: str, skill: str, tokens_in: int, tokens_out: int,
-         rate: int, privacy: str = "private_metadata") -> dict:
+         rate: int, privacy: str = "private_metadata", *,
+         snapshot_id: str = "snapshot:manager-scenario-v1",
+         at_epoch_ms: int = AT_EPOCH_MS) -> dict:
     request = {
         "decision_id": f"decision:do-{time.time_ns()}",
-        "snapshot_id": "snapshot:manager-scenario-v1",
-        "at_epoch_ms": AT_EPOCH_MS,
+        "snapshot_id": snapshot_id,
+        "at_epoch_ms": at_epoch_ms,
         "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "task": {
             "id": f"task:do-{time.time_ns()}",
@@ -325,7 +330,8 @@ def record_outcome(home: Path, worker: str, skill: str, accepted: bool,
                    cause: str | None = None, task: str = "",
                    detail: str = "", checklist: list | None = None,
                    inspection: str = "",
-                   privacy: str = "private_metadata") -> None:
+                   privacy: str = "private_metadata",
+                   validation_kind: str = "human") -> None:
     """Record a verified outcome. On rejection, `cause` names the root cause;
     only 'worker' (the default) counts against the model's evidence, and the
     failure is appended to root-causes.jsonl for prevention. When a checklist
@@ -335,7 +341,7 @@ def record_outcome(home: Path, worker: str, skill: str, accepted: bool,
         "id": f"outcome:do-{time.time_ns()}",
         "task_id": f"task:do-{time.time_ns()}",
         "worker_id": worker, "skill_id": skill, "accepted": accepted,
-        "validation_kind": "human",
+        "validation_kind": validation_kind,
         "actual_cash_micros": 0, "actual_quota_milliunits": 0,
         "latency_ms": 0,
         "observed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
@@ -726,8 +732,8 @@ def plan_parts(home: Path, task: str) -> tuple[str | None, list[dict] | None]:
 # ---------------------------------------------------------------------------
 
 def choose(home: Path, task: str, skill: str, tokens_in: int, tokens_out: int,
-           rate: int, privacy: str = "private_metadata") -> tuple[dict, dict, list]:
-    result = pick(home, task, skill, tokens_in, tokens_out, rate, privacy)
+           rate: int, privacy: str = "private_metadata", **index_options) -> tuple[dict, dict, list]:
+    result = pick(home, task, skill, tokens_in, tokens_out, rate, privacy, **index_options)
     quote = json.loads(json.dumps(result["quote"]))
     quote["eligible_candidates"] = runtime.route_candidates(home, quote["eligible_candidates"])
     quote["selected_worker_id"] = (quote["eligible_candidates"][0]["worker_id"]

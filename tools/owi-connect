@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+"""Connect OWI once to an existing MCP client; tasks then run inside its chat."""
+import argparse
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+
+from owi_bridge import do
+
+
+def merge_config(path, root_key, definition):
+    path = Path(path)
+    old = path.read_text() if path.exists() else None
+    data = json.loads(old) if old else {}
+    if not isinstance(data, dict) or not isinstance(data.get(root_key, {}), dict):
+        raise ValueError('Existing MCP configuration has an unexpected format; it was not changed')
+    servers = data.setdefault(root_key, {})
+    if 'owi' in servers and servers['owi'] != definition:
+        raise ValueError('An OWI entry already exists with different settings; review it before changing it')
+    servers['owi'] = definition
+    encoded = json.dumps(data, indent=2)+'\n'
+    if old == encoded: return path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix='.owi-config-', dir=path.parent)
+    try:
+        with os.fdopen(fd,'w') as f: f.write(encoded)
+        os.replace(temporary,path)
+    finally:
+        if os.path.exists(temporary): os.unlink(temporary)
+    return path
+
+
+def prepare(home):
+    home=Path(home).resolve();home.mkdir(parents=True,exist_ok=True)
+    if not os.environ.get('OWI_BINARY'):
+        cargo=shutil.which('cargo')
+        if not cargo: raise ValueError('One-time engine build needs Rust 1.87+; install Rust or set OWI_BINARY')
+        done=subprocess.run([cargo,'build','--locked','-p','workforce-cli','--bin','owi'],cwd=do.REPO)
+        if done.returncode: raise ValueError('Engine build failed; MCP settings were not changed')
+        binary=do.REPO/'target/debug'/('owi.exe' if os.name=='nt' else 'owi')
+        os.environ['OWI_BINARY']=str(binary)
+    binary=Path(os.environ['OWI_BINARY']).resolve()
+    if not binary.is_file(): raise ValueError('OWI_BINARY must point to the built owi executable')
+    (home/'engine-path.txt').write_text(str(binary))
+    do.bootstrap(home)
+
+
+def definition(home, ceiling):
+    return {'command':sys.executable,'args':[str(Path(__file__).resolve().parent/'owi-mcp'),
+            '--home',str(Path(home).resolve()),'--max-estimated-cost-micros',str(ceiling)]}
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--client',choices=['vscode','copilot-cli','cursor','claude-code'])
+    parser.add_argument('--project',type=Path)
+    parser.add_argument('--home',type=Path,default=do.REPO/'.owi-quick')
+    parser.add_argument('--prepare',action='store_true',help='Build the engine once and initialize the private index')
+    parser.add_argument('--openrouter',action='store_true',help='Use distinct OpenRouter workers; existing API key must be in the client environment')
+    parser.add_argument('--max-estimated-cost-micros',type=int,default=100000)
+    args=parser.parse_args()
+    if not args.client and not args.prepare and not args.openrouter:
+        parser.error('Choose a client or --prepare')
+    if not 0<=args.max_estimated_cost_micros<=1000000000: parser.error('Invalid estimated-cost ceiling')
+    try:
+        if args.prepare or args.openrouter: prepare(args.home)
+        if args.openrouter:
+            from owi_openrouter import configure
+            configure(args.home.resolve())
+            print('OpenRouter workers configured from its model catalog. Usage is billed separately by OpenRouter.')
+        entry=definition(args.home,args.max_estimated_cost_micros)
+        if (args.home/'bridge.json').exists():
+            # References only: never copy an API key into client configuration.
+            variable = '${env:OPENROUTER_API_KEY}' if args.client in ('vscode','cursor') else '${OPENROUTER_API_KEY}'
+            entry['env'] = {'OPENROUTER_API_KEY':variable}
+        if args.client=='vscode' and not args.project:
+            code=shutil.which('code')
+            if not code: raise ValueError('VS Code CLI not found; use --project PATH to write workspace configuration')
+            subprocess.run([code,'--add-mcp',json.dumps({'name':'owi',**entry})],check=True)
+        elif args.client:
+            if args.client=='vscode': path=args.project/'.vscode/mcp.json'; key='servers'
+            elif args.client=='copilot-cli':
+                path=Path(os.environ.get('COPILOT_HOME', str(Path.home()/'.copilot')))/'mcp-config.json';key='mcpServers';entry={**entry,'type':'local','tools':['owi_work','owi_status']}
+            elif args.client=='cursor': path=(args.project if args.project else Path.home())/'.cursor/mcp.json';key='mcpServers'
+            else:
+                if not args.project: raise ValueError('Claude Code connection needs --project PATH')
+                path=args.project/'.mcp.json';key='mcpServers'
+            print('Configured '+str(merge_config(path,key,entry)))
+        if args.client:
+            print('Trust OWI in your client and enable its tools. Continue in the same chat; no OWI page is needed.')
+    except (ValueError,OSError,subprocess.CalledProcessError) as error:
+        parser.exit(1,str(error)+'\n')
+
+if __name__=='__main__': main()

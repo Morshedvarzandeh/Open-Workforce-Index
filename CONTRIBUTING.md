@@ -33,6 +33,12 @@ For billing, runner telemetry, or adaptive-instruction changes, also run
 The runtime suite uses local fake commands and a temporary server; it makes
 no provider calls.
 
+For MCP or provider integration changes, run `python3 tools/test_integrations.py`.
+With the engine built, also run
+`OWI_BINARY="$PWD/target/debug/owi" python3 tools/check_bridge_engine.py`.
+Both use fake model responses. The latter validates actual Rust imports,
+worker identities, allocation and recorded deterministic feedback.
+
 ## Adding public evidence
 
 Do not paste a leaderboard number without its protocol. A record must identify:

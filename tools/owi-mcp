@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+"""OWI MCP stdio integration. The host starts this process; no browser is required."""
+import argparse
+from concurrent.futures import ThreadPoolExecutor
+import json
+import os
+from pathlib import Path
+import sys
+import threading
+
+from owi_bridge import Bridge
+
+PROTOCOLS = ('2025-11-25', '2025-06-18', '2024-11-05')
+MAX_MESSAGE = 600000
+TOOLS = [
+ {'name':'owi_work','description':
+  'Complete a bounded subtask with an automatically selected configured AI worker. '
+  'Use for delegated drafting, extraction, planning, or code suggestions when useful. '
+  'Include all needed context and concrete checks. Returns output, check verdict and usage. '
+  'One attempt, no separate UI or human prompt. Unknown checks require your review. '
+  'May consume the owner\'s provider credits; does not grant permission to edit project files.',
+  'inputSchema':{'type':'object','additionalProperties':False,'required':['task'],
+   'properties':{'task':{'type':'string','minLength':1,'maxLength':20000},
+    'context':{'type':'string','maxLength':80000},
+    'checks':{'type':'array','maxItems':10,'items':{'type':'string','minLength':1,'maxLength':500}},
+    'skill':{'type':'string','description':'Optional OWI skill ID; otherwise guessed locally'},
+    'privacy':{'type':'string','enum':['public','private_metadata','confidential_content','secret'],
+               'default':'private_metadata'}}},
+  'annotations':{'readOnlyHint':False,'destructiveHint':False,'idempotentHint':False,'openWorldHint':True}},
+ {'name':'owi_status','description':'Read OWI connection readiness and execution limits. No provider calls.',
+  'inputSchema':{'type':'object','properties':{},'additionalProperties':False},
+  'annotations':{'readOnlyHint':True,'idempotentHint':True,'openWorldHint':False}}]
+
+
+class Server:
+    def __init__(self, bridge, output):
+        self.bridge, self.output = bridge, output
+        self.initialized = False
+        self.ready = False
+        self.lock = threading.Lock()
+        self.pending = {}
+        self.pool = ThreadPoolExecutor(max_workers=1)
+
+    def send(self, message):
+        with self.lock:
+            self.output.write(json.dumps(message, ensure_ascii=False)+'\n')
+            self.output.flush()
+
+    def error(self, rid, code, message):
+        self.send({'jsonrpc':'2.0','id':rid,'error':{'code':code,'message':message}})
+
+    def result(self, rid, value):
+        self.send({'jsonrpc':'2.0','id':rid,'result':value})
+
+    def work(self, rid, arguments, cancel):
+        try:
+            value = self.bridge.execute(arguments, cancel)
+            self.result(rid, {'content':[{'type':'text','text':json.dumps(value)}],
+                             'isError':value.get('verdict')=='execution_error'})
+        except (Exception, SystemExit) as error:
+            # Core errors have short setup explanations. Never echo runner stderr.
+            message = str(error) if isinstance(error, ValueError) else 'OWI execution failed; check local setup and logs'
+            self.result(rid, {'content':[{'type':'text','text':message}], 'isError':True})
+        finally:
+            with self.lock:
+                self.pending.pop(rid, None)
+
+    def handle(self, message):
+        if not isinstance(message, dict) or message.get('jsonrpc') != '2.0' or not isinstance(message.get('method'), str):
+            self.error(None, -32600, 'Invalid request'); return
+        rid = message.get('id')
+        notification = 'id' not in message
+        if not notification and (type(rid) not in (int,str)):
+            self.error(None, -32600, 'Invalid request ID'); return
+        method = message['method']
+        params = message.get('params', {})
+        if not isinstance(params, dict):
+            if not notification: self.error(rid, -32602, 'Invalid parameters')
+            return
+        if notification:
+            if method == 'notifications/initialized' and self.initialized:
+                self.ready = True
+            elif method == 'notifications/cancelled':
+                cancel_id = params.get('requestId')
+                if type(cancel_id) in (int,str):
+                    with self.lock:
+                        cancel = self.pending.get(cancel_id)
+                    if cancel: cancel.set()
+            return
+        if method == 'initialize':
+            if self.initialized:
+                self.error(rid, -32600, 'Already initialized'); return
+            requested = params.get('protocolVersion')
+            if not isinstance(requested, str):
+                self.error(rid, -32602, 'protocolVersion is required'); return
+            self.initialized = True
+            self.result(rid, {'protocolVersion':requested if requested in PROTOCOLS else PROTOCOLS[0],
+                'capabilities':{'tools':{}}, 'serverInfo':{'name':'owi','version':'0.2.0'},
+                'instructions':'Use owi_work for suitable delegated subtasks within the user\'s task. '
+                'Supply context and checks; review the returned result. OWI never requires opening its GUI.'})
+        elif method == 'ping':
+            self.result(rid, {})
+        elif not self.ready:
+            self.error(rid, -32002, 'Initialize first')
+        elif method == 'tools/list':
+            self.result(rid, {'tools':[] if os.environ.get('OWI_NESTED_WORKER') else TOOLS})
+        elif method == 'tools/call':
+            name, args = params.get('name'), params.get('arguments', {})
+            if name == 'owi_status' and args == {}:
+                self.result(rid, {'content':[{'type':'text','text':json.dumps(self.bridge.status())}]})
+            elif name == 'owi_work' and not os.environ.get('OWI_NESTED_WORKER'):
+                from owi_bridge import validate
+                try: validate(args)
+                except ValueError as error:
+                    self.result(rid, {'content':[{'type':'text','text':str(error)}], 'isError':True}); return
+                # One active task avoids concurrent mutation of the core CLI scratch records.
+                with self.lock:
+                    busy = bool(self.pending)
+                    if not busy:
+                        cancel = threading.Event()
+                        self.pending[rid] = cancel
+                if busy:
+                    self.result(rid, {'content':[{'type':'text','text':'OWI is busy; wait for the active task'}], 'isError':True})
+                else: self.pool.submit(self.work, rid, args, cancel)
+            else:
+                self.error(rid, -32602, 'Unknown tool or invalid arguments')
+        else:
+            self.error(rid, -32601, 'Method not found')
+
+    def close(self):
+        with self.lock:
+            for cancel in self.pending.values(): cancel.set()
+        self.pool.shutdown(wait=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--home', type=Path, default=Path(__file__).resolve().parent.parent/'.owi-quick')
+    parser.add_argument('--max-estimated-cost-micros', type=int, default=100000)
+    parser.add_argument('--timeout', type=int, default=120)
+    args = parser.parse_args()
+    if not 0 <= args.max_estimated_cost_micros <= 1000000000 or not 1 <= args.timeout <= 600:
+        parser.error('Invalid execution limits')
+    if not os.environ.get('OWI_BINARY'):
+        configured = args.home/'engine-path.txt'
+        if configured.exists(): os.environ['OWI_BINARY'] = configured.read_text().strip()
+    server = Server(Bridge(args.home, args.max_estimated_cost_micros, args.timeout), sys.stdout)
+    try:
+        while True:
+            line = sys.stdin.buffer.readline(MAX_MESSAGE+1)
+            if not line: break
+            if len(line) > MAX_MESSAGE:
+                server.error(None, -32700, 'Message too large'); break
+            try:
+                message = json.loads(line)
+            except (ValueError, UnicodeDecodeError):
+                server.error(None, -32700, 'Invalid JSON'); continue
+            server.handle(message)
+    finally: server.close()
+
+if __name__ == '__main__': main()

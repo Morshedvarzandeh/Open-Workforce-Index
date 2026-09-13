@@ -58,6 +58,12 @@ jobs:
       - name: Account routing and instruction updates
         run: python3 tools/test_runtime.py
 
+      - name: MCP and provider integrations
+        run: python3 tools/test_integrations.py
+
+      - name: Automatic task bridge against the real engine
+        run: OWI_BINARY="$PWD/target/debug/owi" python3 tools/check_bridge_engine.py
+
       - name: Page math matches the engine
         run: python3 tools/check_page_math.py
 
