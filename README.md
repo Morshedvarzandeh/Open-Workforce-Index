@@ -81,6 +81,41 @@ times that on opus-5. It does mean every absolute figure was understated, and
 that a run through some other CLI still reports nothing, which the ledger
 records as unknown rather than as zero.
 
+### What your own ledger says about how you route
+
+The router answers who should do a job. It never answered whether the way you
+are using it is getting you what you think — and that is only answerable from
+history the ledger already holds.
+
+```bash
+tools/owi-coach                      # the report
+tools/owi-coach --html habits.html   # the same thing as a page
+```
+
+Run against a real ledger it is not flattering, which is the point:
+
+```
+  tested      8 of 47 worker-and-skill pairs (17%)
+  billed      $0.6454 against $0.2799 quoted  (2.31x) over 27 calls
+  of which    $0.0915 (14%) went to rejected attempts
+
+  [x] 3 of 3 default routes go to a worker you have never tested
+      ... none of them has a runner on this machine, so the headline
+      answer is one you could not execute even if you trusted it.
+      -> haiku-4-5/extract costs $0.0015 more and works 20 of 22 times.
+  [!] Retries cost 63% on top
+  [!] You are billed 2.31x what the router quotes
+```
+
+Two rules keep it honest. A rejection counts against a worker only when the
+worker caused it — the same rule the posterior applies — so a timeout or a
+missing input never reads as a bad model. And a call whose runner reported
+nothing is left out of the spend figures rather than averaged in as zero,
+because an unmeasured cost is not a free one. It exits non-zero when a hard
+finding stands, so it can gate a script.
+
+It reads two SQLite files on your machine and sends nothing anywhere.
+
 ### Learning that outlives the machine
 
 The private ledger is not in git, and should not be — it holds task text. But

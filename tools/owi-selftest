@@ -843,6 +843,73 @@ def run(no_cargo: bool) -> int:
                     loud.usable and loud.usage == {"cash_micros": 42},
                     f"got {loud.usage!r}")
 
+    coach = frozen.get("coach_expectations")
+    if coach:
+        # A report that congratulates you is not worth running twice; these
+        # pin the two rules that keep it from doing so.
+        print("\ncoach (reading the ledger back to you)")
+        import sqlite3 as _sqlite3
+
+        import owi_coach
+        fixture = coach["fixtures"]
+        with tempfile.TemporaryDirectory() as scratch:
+            ledger = Path(scratch) / "local.sqlite"
+            connection = _sqlite3.connect(ledger)
+            connection.execute(
+                "CREATE TABLE outcome_events (id TEXT PRIMARY KEY, "
+                "worker_id TEXT, skill_id TEXT, accepted INTEGER, "
+                "actual_cash_micros INTEGER, metadata_json TEXT)")
+            for position, entry in enumerate(fixture["outcomes"]):
+                metadata = {"quoted_micros": entry["quoted"]}
+                if entry["cause"]:
+                    metadata["root_cause"] = entry["cause"]
+                connection.execute(
+                    "INSERT INTO outcome_events VALUES (?,?,?,?,?,?)",
+                    (f"outcome:{position}", entry["worker_id"],
+                     entry["skill_id"], entry["accepted"], entry["cash"],
+                     json.dumps(metadata)))
+            connection.commit()
+            connection.close()
+
+            got = owi_coach.record(ledger, "worker:a/x", "skill:s")
+            suite.check("an environment failure is not held against a worker",
+                        list(got) == fixture["expected_record_a"],
+                        f"got {got}, want {fixture['expected_record_a']}")
+
+            paid = owi_coach.spend(ledger)
+            want = fixture["expected_spend"]
+            suite.check("a call that reported no cost is excluded, not zeroed",
+                        paid["calls"] == want["calls"], f"got {paid['calls']}")
+            for field in ("quoted", "billed", "ratio", "rejected"):
+                suite.check(f"spend reports {field} from receipts",
+                            paid[field] == want[field],
+                            f"got {paid[field]}, want {want[field]}")
+
+            escalated = owi_coach.escalations(ledger)
+            want = fixture["expected_escalations"]
+            suite.check("an escalation is a rejection followed by another "
+                        "worker on the same skill",
+                        escalated["count"] == want["count"]
+                        and escalated["spent"] == want["spent"]
+                        and escalated["needed"] == want["needed"],
+                        f"got {escalated['count']}/{escalated['spent']}/"
+                        f"{escalated['needed']}")
+
+            produced = owi_coach.findings({
+                "coverage": {"measured": 1, "total": 10},
+                "spend": paid, "escalations": escalated, "routes": [],
+                "prevention": 0})
+            suite.check("every finding carries a severity the report knows",
+                        all(f["severity"] in coach["severities"]
+                            for f in produced))
+            suite.check("every finding says what to do about it",
+                        all(f["action"].strip() for f in produced))
+            suite.check("the blame rule is always reported as holding",
+                        any(f["tag"] == "blame" and f["severity"] == "good"
+                            for f in produced))
+            suite.check("a hard finding is present when coverage is thin",
+                        any(f["severity"] == "bad" for f in produced))
+
     total = suite.passed + len(suite.failed)
     print(f"\n{frozen['version']}: {suite.passed}/{total} passed")
     for name in suite.failed:

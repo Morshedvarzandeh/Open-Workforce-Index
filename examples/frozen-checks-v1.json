@@ -983,5 +983,98 @@
     ],
     "observed_ratio_min": 1.5,
     "observed_ratio_max": 4.5
+  },
+  "coach_expectations": {
+    "_why": [
+      "The router answered one question well -- who should do this job --",
+      "and never the other one: whether the way you are using it is getting",
+      "you what you think. That second question is only answerable from",
+      "history, and the ledger was full of it while no page looked backwards.",
+      "",
+      "Run against a real ledger the answers were not flattering, which is",
+      "the point: all three default routes went to a worker that had never",
+      "been tested, and none of the three had a runner on the machine, so",
+      "the headline answer was one nobody could have executed. Escalations",
+      "cost 63% on top of starting at the stronger worker. 17% of the roster",
+      "had any evidence behind it at all.",
+      "",
+      "Two rules keep the report honest. A rejection counts against a worker",
+      "only when the worker caused it, the same rule the posterior applies,",
+      "so a timeout or a missing input never appears as a bad model. And a",
+      "call whose runner reported nothing is left OUT of the spend figures",
+      "rather than averaged in as zero, because an unmeasured cost is not a",
+      "free one.",
+      "",
+      "It reads two SQLite files on the machine and sends nothing anywhere.",
+      "A coach that phoned home would defeat the separation the whole",
+      "design rests on -- the ledger holds task text, which is exactly why",
+      "it is gitignored."
+    ],
+    "severities": [
+      "bad",
+      "warn",
+      "good"
+    ],
+    "blame_finding_always_present": true,
+    "excluded_causes": [
+      "environment",
+      "task_spec",
+      "harness"
+    ],
+    "counted_cause": "worker",
+    "unreported_cost_is_excluded_not_zero": true,
+    "hard_finding_exits_nonzero": true,
+    "fixtures": {
+      "outcomes": [
+        {
+          "worker_id": "worker:a/x",
+          "skill_id": "skill:s",
+          "accepted": 1,
+          "cash": 1000,
+          "quoted": 500,
+          "cause": null
+        },
+        {
+          "worker_id": "worker:a/x",
+          "skill_id": "skill:s",
+          "accepted": 0,
+          "cash": 2000,
+          "quoted": 500,
+          "cause": "worker"
+        },
+        {
+          "worker_id": "worker:b/x",
+          "skill_id": "skill:s",
+          "accepted": 1,
+          "cash": 3000,
+          "quoted": 1000,
+          "cause": null
+        },
+        {
+          "worker_id": "worker:a/x",
+          "skill_id": "skill:s",
+          "accepted": 0,
+          "cash": 0,
+          "quoted": 0,
+          "cause": "environment"
+        }
+      ],
+      "expected_record_a": [
+        1,
+        2
+      ],
+      "expected_spend": {
+        "calls": 3,
+        "quoted": 2000,
+        "billed": 6000,
+        "ratio": 3.0,
+        "rejected": 2000
+      },
+      "expected_escalations": {
+        "count": 1,
+        "spent": 5000,
+        "needed": 3000
+      }
+    }
   }
 }

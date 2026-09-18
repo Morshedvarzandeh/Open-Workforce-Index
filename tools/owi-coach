@@ -1,0 +1,219 @@
+#!/usr/bin/env python3
+"""What your own ledger says about how you are routing.
+
+    tools/owi-coach                 # the report, in the terminal
+    tools/owi-coach --html out.html # the same report as a page
+    tools/owi-coach --json          # the raw findings
+
+Reads the private ledger and the public index on this machine and nothing
+else. No network call, no upload: the ledger holds task text, which is why it
+is gitignored, and a coach that phoned home would defeat the separation the
+design rests on.
+"""
+
+from __future__ import annotations
+
+import argparse
+import html
+import importlib.machinery
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+TOOLS = Path(__file__).resolve().parent
+REPO = TOOLS.parent
+sys.path.insert(0, str(TOOLS))
+
+import owi_coach  # noqa: E402
+
+_loader = importlib.machinery.SourceFileLoader("owi_do", str(TOOLS / "owi-do"))
+_spec = importlib.util.spec_from_loader("owi_do", _loader)
+owi_do = importlib.util.module_from_spec(_spec)
+_loader.exec_module(owi_do)
+
+MARK = {"bad": "✗", "warn": "!", "good": "✓"}
+
+
+def usd(micros: float) -> str:
+    return f"${micros / 1e6:.4f}"
+
+
+def print_report(data: dict, found: list[dict]) -> None:
+    covered, paid = data["coverage"], data["spend"]
+    print(f"\nrouting habits — {data['home']}")
+    print("=" * 66)
+    print(f"  tested      {covered['measured']} of {covered['total']} "
+          f"worker-and-skill pairs "
+          f"({covered['measured'] / covered['total']:.0%})")
+    if paid["calls"]:
+        print(f"  billed      {usd(paid['billed'])} against "
+              f"{usd(paid['quoted'])} quoted  ({paid['ratio']}x) "
+              f"over {paid['calls']} calls")
+        print(f"  of which    {usd(paid['rejected'])} "
+              f"({paid['rejected'] / paid['billed']:.0%}) went to rejected "
+              f"attempts")
+    else:
+        print("  billed      nothing reported — no runner returns a receipt")
+
+    print("\nwhere the work goes")
+    for route in data["routes"]:
+        evidence = (f"measured {route['pick_accepted']}/{route['pick_n']}"
+                    if route["pick_n"] else "NEVER TESTED")
+        runner = "" if route["runnable"] else "  [no runner here]"
+        print(f"  {route['plain']:26} {route['pick']:20} {evidence}{runner}")
+        if route["best"] != route["pick"] and route["best_n"]:
+            print(f"  {'':26} best evidenced: {route['best']:20} "
+                  f"{route['best_accepted']}/{route['best_n']} "
+                  f"for {usd(route['delta'])} more")
+
+    print("\nfindings")
+    for finding in found:
+        print(f"\n  [{MARK[finding['severity']]}] {finding['headline']}")
+        print(f"      {finding['detail']}")
+        print(f"      → {finding['action']}")
+    print()
+
+
+def render_html(data: dict, found: list[dict]) -> str:
+    """The same report as a page, for reading somewhere other than a terminal."""
+    def esc(text) -> str:
+        return html.escape(str(text))
+
+    covered, paid = data["coverage"], data["spend"]
+    cells = "".join(
+        f'<i class="{"on" if i < covered["measured"] else ""}"></i>'
+        for i in range(covered["total"]))
+
+    blocks = []
+    for finding in found:
+        extra = ""
+        if finding["tag"] == "default routes":
+            extra = ("<table><tr><th>job</th><th>routes to</th>"
+                     "<th>evidence</th><th>best evidenced</th>"
+                     "<th>costs</th></tr>")
+            for route in data["routes"]:
+                extra += (
+                    f"<tr><td>{esc(route['plain'])}</td>"
+                    f"<td class='no'>{esc(route['pick'])}</td>"
+                    f"<td class='no'>"
+                    f"{('x%d' % route['pick_n']) if route['pick_n'] else 'never tested'}"
+                    f"</td>"
+                    f"<td class='yes'>{esc(route['best'])}</td>"
+                    f"<td class='n'>+{usd(route['delta'])}</td></tr>")
+            extra += "</table>"
+        elif finding["tag"] == "escalation":
+            extra = "<table><tr><th>first attempt</th><th>cost</th>" \
+                    "<th>escalated to</th><th>cost</th></tr>"
+            for case in finding["rows"]:
+                extra += (
+                    f"<tr><td>{esc(case['from'].replace('worker:', ''))}</td>"
+                    f"<td class='n'>{usd(case['from_micros'])}</td>"
+                    f"<td>{esc(case['to'].replace('worker:', ''))}</td>"
+                    f"<td class='n'>{usd(case['to_micros'])}</td></tr>")
+            extra += "</table>"
+        blocks.append(
+            f'<div class="f {finding["severity"]}"><div class="sev"></div>'
+            f'<div><div class="tag">{esc(finding["tag"])}</div>'
+            f"<h3>{esc(finding['headline'])}</h3>"
+            f"<p>{esc(finding['detail'])}</p>{extra}"
+            f'<div class="do">{esc(finding["action"])}</div></div></div>')
+
+    billed = (f"{usd(paid['billed'])} billed against {usd(paid['quoted'])} "
+              f"quoted — {paid['ratio']}x over {paid['calls']} calls"
+              if paid["calls"] else
+              "no runner on this machine reports what a call cost")
+
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Routing habits — {esc(data['home'])}</title>
+<style>
+ :root{{--ground:#F1EFEA;--paper:#FBFAF7;--sunk:#E7E4DC;--rule:#D2CDC1;
+  --ink:#1A1D19;--ink-2:#4B5049;--ink-3:#797F75;--good:#16614A;
+  --warn:#96581A;--bad:#8C2F22;--cool:#2C4A6E;
+  --mono:ui-monospace,Menlo,Consolas,monospace;
+  --sans:ui-sans-serif,system-ui,-apple-system,sans-serif;}}
+ @media(prefers-color-scheme:dark){{:root{{--ground:#121410;--paper:#191C17;
+  --sunk:#222620;--rule:#333830;--ink:#ECEEE8;--ink-2:#B2B8AC;--ink-3:#848A7E;
+  --good:#6FC6A5;--warn:#DDA45C;--bad:#E08878;--cool:#8FB3D9;}}}}
+ *{{box-sizing:border-box}}
+ body{{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.55}}
+ .wrap{{max-width:880px;margin:0 auto;padding:36px 20px 72px;display:flex;
+  flex-direction:column;gap:26px}}
+ h1{{font-size:32px;margin:6px 0 0;letter-spacing:-.025em}}
+ .eyebrow{{font-family:var(--mono);font-size:11px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-3)}}
+ header{{border-bottom:2px solid var(--ink);padding-bottom:14px}}
+ .sub{{color:var(--ink-2);margin:10px 0 0;font-size:15px}}
+ .gauge{{background:var(--paper);border:1px solid var(--rule);padding:16px}}
+ .cells{{display:grid;grid-template-columns:repeat(auto-fill,minmax(15px,1fr));
+  gap:4px;margin-top:10px}}
+ .cells i{{aspect-ratio:1;border:1px solid var(--rule);display:block}}
+ .cells i.on{{background:var(--good);border-color:var(--good)}}
+ .score{{font-family:var(--mono);font-size:24px;font-weight:600}}
+ .f{{display:grid;grid-template-columns:auto 1fr;gap:4px 15px;padding:17px;
+  border-bottom:1px solid var(--rule)}}
+ .f:last-child{{border-bottom:0}}
+ .f .sev{{width:4px;align-self:stretch}}
+ .f.bad .sev{{background:var(--bad)}} .f.warn .sev{{background:var(--warn)}}
+ .f.good .sev{{background:var(--good)}}
+ .findings{{background:var(--paper);border:1px solid var(--rule)}}
+ .tag{{font-family:var(--mono);font-size:10px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--ink-3)}}
+ .f h3{{margin:2px 0 0;font-size:17px}} .f p{{margin:7px 0 0;color:var(--ink-2)}}
+ .do{{margin-top:10px;background:var(--sunk);padding:9px 12px;
+  border-left:2px solid var(--cool);font-size:13.5px}}
+ table{{width:100%;border-collapse:collapse;font-family:var(--mono);
+  font-size:12.5px;margin-top:10px;display:block;overflow-x:auto}}
+ th{{text-align:left;font-weight:500;font-size:10px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-3);padding:0 12px 4px 0;
+  white-space:nowrap}}
+ td{{padding:4px 12px 4px 0;border-top:1px solid var(--sunk);white-space:nowrap}}
+ td.n{{text-align:right}} .no{{color:var(--bad)}} .yes{{color:var(--good)}}
+ footer{{font-size:12.5px;color:var(--ink-3);border-top:1px solid var(--rule);
+  padding-top:12px}}
+</style></head><body><div class="wrap">
+<header><div class="eyebrow">Open Workforce Index · practice report</div>
+<h1>Routing habits</h1>
+<p class="sub">{esc(billed)}</p></header>
+<div class="gauge"><span class="score">{covered['measured']} of
+{covered['total']}</span> worker-and-skill pairs have ever been tested
+<div class="cells">{cells}</div></div>
+<div class="findings">{''.join(blocks)}</div>
+<footer>Read from {esc(data['home'])} on this machine. Nothing was sent
+anywhere. {data['prevention']} prevention note(s) recorded.</footer>
+</div></body></html>
+"""
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--home", type=Path, default=REPO / ".owi-quick")
+    parser.add_argument("--html", type=Path,
+                        help="also write the report as a page")
+    parser.add_argument("--json", action="store_true",
+                        help="print the raw findings instead")
+    arguments = parser.parse_args()
+
+    try:
+        data = owi_coach.report(arguments.home, owi_do)
+    except FileNotFoundError as error:
+        raise SystemExit(str(error))
+    found = owi_coach.findings(data)
+
+    if arguments.json:
+        print(json.dumps({"report": data, "findings": found}, indent=2))
+    else:
+        print_report(data, found)
+
+    if arguments.html:
+        arguments.html.write_text(render_html(data, found))
+        print(f"written to {arguments.html}")
+    # A report with a hard finding exits non-zero so it can gate a script.
+    return 1 if any(f["severity"] == "bad" for f in found) else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
