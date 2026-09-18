@@ -1109,6 +1109,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "workforce-market"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+ "workforce-allocator",
+ "workforce-domain",
+ "workforce-engine",
+ "workforce-store",
+]
+
+[[package]]
 name = "workforce-sources"
 version = "0.1.0"
 dependencies = [

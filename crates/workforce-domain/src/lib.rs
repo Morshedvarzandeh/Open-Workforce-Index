@@ -50,6 +50,14 @@ string_id!(SkillId);
 string_id!(TaskId);
 string_id!(BenchmarkId);
 string_id!(DecisionId);
+// A member of the capacity market: someone who can publish unused
+// subscription allowance or API quota, or consume someone else's.
+string_id!(MemberId);
+// A key into the lender's own runner indirection (see `tools/owi-do`'s
+// `runners.json`), never a command line or credential. The engine only ever
+// carries this opaque name; resolving it to an executable command, on the
+// lender's own machine, is entirely outside this crate's trust boundary.
+string_id!(RunnerRef);
 
 /// Sensitivity of data supplied to a worker.
 ///
@@ -371,6 +379,87 @@ impl WorkerProfile {
     }
 }
 
+/// A member-published offer to lend unused subscription allowance or API
+/// quota to other members, priced per quota milliunit.
+///
+/// This deliberately does not carry a credential, a resolved command line, or
+/// anything else needed to actually run the lender's model: it carries a
+/// [`RunnerRef`], the same kind of opaque name `tools/owi-do`'s `runners.json`
+/// maps to a local command on the lender's own machine. The quota fields reuse
+/// [`CostProfile::quota_milliunits_per_request`]'s exact unit and meaning
+/// rather than inventing a second notion of quota.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CapacityOffering {
+    pub offering_id: OfferingId,
+    pub lender_member_id: MemberId,
+    pub model_release_id: ModelReleaseId,
+    /// The skill this lent capacity is being offered against.
+    pub skill_id: SkillId,
+    pub runner_ref: RunnerRef,
+    pub currency: String,
+    /// Provider quota consumed per request, in thousandths of one unit — the
+    /// same field and meaning as [`CostProfile::quota_milliunits_per_request`].
+    pub quota_milliunits_per_request: u64,
+    /// Total unused allowance the lender is making available to the market.
+    pub quota_milliunits_available: u64,
+    /// The lender's asking price, in cash micros per quota milliunit.
+    pub listed_price_micros_per_quota_milliunit: u64,
+    pub context_window_tokens: u64,
+    /// Inclusive UTC Unix epoch boundary in milliseconds.
+    pub effective_from_epoch_ms: i64,
+    /// Exclusive UTC Unix epoch boundary in milliseconds.
+    #[serde(default)]
+    pub effective_until_epoch_ms: Option<i64>,
+    pub recorded_at: String,
+}
+
+impl CapacityOffering {
+    pub fn validate(&self) -> Result<(), DomainError> {
+        if self.offering_id.is_empty() {
+            return Err(DomainError::EmptyField("capacity_offering.offering_id"));
+        }
+        if self.lender_member_id.is_empty() {
+            return Err(DomainError::EmptyField(
+                "capacity_offering.lender_member_id",
+            ));
+        }
+        if self.model_release_id.is_empty() {
+            return Err(DomainError::EmptyField(
+                "capacity_offering.model_release_id",
+            ));
+        }
+        if self.skill_id.is_empty() {
+            return Err(DomainError::EmptyField("capacity_offering.skill_id"));
+        }
+        if self.runner_ref.is_empty() {
+            return Err(DomainError::EmptyField("capacity_offering.runner_ref"));
+        }
+        if self.currency.trim().is_empty() {
+            return Err(DomainError::EmptyField("capacity_offering.currency"));
+        }
+        if self.quota_milliunits_per_request == 0 {
+            return Err(DomainError::ZeroQuotaPerRequest);
+        }
+        if self.quota_milliunits_available == 0 {
+            return Err(DomainError::ZeroCapacityAvailable);
+        }
+        if let Some(until) = self.effective_until_epoch_ms {
+            if until <= self.effective_from_epoch_ms {
+                return Err(DomainError::InvertedEffectiveWindow);
+            }
+        }
+        Ok(())
+    }
+
+    /// Whether this offering is active at `at_epoch_ms`.
+    pub fn is_current(&self, at_epoch_ms: i64) -> bool {
+        self.effective_from_epoch_ms <= at_epoch_ms
+            && self
+                .effective_until_epoch_ms
+                .is_none_or(|until| at_epoch_ms < until)
+    }
+}
+
 /// A probability estimate with its conservative confidence bound and provenance
 /// weight. The engine's beta-posterior utility can produce these fields.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -562,6 +651,14 @@ pub enum DomainError {
     InvalidSha256(&'static str),
     #[error("{0} must not have leading or trailing whitespace")]
     NonCanonicalProviderIdentifier(&'static str),
+    #[error("capacity_offering.quota_milliunits_per_request must be greater than zero")]
+    ZeroQuotaPerRequest,
+    #[error("capacity_offering.quota_milliunits_available must be greater than zero")]
+    ZeroCapacityAvailable,
+    #[error(
+        "capacity_offering.effective_until_epoch_ms must be strictly after effective_from_epoch_ms"
+    )]
+    InvertedEffectiveWindow,
 }
 
 fn validate_probability(field: &'static str, value: f64) -> Result<(), DomainError> {
@@ -844,6 +941,52 @@ mod tests {
         observation.worker_id = None;
         observation.sample_count = Some(0);
         assert_eq!(observation.validate(), Err(DomainError::ZeroSampleCount));
+    }
+
+    #[test]
+    fn capacity_offering_rejects_zero_quota_and_inverted_window() {
+        let mut offering = sample_capacity_offering();
+        offering.quota_milliunits_per_request = 0;
+        assert_eq!(offering.validate(), Err(DomainError::ZeroQuotaPerRequest));
+
+        let mut offering = sample_capacity_offering();
+        offering.quota_milliunits_available = 0;
+        assert_eq!(offering.validate(), Err(DomainError::ZeroCapacityAvailable));
+
+        let mut offering = sample_capacity_offering();
+        offering.effective_until_epoch_ms = Some(offering.effective_from_epoch_ms);
+        assert_eq!(
+            offering.validate(),
+            Err(DomainError::InvertedEffectiveWindow)
+        );
+    }
+
+    #[test]
+    fn capacity_offering_is_current_only_within_its_effective_window() {
+        let offering = sample_capacity_offering();
+        assert!(offering.is_current(offering.effective_from_epoch_ms));
+        assert!(!offering.is_current(offering.effective_from_epoch_ms - 1));
+        let until = offering.effective_until_epoch_ms.expect("until set");
+        assert!(offering.is_current(until - 1));
+        assert!(!offering.is_current(until));
+    }
+
+    fn sample_capacity_offering() -> CapacityOffering {
+        CapacityOffering {
+            offering_id: "offering:capacity-alice".into(),
+            lender_member_id: "member:alice".into(),
+            model_release_id: "model:test-2026-01-01".into(),
+            skill_id: "skill:rust-debugging".into(),
+            runner_ref: "sonnet-5".into(),
+            currency: "USD".to_owned(),
+            quota_milliunits_per_request: 500,
+            quota_milliunits_available: 50_000,
+            listed_price_micros_per_quota_milliunit: 200,
+            context_window_tokens: 200_000,
+            effective_from_epoch_ms: 1_754_006_400_000,
+            effective_until_epoch_ms: Some(1_754_092_800_000),
+            recorded_at: "2026-08-01T00:00:00Z".to_owned(),
+        }
     }
 
     fn sample_identity() -> WorkerIdentity {

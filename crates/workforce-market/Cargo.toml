@@ -1,0 +1,21 @@
+[package]
+name = "workforce-market"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Peer-to-peer capacity market: lent quota offerings, listed-price allocator matching, real-usage metering, and a double-entry settlement ledger"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+workforce-allocator = { path = "../workforce-allocator" }
+workforce-domain = { path = "../workforce-domain" }
+workforce-engine = { path = "../workforce-engine" }
+workforce-store = { path = "../workforce-store" }
+
+[lints]
+workspace = true
