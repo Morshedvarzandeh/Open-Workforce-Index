@@ -51,6 +51,11 @@ import owi_platform as platform
 
 REPO = platform.resources()
 MICROS = 1_000_000
+# How long one worker gets. Code tasks that build and test can need far more
+# than a piece of writing does, so this is a default and not a ceiling —
+# --timeout raises it. A part that runs out is recorded as an environment
+# failure, never held against the model.
+WORKER_TIMEOUT = 600
 # The instant decisions are dated at. Offerings carry effective-from dates, so
 # this must sit after the newest price revision or its workers look
 # unavailable; it is pinned rather than "now" so a decision stays reproducible.
@@ -526,7 +531,7 @@ def instruction_files_above(path: Path) -> list[str]:
 
 
 def run_command(home: Path, model: str, payload: str,
-                timeout: int = 600, role: str = "worker",
+                timeout: int = WORKER_TIMEOUT, role: str = "worker",
                 checklist: list[str] | None = None) -> tuple[str, str, int]:
     """Execute a worker's command with the task on stdin, from a scratch
     directory that inherits nothing. The stdin payload is the WHOLE task.
@@ -699,6 +704,23 @@ nothing else. Give each part 2-4 checklist items verifiable against that
 part's output alone. Never mention model names; staffing is not your job."""
 
 
+SCRATCH_PATH = re.compile(r"\S*[/\\]owi-run-[A-Za-z0-9_]+\S*")
+
+
+def strip_scratch_paths(text: str) -> str:
+    """Remove scratch directory paths a planner wrote into a part.
+
+    The planner runs from its own scratch directory and every worker gets a
+    different fresh one, so a path the planner names is not merely useless to
+    the worker — it points somewhere that does not exist for them. A planner
+    that has been told "the repo" resolves it to its own cwd and writes that
+    in, and the worker then spends its whole budget hunting for a directory
+    it was never given. Both parts of one split died this way before the
+    paths were stripped here: each was recorded as a timeout, which is true
+    but explains nothing."""
+    return SCRATCH_PATH.sub("the working directory", text)
+
+
 def clean_parts(raw_parts) -> list[dict] | None:
     """Validate a planner reply: every part needs a real skill id and a
     standalone summary. Anything malformed rejects the whole split — a half
@@ -707,11 +729,13 @@ def clean_parts(raw_parts) -> list[dict] | None:
     for part in raw_parts or []:
         if not isinstance(part, dict) or part.get("skill") not in SKILLS:
             return None
-        summary = str(part.get("summary", "")).strip()
+        summary = strip_scratch_paths(str(part.get("summary", "")).strip())
         if not summary:
             return None
+        checklist = [strip_scratch_paths(item)
+                     for item in clean_checklist(part.get("checklist"))]
         cleaned.append({"summary": summary, "skill": part["skill"],
-                        "checklist": clean_checklist(part.get("checklist"))})
+                        "checklist": checklist})
     return cleaned or None
 
 
@@ -861,7 +885,9 @@ def iterate(home: Path, eligible: list, calibration, skill: str, task: str,
         verdict, failed = attempt_run(home, worker, model, skill, task,
                                       stdin_text, checklist,
                                       arguments.accepted, arguments.cause,
-                                      inspection, corrections, privacy=privacy)
+                                      inspection, corrections, privacy=privacy,
+                                      timeout=getattr(arguments, "timeout",
+                                                      WORKER_TIMEOUT))
         tried.append(worker)
         if verdict == "accepted":
             if attempt > 1:
@@ -880,7 +906,8 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
                 task: str, stdin_text: str, checklist: list[str],
                 accepted_flag: str | None, cause_flag: str | None,
                 inspection: dict, corrections: list[str],
-                privacy: str = "private_metadata") -> tuple[str, str]:
+                privacy: str = "private_metadata",
+                timeout: int = WORKER_TIMEOUT) -> tuple[str, str]:
     """One attempt: run, verify against the checklist, record. Returns
     (verdict, failed-detail) — the detail feeds the next iteration's
     corrections when the checklist rejected the work."""
@@ -891,12 +918,13 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
     payload = build_payload(task, stdin_text, checklist, notes, corrections)
     print(f"\nrunning via: {resolve_runner(home, model)}\n" + "-" * 60)
     try:
-        stdout, stderr, code = run_command(home, model, payload, checklist=checklist)
+        stdout, stderr, code = run_command(home, model, payload,
+                                           timeout=timeout, checklist=checklist)
     except subprocess.TimeoutExpired:
         print("-" * 60)
-        print("timed out after 600s")
+        print(f"timed out after {timeout}s")
         record_outcome(home, worker, skill, False, "environment", task=task,
-                       detail="runner timed out after 600s", privacy=privacy)
+                       detail=f"runner timed out after {timeout}s", privacy=privacy)
         return "rejected", ""
     print(stdout.strip() or "(no output)")
     print("-" * 60)
@@ -1099,6 +1127,12 @@ def main() -> int:
                              "corrections and the work escalates to the "
                              "quality option, up to this many attempts "
                              "(default 2, matching the priced max_attempts)")
+    parser.add_argument("--timeout", type=int, default=WORKER_TIMEOUT,
+                        metavar="SECONDS",
+                        help=f"how long one worker gets before the attempt is "
+                             f"recorded as an environment failure (default "
+                             f"{WORKER_TIMEOUT}). Building and testing code "
+                             f"usually needs more than writing prose does")
     parser.add_argument("--run", action="store_true",
                         help="execute via your configured runner and record the outcome")
     parser.add_argument("--check", action="append", metavar="ITEM",
