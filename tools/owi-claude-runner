@@ -73,6 +73,22 @@ def main() -> int:
                       "cacheCreationInputTokens"))
     if billed_input:
         receipt["input_tokens"] = billed_input
+    # Why one bill differs from another. Measured on real runs, a single turn
+    # costs about 30,700 input tokens of which the task itself was 931 — the
+    # rest is harness context, re-read in full on EVERY turn. So a reply that
+    # took seven turns billed 215,757 tokens for the same small task, and the
+    # quote-to-bill ratio ran 1.6x to 5.0x with no change in the work asked
+    # for. Without these two numbers that spread is unexplainable noise; with
+    # them it is arithmetic.
+    if envelope.get("num_turns"):
+        receipt["turns"] = envelope["num_turns"]
+    # Cache creation is billed above the base rate and cache reads far below
+    # it, so two calls with identical token counts can differ fourfold. The
+    # split is the difference between a first call and a warm one.
+    for source, field in (("cacheCreationInputTokens", "cache_write_tokens"),
+                          ("cacheReadInputTokens", "cache_read_tokens")):
+        if detail.get(source):
+            receipt[field] = detail[source]
     if detail.get("outputTokens"):
         receipt["output_tokens"] = detail["outputTokens"]
     if isinstance(cost, (int, float)):

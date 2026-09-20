@@ -33,13 +33,19 @@ The contract:
 5. Only output that actually arrived can be held against a model. Anything
    else is plumbing, and plumbing is not performance.
 6. A runner MAY report what the call actually cost, by writing one final line
-   of JSON to stderr carrying `input_tokens`, `output_tokens` and/or
-   `cash_micros`. Optional: a runner that stays silent is still a valid
-   runner. But a router that quotes prices and never reads a receipt is doing
-   arithmetic, not accounting — and measured against a real call the quote
-   was out by 2.7x. Its estimate of the task was close; the thirty-one
-   thousand tokens of the agent CLI's own system prompt, cached and re-read
-   on every single call, were not modelled at all.
+   of JSON to stderr carrying any of the fields in `USAGE_FIELDS`. Optional:
+   a runner that stays silent is still a valid runner. But a router that
+   quotes prices and never reads a receipt is doing arithmetic, not
+   accounting — and measured against real calls the quote runs 1.6x to 5.0x
+   low.
+
+   The spread is not noise. One turn of an agent CLI bills about 30,700
+   input tokens of which the task itself was 931; the rest is harness
+   context, re-read IN FULL on every turn. A reply that took seven turns
+   therefore billed 215,757 tokens for the same small task. Turns are the
+   multiplier, so the receipt carries the turn count and the cache split
+   alongside the money — otherwise the variance is unexplainable and gets
+   mistaken for a fact about the worker.
 """
 
 from __future__ import annotations
@@ -134,11 +140,15 @@ def run_worker(command: str, payload: str,
                      usage=parse_usage(stderr))
 
 
-# Only these three, and only as non-negative numbers. A runner's stderr is
+# Only these, and only as non-negative numbers. A runner's stderr is
 # whatever the user's CLI decided to print; treating it as a general channel
 # for structured data would let a warning that happens to be JSON become a
 # cost record.
-USAGE_FIELDS = ("input_tokens", "output_tokens", "cash_micros")
+USAGE_FIELDS = ("input_tokens", "output_tokens", "cash_micros",
+                # Why one bill differs from another: the harness
+                # context is re-read on every turn, so turns multiply
+                # it, and a cache write costs more than a cache read.
+                "turns", "cache_write_tokens", "cache_read_tokens")
 
 
 def parse_usage(stderr: str) -> dict | None:
