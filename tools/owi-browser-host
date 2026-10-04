@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+"""Native Messaging entry point for the generic OWI project map."""
+from owi_browser_host import main
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

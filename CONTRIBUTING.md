@@ -39,6 +39,11 @@ With the engine built, also run
 Both use fake model responses. The latter validates actual Rust imports,
 worker identities, allocation and recorded deterministic feedback.
 
+For the generic project map or browser client, run
+`python3 tools/test_project_map.py`, `python3 tools/test_browser_host.py`, and
+`npm --prefix browser-extension test`. These checks use temporary local Git
+repositories and fake runtime state; they do not contact a model or provider.
+
 For desktop packaging, run `python3 tools/test_desktop.py`. Build the release
 engine, install `packaging/requirements.txt` in a build virtual environment,
 then run `python packaging/build.py --engine target/release/owi` (use `.exe`

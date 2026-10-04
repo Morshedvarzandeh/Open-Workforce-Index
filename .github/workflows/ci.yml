@@ -61,6 +61,14 @@ jobs:
       - name: MCP and provider integrations
         run: python3 tools/test_integrations.py
 
+      - name: Generic project map and trusted browser host
+        run: |
+          python3 tools/test_project_map.py
+          python3 tools/test_browser_host.py
+
+      - name: Project-map browser client
+        run: npm --prefix browser-extension test
+
       - name: Automatic task bridge against the real engine
         run: OWI_BINARY="$PWD/target/debug/owi" python3 tools/check_bridge_engine.py
 

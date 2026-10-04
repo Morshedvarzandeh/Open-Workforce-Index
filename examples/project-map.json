@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "owi.project-map.v1",
+  "project": {
+    "id": "project-example-workspace",
+    "name": "Example workspace",
+    "description": "A repository-neutral example showing declared ownership and directional impact."
+  },
+  "lanes": [
+    {
+      "id": "lane-experience",
+      "name": "Experience",
+      "description": "Interfaces used by people and other systems.",
+      "order": 0
+    },
+    {
+      "id": "lane-application",
+      "name": "Application",
+      "description": "Project logic and local services.",
+      "order": 1
+    },
+    {
+      "id": "lane-assurance",
+      "name": "Assurance",
+      "description": "Tests and reviewable project evidence.",
+      "order": 2
+    }
+  ],
+  "components": [
+    {
+      "id": "component-web-client",
+      "name": "Web client",
+      "description": "The user-facing application.",
+      "kind": "surface",
+      "facts": [
+        "Shows components, relationships, evidence, and trusted management controls."
+      ],
+      "laneId": "lane-experience",
+      "lifecycle": "implemented",
+      "owns": [
+        "web/"
+      ]
+    },
+    {
+      "id": "component-local-service",
+      "name": "Local service",
+      "description": "The local application boundary used by the client.",
+      "kind": "api",
+      "facts": [
+        "Keeps repository access and management authority outside the browser."
+      ],
+      "laneId": "lane-application",
+      "lifecycle": "implemented",
+      "owns": [
+        "src/",
+        "pyproject.toml"
+      ]
+    },
+    {
+      "id": "component-contract-tests",
+      "name": "Contract tests",
+      "description": "Checks the declared client and service contract.",
+      "kind": "module",
+      "laneId": "lane-assurance",
+      "lifecycle": "declared",
+      "owns": [
+        "tests/"
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "id": "relation-service-client",
+      "from": "component-local-service",
+      "to": "component-web-client",
+      "type": "supplies",
+      "label": "supplies data to"
+    },
+    {
+      "id": "relation-service-contract-tests",
+      "from": "component-local-service",
+      "to": "component-contract-tests",
+      "type": "verified-by",
+      "label": "is verified by"
+    }
+  ]
+}

@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>OWI Project Map</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">
+        <a class="brand" href="#map" aria-label="Open Workforce Index project map">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span>
+            <strong>Open Workforce Index</strong>
+            <small>Project map</small>
+          </span>
+        </a>
+        <div class="project-controls">
+          <label for="project-select">Project</label>
+          <select id="project-select" aria-describedby="connection-status" disabled>
+            <option>Connecting to local OWI…</option>
+          </select>
+          <button id="refresh-button" class="icon-button" type="button" disabled>
+            <span aria-hidden="true">↻</span>
+            Refresh
+          </button>
+          <span id="connection-status" class="connection-pill" data-state="loading">
+            <span aria-hidden="true"></span>
+            Connecting
+          </span>
+        </div>
+      </header>
+
+      <main>
+        <div class="page-intro">
+          <div>
+            <p class="eyebrow">Local, evidence-aware architecture</p>
+            <h1 id="project-title">Understand what changed and what it can reach.</h1>
+            <p id="snapshot-caption" class="lede">
+              Waiting for a project-map snapshot from the local OWI host.
+            </p>
+          </div>
+          <dl id="snapshot-meta" class="snapshot-meta" hidden>
+            <div><dt>Snapshot</dt><dd id="snapshot-id">—</dd></div>
+            <div><dt>Generated</dt><dd id="snapshot-time">—</dd></div>
+            <div><dt>Adapters</dt><dd id="adapter-count">—</dd></div>
+          </dl>
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="Project views">
+          <button
+            id="map-tab"
+            class="tab is-active"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            aria-controls="map-panel"
+            data-tab="map"
+          >Project map</button>
+          <button
+            id="activity-tab"
+            class="tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="activity-panel"
+            data-tab="activity"
+            tabindex="-1"
+          >OWI activity &amp; management</button>
+        </div>
+
+        <section id="map-panel" role="tabpanel" aria-labelledby="map-tab">
+          <div id="summary-grid" class="summary-grid" aria-label="Snapshot summary"></div>
+          <div class="map-layout">
+            <section class="map-card" aria-labelledby="map-heading">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Directed project graph</p>
+                  <h2 id="map-heading">Components and reach</h2>
+                </div>
+                <div class="legend" aria-label="Impact legend">
+                  <span><i class="legend-dot changed"></i>Direct change</span>
+                  <span><i class="legend-dot affected"></i>Affected</span>
+                  <span><i class="legend-dot unchanged"></i>Unchanged</span>
+                </div>
+              </div>
+              <div id="map-viewport" class="map-viewport">
+                <div id="map-content" class="map-content">
+                  <svg id="edge-layer" class="edge-layer" aria-hidden="true">
+                    <defs>
+                      <marker id="edge-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z"></path>
+                      </marker>
+                    </defs>
+                  </svg>
+                  <div id="lane-grid" class="lane-grid">
+                    <div class="map-placeholder">
+                      <span class="spinner" aria-hidden="true"></span>
+                      <p>Loading the local project map…</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <aside id="node-inspector" class="inspector" aria-labelledby="inspector-heading">
+              <p class="eyebrow">Selection</p>
+              <h2 id="inspector-heading">Choose a component</h2>
+              <p class="muted">Select a map card to inspect its lifecycle, direct churn, dependency paths, and owned changed files.</p>
+            </aside>
+          </div>
+        </section>
+
+        <section
+          id="activity-panel"
+          role="tabpanel"
+          aria-labelledby="activity-tab"
+          hidden
+        >
+          <div class="activity-grid">
+            <section class="activity-card evidence-card" aria-labelledby="evidence-heading">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Claims retain their basis</p>
+                  <h2 id="evidence-heading">Evidence</h2>
+                </div>
+                <div id="basis-badges" class="basis-badges"></div>
+              </div>
+              <div id="evidence-list" class="evidence-list"></div>
+            </section>
+
+            <section class="activity-card" aria-labelledby="agents-heading">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Trusted runtime observations</p>
+                  <h2 id="agents-heading">Agents &amp; activity</h2>
+                </div>
+              </div>
+              <div id="agent-list" class="agent-list"></div>
+            </section>
+
+            <section class="activity-card management-card" aria-labelledby="management-heading">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Local OWI authority only</p>
+                  <h2 id="management-heading">Management</h2>
+                </div>
+                <span class="safety-label">Confirmation required</span>
+              </div>
+              <p class="section-note">
+                Runtime evidence and actions are shared across the local OWI runtime unless an adapter explicitly attributes them to this project. This client sends only an opaque action ID and stale-state guards.
+              </p>
+              <div id="action-list" class="action-list"></div>
+              <div id="receipt-panel" class="receipt-panel" hidden aria-live="polite"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="fatal-state" class="fatal-state" hidden aria-live="assertive">
+          <span aria-hidden="true">!</span>
+          <div>
+            <h2 id="fatal-title">Project map unavailable</h2>
+            <p id="fatal-message"></p>
+          </div>
+          <button id="retry-button" type="button">Try again</button>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="action-dialog" class="action-dialog">
+      <form method="dialog">
+        <div class="dialog-symbol" aria-hidden="true">↻</div>
+        <p class="eyebrow">Review local change</p>
+        <h2 id="dialog-title">Confirm action</h2>
+        <p id="dialog-description"></p>
+        <dl class="dialog-details">
+          <div><dt>Authority</dt><dd id="dialog-authority"></dd></div>
+          <div><dt>Expected state</dt><dd id="dialog-state"></dd></div>
+          <div><dt>Snapshot</dt><dd id="dialog-snapshot"></dd></div>
+        </dl>
+        <p class="dialog-warning">The local OWI host will recheck this state and record an audited result.</p>
+        <div class="dialog-actions">
+          <button id="dialog-cancel" class="secondary-button" value="cancel">Cancel</button>
+          <button id="dialog-confirm" class="primary-button" value="confirm">Confirm action</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="live-status" class="visually-hidden" aria-live="polite"></div>
+    <script type="module" src="dashboard.js"></script>
+  </body>
+</html>

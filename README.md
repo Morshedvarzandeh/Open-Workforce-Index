@@ -35,6 +35,8 @@ assumptions; measured savings and general speedups remain unproven.
 Prefer local operation? The optional [desktop download](docs/DESKTOP.md)
 includes its engine and runtime, so Rust/Python installation is unnecessary.
 Developers can also use the [source commands](docs/INTEGRATIONS.md#connect-from-source-developers).
+The generic architecture and activity view is available separately as a
+[project map source preview](docs/PROJECT_MAP.md).
 
 ## What works today
 

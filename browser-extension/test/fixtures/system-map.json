@@ -1,0 +1,205 @@
+{
+  "schemaVersion": "owi.system-map.v1",
+  "snapshot": {
+    "id": "snapshot:sample-0042",
+    "projectId": "project:sample-workspace",
+    "projectName": "Sample workspace",
+    "projectDescription": "A generic local service with a public interface and an assurance boundary.",
+    "generatedAt": "2026-10-04T10:15:00Z",
+    "comparison": {
+      "kind": "git-working-tree",
+      "state": "available"
+    },
+    "adapters": [
+      { "id": "project-declaration", "version": "1" },
+      { "id": "git-working-tree", "version": "1" },
+      { "id": "local-runtime", "version": "1" }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "lane:interface",
+      "name": "Interface",
+      "description": "Entry points used by people and systems.",
+      "order": 0
+    },
+    {
+      "id": "lane:service",
+      "name": "Service",
+      "description": "Application and policy boundaries.",
+      "order": 1
+    },
+    {
+      "id": "lane:assurance",
+      "name": "Assurance",
+      "description": "Checks and durable evidence.",
+      "order": 2
+    }
+  ],
+  "nodes": [
+    {
+      "id": "component:client",
+      "name": "Client surface",
+      "description": "A local user interface.",
+      "laneId": "lane:interface",
+      "kind": "surface",
+      "facts": ["Reads versioned snapshots"],
+      "lifecycle": "implemented",
+      "sourceRefs": [{ "path": "client", "kind": "prefix" }],
+      "impact": {
+        "state": "affected",
+        "direct": false,
+        "paths": [["component:service", "component:client"]]
+      },
+      "churn": {
+        "additions": 99,
+        "deletions": 88,
+        "changedFiles": 4,
+        "textFiles": 4,
+        "binaryFiles": 0,
+        "unavailableFiles": 0
+      }
+    },
+    {
+      "id": "component:service",
+      "name": "Local service",
+      "description": "The trusted local application boundary.",
+      "laneId": "lane:service",
+      "kind": "api",
+      "facts": ["Validates every request", "Returns opaque action identifiers"],
+      "lifecycle": "implemented",
+      "sourceRefs": [{ "path": "src/service.js", "kind": "exact" }],
+      "impact": {
+        "state": "changed",
+        "direct": true,
+        "paths": []
+      },
+      "churn": {
+        "additions": 12,
+        "deletions": 3,
+        "changedFiles": 1,
+        "textFiles": 1,
+        "binaryFiles": 0,
+        "unavailableFiles": 0
+      }
+    },
+    {
+      "id": "component:checks",
+      "name": "Contract checks",
+      "description": "Deterministic validation of the service contract.",
+      "laneId": "lane:assurance",
+      "kind": "module",
+      "facts": [],
+      "lifecycle": "declared",
+      "sourceRefs": [{ "path": "test", "kind": "prefix" }],
+      "impact": {
+        "state": "affected",
+        "direct": false,
+        "paths": [["component:service", "component:checks"]]
+      },
+      "churn": {
+        "additions": null,
+        "deletions": null,
+        "changedFiles": 0,
+        "textFiles": 0,
+        "binaryFiles": 0,
+        "unavailableFiles": 0
+      }
+    },
+    {
+      "id": "component:local-agent",
+      "name": "Local agent",
+      "description": "A runtime identity observed by OWI.",
+      "laneId": "lane:service",
+      "kind": "agent",
+      "facts": ["Revision state comes from the local runtime"],
+      "lifecycle": "implemented",
+      "sourceRefs": [],
+      "impact": {
+        "state": "unchanged",
+        "direct": false,
+        "paths": []
+      },
+      "churn": {
+        "additions": null,
+        "deletions": null,
+        "changedFiles": 0,
+        "textFiles": 0,
+        "binaryFiles": 0,
+        "unavailableFiles": 0
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge:service-client",
+      "from": "component:service",
+      "to": "component:client",
+      "type": "supplies",
+      "label": "supplies snapshots"
+    },
+    {
+      "id": "edge:service-checks",
+      "from": "component:service",
+      "to": "component:checks",
+      "type": "verified-by",
+      "label": "is verified by"
+    }
+  ],
+  "files": [
+    {
+      "id": "file:service",
+      "path": "src/service.js",
+      "status": "modified",
+      "gitStatus": " M",
+      "kind": "text",
+      "additions": 12,
+      "deletions": 3,
+      "componentIds": ["component:service"]
+    }
+  ],
+  "unmappedFiles": ["notes/change-summary.md"],
+  "evidence": [
+    {
+      "id": "evidence:working-tree",
+      "type": "change-comparison",
+      "claimState": "measured",
+      "basis": "git-status-and-numstat",
+      "subjectId": "project:sample-workspace",
+      "value": {
+        "changedFiles": 2,
+        "unmappedFiles": 1,
+        "textFiles": 2
+      }
+    },
+    {
+      "id": "evidence:agent-revision",
+      "type": "agent-revision",
+      "claimState": "observed",
+      "basis": "local-runtime",
+      "subjectId": "component:local-agent",
+      "value": "revision-7"
+    },
+    {
+      "id": "evidence:usage",
+      "type": "runner-usage",
+      "claimState": "unavailable",
+      "basis": "runner-reported",
+      "subjectId": "component:local-agent",
+      "value": null
+    }
+  ],
+  "actions": [
+    {
+      "id": "action:pause-learning",
+      "kind": "runtime.learning.pause",
+      "label": "Pause instruction learning",
+      "description": "Pause local instruction learning without changing project files.",
+      "authority": "local-owi-runtime",
+      "approval": "confirmation-required",
+      "availability": true,
+      "expectedState": "state:running-42",
+      "targetId": "component:local-agent"
+    }
+  ]
+}

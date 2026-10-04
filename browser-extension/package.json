@@ -1,0 +1,10 @@
+{
+  "name": "@open-workforce-index/project-map-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "audit:manifests": "node --test test/manifest-audit.test.mjs"
+  }
+}
