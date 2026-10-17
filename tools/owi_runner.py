@@ -148,7 +148,12 @@ USAGE_FIELDS = ("input_tokens", "output_tokens", "cash_micros",
                 # Why one bill differs from another: the harness
                 # context is re-read on every turn, so turns multiply
                 # it, and a cache write costs more than a cache read.
-                "turns", "cache_write_tokens", "cache_read_tokens")
+                "turns", "cache_write_tokens", "cache_read_tokens",
+                # How many models the call billed against. More than
+                # one means the token figures are a sum, not one
+                # model's, which is the only honest way to pair them
+                # with a cost that covers them all.
+                "models")
 
 
 def parse_usage(stderr: str) -> dict | None:

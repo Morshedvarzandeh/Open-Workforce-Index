@@ -942,7 +942,20 @@
       "$0.0161 and $0.0041 on identical token counts, because a cache write",
       "costs above the base rate and a cache read far below it. The receipt",
       "therefore carries turns and the cache split, or the variance looks like",
-      "a fact about the worker instead of a fact about the harness."
+      "a fact about the worker instead of a fact about the harness.",
+      "",
+      "A third correction, and this one was a bug in the receipt itself. The",
+      "envelope's modelUsage can hold SEVERAL models -- a small helper billed",
+      "alongside the model that was asked for -- while total_cost_usd covers",
+      "all of them. Reading tokens from whichever model the dict yielded first",
+      "and money from the total produced a receipt showing 1,458 input tokens",
+      "against $0.0838, about thirty times what those tokens cost. Every",
+      "multi-model receipt had token figures that did not belong to its price.",
+      "",
+      "Tokens are now summed across every model in the envelope, and a receipt",
+      "that billed more than one records how many. A number that cannot be",
+      "reconciled with its own price is worse than no number: it looks like a",
+      "fact about the worker rather than a fault in the bookkeeping."
     ],
     "usage_fields": [
       "input_tokens",
@@ -950,7 +963,8 @@
       "cash_micros",
       "turns",
       "cache_write_tokens",
-      "cache_read_tokens"
+      "cache_read_tokens",
+      "models"
     ],
     "silent_runner_reports_none": true,
     "last_json_line_wins": true,
@@ -1001,12 +1015,22 @@
           "cache_read_tokens": 24691,
           "cash_micros": 47900
         }
+      },
+      {
+        "stderr": "{\"input_tokens\": 32108, \"turns\": 1, \"models\": 2, \"cash_micros\": 15780}\n",
+        "expect": {
+          "input_tokens": 32108,
+          "turns": 1,
+          "models": 2,
+          "cash_micros": 15780
+        }
       }
     ],
     "observed_ratio_min": 1.5,
     "observed_ratio_max": 4.5,
     "one_turn_input_tokens_approx": 30700,
-    "task_share_of_one_turn_approx": 931
+    "task_share_of_one_turn_approx": 931,
+    "tokens_summed_across_models": true
   },
   "coach_expectations": {
     "_why": [

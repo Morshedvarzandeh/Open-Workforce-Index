@@ -62,8 +62,20 @@ def main() -> int:
 
     sys.stdout.write(str(envelope.get("result", "")))
 
+    # EVERY model the call used, not the first one the dict happened to
+    # yield. A single reply can bill against several models — a small helper
+    # alongside the one that was asked for — and `total_cost_usd` covers all
+    # of them. Reading tokens from one model and money from all of them
+    # produced a receipt showing 1,458 input tokens against $0.0838, which is
+    # roughly thirty times what those tokens cost. The token side of every
+    # multi-model receipt was wrong, and wrong in a way that looks like a
+    # fact about the worker rather than a bug in the bookkeeping.
     usage = (envelope.get("modelUsage") or {})
-    detail = next(iter(usage.values()), {}) if usage else {}
+    detail = {}
+    for one in usage.values():
+        for field, value in one.items():
+            if isinstance(value, (int, float)):
+                detail[field] = detail.get(field, 0) + value
     cost = envelope.get("total_cost_usd")
     receipt = {}
     # Every input token billed, cache included — that is the whole point.
@@ -91,6 +103,8 @@ def main() -> int:
             receipt[field] = detail[source]
     if detail.get("outputTokens"):
         receipt["output_tokens"] = detail["outputTokens"]
+    if len(usage) > 1:
+        receipt["models"] = len(usage)
     if isinstance(cost, (int, float)):
         receipt["cash_micros"] = round(cost * MICROS)
     if receipt:
