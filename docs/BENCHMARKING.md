@@ -88,6 +88,41 @@ keep it. If the program writes a final line of JSON to stderr containing
 `input_tokens`, `output_tokens`, or `cash_micros`, those are recorded; without
 them the outcome is still valid, just less informative about cost.
 
+## Measuring what the run cost
+
+Reporting cost is optional, and skipping it is more expensive than it looks.
+For an Anthropic model, wrap the CLI in `owi-claude-runner`, which writes that
+receipt, and point the chat shim at the wrapper rather than at `claude`:
+
+```bash
+python3 tools/run_bench.py --corpus corpus.json --repo /path/to/battery-core \
+  --worker-id worker:opus-5/code --adapter command \
+  --command "python3 tools/bench_chat_adapter.py \
+             tools/owi-claude-runner --model claude-opus-5" \
+  --observed-at "$(date -u +%FT%TZ)" \
+  --outcome-dir outcomes/ --report report.json
+```
+
+The receipt then reaches `report.json` as `total_cash_micros` and each outcome
+record as `actual_cash_micros`, so `owi-coach` can report the benchmark's
+spend alongside the interactive calls'.
+
+Until this was wired through, it was not: the shim captured the wrapped
+command's stderr and printed it only on failure, so a receipt that existed and
+was correctly formatted was discarded on every successful call. The run then
+reported `total_cash_micros: 0` — not unknown, zero, which is the one
+confusion the runner contract says must never be made. Eleven rounds of
+benchmark outcomes carry that zero, and they are wrong rather than silent; the
+interactive calls beside them in the same ledger are receipted and real.
+
+The figure that was missing is not marginal. Measured on this corpus, a single
+`claude -p` call for one small function billed 38,754 input tokens and 233
+output tokens, costing **$0.1128** — the task's own prompt is a few hundred
+tokens, and the rest is the agent CLI's context, re-read on every call. An
+eleven-task round against `opus-5` therefore costs about **$1.24**, which is
+roughly two and a half times the $0.50 daily cap this loop had been assuming
+it was inside.
+
 ## Feeding results back
 
 ```bash

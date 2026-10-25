@@ -123,6 +123,29 @@ def adapter_command(
     return completed.stdout, usage
 
 
+def _counted(usage: dict, field: str) -> int:
+    """A receipt field as a count, or zero if it is not one.
+
+    A receipt comes off somebody else's CLI, so every field in it is a claim
+    rather than a fact. `int(usage.get(field, 0))` trusted the claim and
+    raised on `null` and on `"1,234"` — and it raised from the `Attempt(...)`
+    constructor, which sits after `run_task`'s `finally`, outside every
+    `except` in the module. The exception therefore left the loop in `main`,
+    so a malformed last line of stderr discarded the whole run's report and
+    every outcome record in it, after the calls had been made and billed. The
+    bench spends real money; it must not be able to throw the receipt away
+    over the shape of the receipt.
+
+    A negative is refused for the same reason zero and unknown are kept
+    apart: a CLI that writes -1 for "I don't know" must not have that read
+    back as money owed to anyone.
+    """
+    value = usage.get(field)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return 0
+    return int(value) if value >= 0 else 0
+
+
 def run_task(
     task: dict,
     repo: Path,
@@ -183,9 +206,9 @@ def run_task(
         task_id=task["task_id"],
         accepted=accepted,
         latency_ms=int((time.monotonic() - started) * 1000),
-        input_tokens=int(usage.get("input_tokens", 0)),
-        output_tokens=int(usage.get("output_tokens", 0)),
-        cash_micros=int(usage.get("cash_micros", 0)),
+        input_tokens=_counted(usage, "input_tokens"),
+        output_tokens=_counted(usage, "output_tokens"),
+        cash_micros=_counted(usage, "cash_micros"),
         failure_detail=detail,
     )
 

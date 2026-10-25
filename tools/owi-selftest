@@ -746,6 +746,58 @@ def run(no_cargo: bool) -> int:
                         and "positionally" in done.stderr,
                         f"exit {done.returncode}: {done.stderr[:120]}")
 
+    cost = frozen.get("bench_cost_expectations")
+    if cost:
+        # A bench that cannot say what it spent cannot be held to a budget,
+        # and the zero it reported instead looked exactly like thrift.
+        print("\nbench cost (the receipt has to survive the adapter)")
+        import subprocess as _subprocess
+
+        sys.path.insert(0, str(REPO / "tools"))
+        import run_bench
+
+        def _through_adapter(stderr_line: str):
+            """Run the adapter over a CLI that prints `stderr_line`."""
+            with tempfile.TemporaryDirectory() as scratch:
+                cli = Path(scratch) / "cli"
+                cli.write_text(
+                    "#!/usr/bin/env python3\n"
+                    "import sys\n"
+                    "sys.stdin.read()\n"
+                    f"print({cost['body_stays_on_stdout']!r})\n"
+                    f"sys.stderr.write({stderr_line!r} + chr(10))\n")
+                cli.chmod(0o755)
+                return _subprocess.run(
+                    [sys.executable,
+                     str(REPO / "tools/bench_chat_adapter.py"), str(cli)],
+                    input='{"signature":"def f(x):","docstring":"d",'
+                          '"instruction":"i","indent":"    ",'
+                          '"qualified_name":"f"}',
+                    capture_output=True, text=True)
+
+        receipt = cost["relayed_receipt"]
+        done = _through_adapter(receipt)
+        suite.check("a receipt survives the adapter",
+                    (receipt in done.stderr) == cost["relayed"],
+                    f"stderr {done.stderr[:160]!r}")
+        suite.check("the body still leaves on stdout, alone",
+                    done.stdout.strip() ==
+                    cost["body_stays_on_stdout"].strip(),
+                    f"stdout {done.stdout[:120]!r}")
+        noise = _through_adapter(cost["noise_not_relayed"])
+        suite.check("a final stderr line that is not JSON is not relayed",
+                    cost["noise_not_relayed"] not in noise.stderr,
+                    f"stderr {noise.stderr[:160]!r}")
+        # run_bench reads that line. What it must never do is believe it so
+        # far that a bad field throws the whole paid run away.
+        for case in cost["counted"]:
+            got = run_bench._counted({case["field"]: case["value"]},
+                                     case["field"])
+            suite.check(
+                f"{case['field']}={case['value']!r} counts as "
+                f"{case['counted']}",
+                got == case["counted"], f"got {got!r}")
+
     durability = frozen.get("ledger_durability_expectations")
     if durability:
         # Learning that exists in exactly one ephemeral place is learning you
@@ -880,6 +932,11 @@ def run(no_cargo: bool) -> int:
             want = fixture["expected_spend"]
             suite.check("a call that reported no cost is excluded, not zeroed",
                         paid["calls"] == want["calls"], f"got {paid['calls']}")
+            # Excluded, and said out loud. A spend total that omits the
+            # expensive half without mentioning it reads as the whole bill.
+            suite.check("the excluded calls are counted and named",
+                        paid["silent"] == want["silent"],
+                        f"got {paid['silent']}, want {want['silent']}")
             for field in ("quoted", "billed", "ratio", "rejected"):
                 suite.check(f"spend reports {field} from receipts",
                             paid[field] == want[field],

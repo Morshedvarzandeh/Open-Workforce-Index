@@ -13,10 +13,27 @@ This shim closes the gap without touching the harness contract:
 - the prompt states that NO files exist and everything needed is inline, so
   there is nothing to wander off to;
 - the reply is normalised into a bare body: code fences stripped, a repeated
-  `def` line dropped, indentation raised to the requested base.
+  `def` line dropped, indentation raised to the requested base;
+- a cost receipt the wrapped command wrote is relayed on, untouched.
 
 The wrapped command is everything after the script name. It runs from a
 neutral temporary directory so an agentic CLI has no repository to inherit.
+
+That last point was missing for eleven benchmark rounds and it cost the loop
+its own accounts. `run_bench.py` reads the adapter's final stderr line as a
+receipt; this shim captured the wrapped command's stderr and then printed it
+only on failure. So a run through `owi-claude-runner` — a runner written
+specifically to report what a call cost — produced `total_cash_micros: 0`,
+and every outcome record it wrote claimed `actual_cash_micros: 0`. Not
+unknown: zero. The one number the benchmark could not afford to get wrong is
+the one it silently invented, on the most expensive calls the loop makes,
+while `owi-coach` reported spend from the cheap interactive calls alone and
+looked complete doing it.
+
+This shim does not interpret the receipt — it relays the last line, if that
+line is a JSON object, and lets `run_bench.py` decide what the fields mean.
+Parsing it here would make a fifth near-copy of a reader that `owi_runner.py`
+already warns about keeping one of.
 """
 
 from __future__ import annotations
@@ -93,6 +110,28 @@ def extract_body(reply: str, indent: str, name: str = "") -> str:
     return "\n".join((shift + line) if line.strip() else "" for line in body)
 
 
+def relay_receipt(stderr: str) -> None:
+    """Pass a wrapped command's cost receipt through to our own stderr.
+
+    Only the final line, and only if it is a JSON object: the rest of a CLI's
+    stderr is its own business, and forwarding all of it would put eleven
+    rounds of warnings in front of whoever is reading the bench. Nothing is
+    read out of the object here — a receipt whose fields this shim understood
+    would be a receipt this shim could get wrong.
+    """
+    lines = (stderr or "").strip().splitlines()
+    if not lines:
+        return
+    last = lines[-1].strip()
+    if not (last.startswith("{") and last.endswith("}")):
+        return
+    try:
+        if isinstance(json.loads(last), dict):
+            sys.stderr.write(last + "\n")
+    except json.JSONDecodeError:
+        return
+
+
 def main() -> int:
     command = sys.argv[1:]
     if not command:
@@ -121,6 +160,7 @@ def main() -> int:
     if completed.returncode != 0:
         sys.stderr.write(completed.stderr[-1000:])
         return completed.returncode
+    relay_receipt(completed.stderr)
     body = extract_body(completed.stdout, task.get("indent") or "    ",
                         task.get("qualified_name", ""))
     if not body:

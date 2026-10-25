@@ -77,11 +77,22 @@ def spend(ledger: Path) -> dict:
     Only calls whose runner reported a receipt appear here. A runner that
     says nothing leaves the cost unknown, and an unknown cost must never be
     averaged in as zero.
+
+    Excluding them is right; excluding them quietly is not. The benchmark ran
+    for eleven rounds with its receipt being discarded by the adapter, so the
+    costliest calls this loop makes were all unreceipted and this function
+    correctly said nothing about them — while the line it printed, a total
+    over a call count, read as the whole bill. So `silent` comes back too: how
+    many outcomes had no receipt to read, which is the difference between
+    "this is what you spent" and "this is what I can see."
     """
     with sqlite3.connect(f"file:{ledger}?mode=ro", uri=True) as connection:
         rows = connection.execute(
             "SELECT accepted, actual_cash_micros, metadata_json "
             "FROM outcome_events WHERE actual_cash_micros > 0").fetchall()
+        silent = connection.execute(
+            "SELECT COUNT(*) FROM outcome_events "
+            "WHERE COALESCE(actual_cash_micros, 0) <= 0").fetchone()[0]
     billed = sum(row[1] for row in rows)
     quoted = 0
     for _, _, metadata in rows:
@@ -92,6 +103,7 @@ def spend(ledger: Path) -> dict:
             pass
     return {
         "calls": len(rows),
+        "silent": silent,
         "quoted": quoted,
         "billed": billed,
         "ratio": round(billed / quoted, 2) if quoted else None,

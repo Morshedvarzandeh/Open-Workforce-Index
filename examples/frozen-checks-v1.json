@@ -820,6 +820,76 @@
     "adapter_rejects_leading_flag": true,
     "adapter_flag_exit_code": 2
   },
+  "bench_cost_expectations": {
+    "_why": [
+      "The benchmark is where this loop spends almost all of its money,",
+      "and for eleven rounds it reported spending none. run_bench reads a",
+      "cost receipt off the adapter's last stderr line; owi-claude-runner",
+      "writes exactly that; and bench_chat_adapter, sitting between them,",
+      "captured the wrapped command's stderr and printed it only on",
+      "failure. So the receipt existed, was correctly formatted, and was",
+      "thrown away on every successful call.",
+      "",
+      "What that produced was not a missing number but a wrong one.",
+      "total_cash_micros came out 0 and every outcome record claimed",
+      "actual_cash_micros 0 -- a measured zero, which the runner contract",
+      "is explicit must never be confused with an unknown. owi-coach then",
+      "reported spend from the interactive calls alone and read as",
+      "complete, so the daily budget the loop runs under could not be",
+      "checked against the one activity that breaks it. Measured after",
+      "the fix: a single opus-5 bench call bills $0.1128, so an eleven",
+      "task round costs about $1.24 against a $0.50 cap.",
+      "",
+      "The second half is the crash this also hid. int(usage.get(field))",
+      "trusted whatever the CLI put on that line, and raised on null and",
+      "on \"1,234\" -- from the Attempt constructor, which sits after",
+      "run_task's finally and outside every except in the module. A",
+      "malformed last line of stderr therefore discarded the entire run's",
+      "report and all of its outcome records, after the calls had been",
+      "billed. A bench that spends money must not be able to lose the",
+      "evidence over the shape of a receipt."
+    ],
+    "relayed_receipt": "{\"input_tokens\": 31000, \"cash_micros\": 165500}",
+    "relayed": true,
+    "noise_not_relayed": "warning: config file not found",
+    "body_stays_on_stdout": "    return 1",
+    "counted": [
+      {
+        "field": "cash_micros",
+        "value": null,
+        "counted": 0,
+        "_why": "null is not a measurement"
+      },
+      {
+        "field": "cash_micros",
+        "value": "1,234",
+        "counted": 0,
+        "_why": "a formatted string is a claim, not a count"
+      },
+      {
+        "field": "cash_micros",
+        "value": -500,
+        "counted": 0,
+        "_why": "a sentinel negative is not money owed"
+      },
+      {
+        "field": "cash_micros",
+        "value": true,
+        "counted": 0,
+        "_why": "bool is an int in Python and is never a token count"
+      },
+      {
+        "field": "cash_micros",
+        "value": 165500,
+        "counted": 165500
+      },
+      {
+        "field": "input_tokens",
+        "value": 1.9,
+        "counted": 1
+      }
+    ]
+  },
   "ledger_durability_expectations": {
     "_why": [
       "A daily learning loop ran for eleven benchmark rounds and roughly a",
@@ -1113,6 +1183,7 @@
       ],
       "expected_spend": {
         "calls": 3,
+        "silent": 1,
         "quoted": 2000,
         "billed": 6000,
         "ratio": 3.0,
@@ -1123,6 +1194,7 @@
         "spent": 5000,
         "needed": 3000
       }
-    }
+    },
+    "unreported_cost_is_counted_and_named": true
   }
 }

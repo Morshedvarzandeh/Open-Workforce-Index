@@ -53,6 +53,11 @@ def print_report(data: dict, found: list[dict]) -> None:
         print(f"  of which    {usd(paid['rejected'])} "
               f"({paid['rejected'] / paid['billed']:.0%}) went to rejected "
               f"attempts")
+        if paid["silent"]:
+            # Say what this total does not cover. A figure that silently
+            # omits the expensive half reads as the whole bill.
+            print(f"  not counted {paid['silent']} outcome(s) whose runner "
+                  f"reported no cost — unknown, not zero")
     else:
         print("  billed      nothing reported — no runner returns a receipt")
 
