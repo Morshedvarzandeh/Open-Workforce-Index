@@ -890,6 +890,71 @@
       }
     ]
   },
+  "splice_integrity_expectations": {
+    "_why": [
+      "sonnet-5 was handed eleven tasks and scored 6. Two of the five",
+      "failures were not implementations the tests rejected -- they were",
+      "files pytest could not import, reported as 'errors during",
+      "collection'. On scalar_or_array the reply was this, verbatim:",
+      "",
+      "      if np.ndim(value) == 0:      <- three spaces",
+      "          return float(value)      <- eight",
+      "      return value                 <- four",
+      "",
+      "which is the repository's own implementation, logic for logic, and",
+      "does not parse: the closing return sits deeper than the `if` it",
+      "follows. A correct answer went into the ledger as a model failure.",
+      "",
+      "Two separate faults, and only one of them is the indentation.",
+      "",
+      "The first: extract_body re-based the block only when its minimum",
+      "indent was exactly 0 and passed every other base through untouched.",
+      "There is nothing behind that asymmetry -- a reply at two spaces or",
+      "at eight needs exactly the same treatment as one at column zero --",
+      "and it is fixed by re-basing from whatever arrived. Being honest",
+      "about it: that fix does NOT rescue the reply above. A block whose",
+      "lines disagree with each other is not valid Python at any base, and",
+      "inferring what it meant would be crediting a model for code it did",
+      "not write.",
+      "",
+      "The second is the one that matters, because it is the reason this",
+      "went unnoticed for an unknown number of rounds. A splice bug and a",
+      "model that cannot write valid Python produce the identical symptom,",
+      "and the ledger records WHETHER a task failed but never WHY -- so",
+      "after the run's report is gone, the two are indistinguishable",
+      "forever. It has now happened twice: once when the signature-dropping",
+      "rule decapitated a nested helper, and again here. A file that does",
+      "not parse is therefore checked for and labelled before the suite is",
+      "ever run: still scored against the worker, never excused, but named",
+      "in the report, counted in the run summary, and carried into the",
+      "outcome record so the next occurrence is auditable."
+    ],
+    "rebased_to_requested_indent": [
+      {
+        "_name": "at column zero",
+        "reply": "if x:\n    return 1\nreturn 0"
+      },
+      {
+        "_name": "at two spaces",
+        "reply": "  if x:\n      return 1\n  return 0"
+      },
+      {
+        "_name": "at eight spaces",
+        "reply": "        if x:\n            return 1\n        return 0"
+      },
+      {
+        "_name": "already at four",
+        "reply": "    if x:\n        return 1\n    return 0"
+      }
+    ],
+    "requested_indent": "    ",
+    "rebased_first_line_indent": 4,
+    "internally_inconsistent_reply": "   if np.ndim(value) == 0:\n        return float(value)\n    return value",
+    "inconsistent_reply_compiles": false,
+    "did_not_parse_kind": "did_not_parse",
+    "did_not_parse_is_scored": true,
+    "did_not_parse_blame": "worker"
+  },
   "ledger_durability_expectations": {
     "_why": [
       "A daily learning loop ran for eleven benchmark rounds and roughly a",

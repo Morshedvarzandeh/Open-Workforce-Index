@@ -50,6 +50,21 @@ class Attempt:
     # harness attempt is reported but never written as an outcome. Same rule
     # the front door applies to empty stdout: plumbing is not performance.
     blame: str = "worker"
+    # WHY it failed, when the reason is distinguishable from "the tests said
+    # no". Only one value so far: "did_not_parse", meaning the spliced file
+    # was not valid Python, so pytest could not import it and reported errors
+    # during collection rather than a failing assertion.
+    #
+    # It is still the worker's failure and still scored — a model that writes
+    # unparseable text has failed the task. But a bug in the splice path
+    # produces the IDENTICAL symptom, and that has now happened twice: once
+    # when the signature-dropping rule decapitated a nested helper, and again
+    # when a reply indented its first line three spaces and the rest four.
+    # Both times a correct implementation was written into the ledger as a
+    # model's failure, and both times it took a saved report to notice,
+    # because the ledger keeps WHETHER a task failed and never WHY. Labelling
+    # it is what makes the next occurrence auditable instead of invisible.
+    failure_kind: str = ""
 
 
 def read_file_at_commit(repo: Path, commit: str, relative_path: str) -> str:
@@ -166,14 +181,29 @@ def run_task(
                 task["task_id"], False, elapsed_ms, 0, 0, 0,
                 "adapter produced no body", blame="harness"
             )
-        path.write_text(
-            splice(
-                original,
-                task["patch"]["start_line"],
-                task["patch"]["end_line"],
-                body.rstrip("\n"),
-            )
+        spliced = splice(
+            original,
+            task["patch"]["start_line"],
+            task["patch"]["end_line"],
+            body.rstrip("\n"),
         )
+        path.write_text(spliced)
+        try:
+            compile(spliced, str(path), "exec")
+        except SyntaxError as error:
+            # Not a wrong answer — an unusable one. Say so in those words,
+            # and skip the suite: pytest would only report "errors during
+            # collection", which reads like a test result and is not one.
+            return Attempt(
+                task["task_id"], False,
+                int((time.monotonic() - started) * 1000),
+                _counted(usage, "input_tokens"),
+                _counted(usage, "output_tokens"),
+                _counted(usage, "cash_micros"),
+                f"spliced file is not valid Python: {error.msg} "
+                f"(line {error.lineno})",
+                failure_kind="did_not_parse",
+            )
         try:
             completed = subprocess.run(
                 verify_command,
@@ -311,6 +341,13 @@ def main() -> int:
         "unscored_harness_failures": len(unscored),
         "accepted": accepted,
         "pass_rate": accepted / len(scored) if scored else 0.0,
+        # Scored failures whose body never parsed. A number above zero is
+        # worth looking at before believing the pass rate: it is the
+        # signature a splice bug leaves, and it is also what a model that
+        # cannot write valid Python leaves. The reports tell them apart; the
+        # pass rate alone cannot.
+        "did_not_parse": sum(1 for a in scored
+                             if a.failure_kind == "did_not_parse"),
         "total_cash_micros": sum(a.cash_micros for a in attempts),
         "attempts": [asdict(a) for a in attempts],
     }
@@ -344,6 +381,8 @@ def main() -> int:
                     "actual_quota_milliunits": 0,
                     "latency_ms": attempt.latency_ms,
                     "observed_at": arguments.observed_at,
+                    **({"metadata": {"failure_kind": attempt.failure_kind}}
+                       if attempt.failure_kind else {}),
                 }
             }
             (arguments.outcome_dir / f"{slug}.json").write_text(
@@ -356,6 +395,13 @@ def main() -> int:
         f"({report['pass_rate']:.1%})",
         file=sys.stderr,
     )
+    if report["did_not_parse"]:
+        print(
+            f"{report['did_not_parse']} of those failures never parsed, so "
+            f"the tests never ran on them. Check the splice before reading "
+            f"the pass rate as a fact about the model.",
+            file=sys.stderr,
+        )
     if unscored:
         print(
             f"{len(unscored)} task(s) never reached the tests and were NOT "

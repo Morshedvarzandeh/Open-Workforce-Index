@@ -746,6 +746,57 @@ def run(no_cargo: bool) -> int:
                         and "positionally" in done.stderr,
                         f"exit {done.returncode}: {done.stderr[:120]}")
 
+    splice = frozen.get("splice_integrity_expectations")
+    if splice:
+        # A correct answer scored as a failure is worse than a missing
+        # measurement: the number still looks like evidence.
+        print("\nsplice integrity (a right answer the harness broke)")
+        sys.path.insert(0, str(REPO / "tools"))
+        import bench_chat_adapter
+
+        indent = splice["requested_indent"]
+        for case in splice["rebased_to_requested_indent"]:
+            body = bench_chat_adapter.extract_body(case["reply"], indent, "f")
+            first = body.splitlines()[0]
+            at = len(first) - len(first.lstrip())
+            compiles = True
+            try:
+                compile(f"def f(x):\n{body}", "<frozen>", "exec")
+            except SyntaxError as error:
+                compiles = error.msg
+            suite.check(f"a reply {case['_name']} is re-based and compiles",
+                        compiles is True
+                        and at == splice["rebased_first_line_indent"],
+                        f"indent {at}, compiles {compiles}")
+
+        # And the limit of that fix, stated as a check so nobody later
+        # "improves" it into guessing at code the model did not write.
+        inconsistent = splice["internally_inconsistent_reply"]
+        rebased = bench_chat_adapter.extract_body(inconsistent, indent, "f")
+        still_broken = False
+        try:
+            compile(f"def f(value):\n{rebased}", "<frozen>", "exec")
+        except SyntaxError:
+            still_broken = True
+        suite.check("a reply whose own lines disagree is not repaired by "
+                    "re-basing",
+                    still_broken != splice["inconsistent_reply_compiles"],
+                    "re-basing silently changed what the model wrote")
+
+        import run_bench
+        suite.check("an unparseable body is labelled, not left as a test "
+                    "result",
+                    "did_not_parse" in run_bench.Attempt.__dataclass_fields__
+                    or hasattr(run_bench.Attempt("t", False, 0, 0, 0, 0, ""),
+                               "failure_kind"))
+        labelled = run_bench.Attempt(
+            "task:x", False, 0, 0, 0, 0, "spliced file is not valid Python",
+            failure_kind=splice["did_not_parse_kind"])
+        suite.check("it is still the worker's failure and still scored",
+                    (labelled.blame == splice["did_not_parse_blame"])
+                    == splice["did_not_parse_is_scored"],
+                    f"blame {labelled.blame}")
+
     cost = frozen.get("bench_cost_expectations")
     if cost:
         # A bench that cannot say what it spent cannot be held to a budget,

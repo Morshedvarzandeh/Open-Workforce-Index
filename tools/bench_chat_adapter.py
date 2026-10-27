@@ -106,8 +106,23 @@ def extract_body(reply: str, indent: str, name: str = "") -> str:
         return ""
     filled = [line for line in body if line.strip()]
     current = min(len(line) - len(line.lstrip()) for line in filled)
-    shift = indent if current == 0 else ""
-    return "\n".join((shift + line) if line.strip() else "" for line in body)
+    # Re-base the block from whatever indent arrived to the one the splice
+    # needs, keeping every line's depth RELATIVE to the shallowest.
+    #
+    # This used to normalise only when `current` was exactly 0 and pass
+    # everything else through untouched, which is an asymmetry with nothing
+    # behind it: a reply uniformly indented two spaces, or eight, needs the
+    # same treatment as one at column zero, and silently got the opposite.
+    #
+    # It does NOT rescue a reply that is internally inconsistent — a block
+    # whose `if` sits at three spaces and whose closing `return` sits at four
+    # does not become valid Python at any base, and pretending otherwise
+    # would mean guessing at code the model did not write. That case is now
+    # caught and labelled by run_bench instead of being scored blind.
+    drop = max(0, current - len(indent))
+    pad = " " * max(0, len(indent) - current)
+    return "\n".join((pad + line[drop:]) if line.strip() else ""
+                     for line in body)
 
 
 def relay_receipt(stderr: str) -> None:
