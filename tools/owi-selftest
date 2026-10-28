@@ -746,6 +746,47 @@ def run(no_cargo: bool) -> int:
                         and "positionally" in done.stderr,
                         f"exit {done.returncode}: {done.stderr[:120]}")
 
+    guess = frozen.get("skill_guess_expectations")
+    if guess:
+        # Evidence filed under the wrong skill is worse than missing
+        # evidence: the posterior still looks earned.
+        print("\nskill guessing (whose evidence this becomes)")
+        task = guess["misread_task"]
+        leaders = owi_do.leading_skills(task)
+        suite.check("the task that caused this still ties three ways",
+                    len(leaders) == guess["misread_leaders_before_fix"],
+                    f"leaders {leaders}")
+        suite.check("a tie falls back to the default, not to dict order",
+                    owi_do.classify(task) == guess["misread_skill"],
+                    f"got {owi_do.classify(task)}")
+        suite.check("and the tie reports itself as not a reading",
+                    owi_do.classified_confidently(task)
+                    == guess["misread_is_confident"])
+        for trap in guess["substring_traps"]:
+            scores = owi_do.skill_scores(trap["task"])
+            suite.check(f"{trap['_why']} scores nothing",
+                        not scores.get(trap["not_scored"]),
+                        f"{trap['task']!r} scored "
+                        f"{scores.get(trap['not_scored'])}")
+        for read in guess["confident_reads"]:
+            suite.check(f"a clear task is read and reported confident: "
+                        f"{read['task'][:30]}...",
+                        owi_do.classify(read["task"]) == read["skill"]
+                        and owi_do.classified_confidently(read["task"]),
+                        f"got {owi_do.classify(read['task'])}")
+        empty = guess["no_signal_task"]
+        suite.check("a task using none of the words is the default, unsure",
+                    owi_do.classify(empty) == owi_do.DEFAULT_SKILL
+                    and not owi_do.classified_confidently(empty))
+        # The structural half: a guess has to be visible in the record,
+        # because the next classifier will also be wrong sometimes.
+        import inspect as _inspect
+        signature = _inspect.signature(owi_do.record_outcome)
+        suite.check("an inferred skill is carried into the outcome record",
+                    "skill_guessed" in signature.parameters
+                    and guess["guess_is_recorded_as"]
+                    in _inspect.getsource(owi_do.record_outcome))
+
     splice = frozen.get("splice_integrity_expectations")
     if splice:
         # A correct answer scored as a failure is worse than a missing

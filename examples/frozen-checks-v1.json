@@ -955,6 +955,79 @@
     "did_not_parse_is_scored": true,
     "did_not_parse_blame": "worker"
   },
+  "skill_guess_expectations": {
+    "_why": [
+      "A text-editing task was recorded as evidence of haiku-4-5's ability",
+      "to write Python. The request was 'Write this up as a decisions",
+      "record ... keep every number, part code and date exactly', and the",
+      "output was prose. It went into the ledger as",
+      "worker:haiku-4-5/code on skill:python-numerical-implementation,",
+      "accepted, and moved that worker's code mean from 0.4389 to 0.4537",
+      "on work containing no code at all.",
+      "",
+      "Two faults, and the second is the one that did the damage.",
+      "",
+      "`word in text` made every keyword a substring pattern: 'ui' matched",
+      "b-UI-ld, so every task mentioning a build scored for UI design;",
+      "'fix' matched FIX-ture, 'part' matched de-PART-ment, 'step' matched",
+      "STEP-s. Word boundaries end that -- and would NOT have caught this",
+      "case, which is why fixing only this would have been a fix that",
+      "looks like one.",
+      "",
+      "The request scores a legitimate whole-word hit for each of three",
+      "unrelated skills: 'code', 'part' and 'write'. `n > hits` handed the",
+      "answer to whichever of the three SKILLS declares first, and the",
+      "engine then printed it in the same confident voice it uses for a",
+      "skill given with --skill. A tie is a coin flip; presenting one as a",
+      "reading is how the wrong posterior learns the wrong thing. It now",
+      "falls back to DEFAULT_SKILL and says so, in those words.",
+      "",
+      "The fallback being correct here is luck -- text-editing happens to",
+      "be the default. So the structural half is that the record carries",
+      "skill_guessed, because a classifier will be wrong again and a",
+      "posterior has to be able to say how much of itself rests on a",
+      "guess. An audit of all 32 interactive outcomes found exactly one",
+      "bad row, this one, caught the same day only because a benchmark ran",
+      "beside it and made the count look wrong."
+    ],
+    "misread_task": "Write this up as a decisions record with three sections: Decided, Decided (not contingent), and Still open. Keep every number, part code and date exactly, and state the reasoning for keeping the 55 C threshold.",
+    "misread_leaders_before_fix": 3,
+    "misread_skill": "skill:text-editing",
+    "misread_is_confident": false,
+    "substring_traps": [
+      {
+        "task": "build the pack enclosure",
+        "not_scored": "skill:ui-design",
+        "_why": "'ui' inside b-UI-ld"
+      },
+      {
+        "task": "the fixture change takes two hours",
+        "not_scored": "skill:python-numerical-implementation",
+        "_why": "'fix' inside FIX-ture"
+      },
+      {
+        "task": "the department signed off",
+        "not_scored": "skill:parametric-cad",
+        "_why": "'part' inside de-PART-ment"
+      }
+    ],
+    "confident_reads": [
+      {
+        "task": "rewrite this email to the supplier",
+        "skill": "skill:text-editing"
+      },
+      {
+        "task": "extract the invoice fields as json",
+        "skill": "skill:structured-extraction"
+      },
+      {
+        "task": "fix the failing cargo test",
+        "skill": "skill:python-numerical-implementation"
+      }
+    ],
+    "no_signal_task": "zzz qqq",
+    "guess_is_recorded_as": "skill_guessed"
+  },
   "ledger_durability_expectations": {
     "_why": [
       "A daily learning loop ran for eleven benchmark rounds and roughly a",

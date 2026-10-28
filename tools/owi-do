@@ -232,14 +232,65 @@ def bootstrap(home: Path) -> None:
         }, indent=2) + "\n")
 
 
-def classify(task: str) -> str:
+def skill_scores(task: str) -> dict[str, int]:
+    """How many of each skill's words the task actually uses.
+
+    Word boundaries, not substrings. `word in text` made every keyword a
+    substring pattern: "ui" matched b-UI-ld, "fix" matched FIX-ture, "part"
+    matched de-PART-ment, "step" matched STEP-s. Every task mentioning a
+    build scored a hit for UI design.
+    """
     text = task.lower()
-    best, hits = DEFAULT_SKILL, 0
-    for skill, spec in SKILLS.items():
-        n = sum(1 for w in spec["words"] if w in text)
-        if n > hits:
-            best, hits = skill, n
-    return best
+    return {skill: sum(1 for word in spec["words"]
+                       if re.search(rf"\b{re.escape(word)}\b", text))
+            for skill, spec in SKILLS.items()}
+
+
+def leading_skills(task: str) -> list[str]:
+    """The skills tied for most words used, or [] when none are used."""
+    scores = {skill: n for skill, n in skill_scores(task).items() if n}
+    if not scores:
+        return []
+    top = max(scores.values())
+    return sorted(skill for skill, n in scores.items() if n == top)
+
+
+def classify(task: str) -> str:
+    """Guess the skill from the task's own words. Returns (skill, confident).
+
+    Two faults here put a prose task into a code worker's evidence, and the
+    second one is the dangerous half.
+
+    `w in text` made every keyword a substring pattern. "ui" matched
+    b-UI-ld, "fix" matched FIX-ture, "part" matched de-PART-ment, "step"
+    matched STEP-s. Word boundaries end that.
+
+    But boundaries alone would not have caught the real case, and saying
+    otherwise would be a fix that only looks like one. The request was
+    "Write this up as a decisions record ... keep every number, part code
+    and date exactly", which scores a legitimate whole-word hit for each of
+    three unrelated skills: "code" (numerical implementation), "part"
+    (parametric CAD) and "write" (text editing). `n > hits` then handed the
+    answer to whichever of the three `SKILLS` happens to declare first --
+    numerical implementation -- and the engine announced it in the same
+    confident voice it uses for a skill it was handed with --skill. The
+    outcome was recorded against that guess, so a decisions record became
+    evidence of haiku-4-5's ability to write Python, and its code posterior
+    moved on work that contained none.
+
+    A tie is therefore no longer resolved: it falls back to DEFAULT_SKILL
+    and reports itself as unconfident. That is not the same as being right
+    -- the fallback is a stated default, not a determination -- which is
+    exactly why the caller says so out loud and the ledger records it.
+    """
+    leaders = leading_skills(task)
+    return leaders[0] if len(leaders) == 1 else DEFAULT_SKILL
+
+
+def classified_confidently(task: str) -> bool:
+    """True when exactly one skill led. A tie is a coin flip, not a reading,
+    and the caller has to be able to say which it got."""
+    return len(leading_skills(task)) == 1
 
 
 def pick(home: Path, task: str, skill: str, tokens_in: int, tokens_out: int,
@@ -359,7 +410,7 @@ def record_outcome(home: Path, worker: str, skill: str, accepted: bool,
                    inspection: str = "",
                    privacy: str = "private_metadata",
                    usage: dict | None = None, quoted_micros: int = 0,
-                   latency_ms: int = 0) -> None:
+                   latency_ms: int = 0, skill_guessed: bool = False) -> None:
     """Record a verified outcome. On rejection, `cause` names the root cause;
     only 'worker' (the default) counts against the model's evidence, and the
     failure is appended to root-causes.jsonl for prevention. When a checklist
@@ -388,6 +439,14 @@ def record_outcome(home: Path, worker: str, skill: str, accepted: bool,
         metadata["billed"] = {k: usage[k] for k in sorted(usage)}
         if quoted_micros:
             metadata["quoted_micros"] = int(quoted_micros)
+    if skill_guessed:
+        # Which skill's evidence this becomes was inferred from the task's
+        # wording, not stated. One such inference put a prose decisions
+        # record into haiku-4-5's Python posterior, and the only reason it
+        # was ever found is that a benchmark the same day made the count
+        # look wrong. Without this flag a posterior cannot be asked how much
+        # of it rests on a guess.
+        metadata["skill_guessed"] = True
     if inspection:
         metadata["inspection"] = inspection[:20]
     if checklist:
@@ -898,6 +957,10 @@ def iterate(home: Path, eligible: list, calibration, skill: str, task: str,
             stdin_text: str, checklist: list[str], arguments,
             explicit: bool) -> tuple[str, str | None]:
     privacy = PRIVACY[getattr(arguments, "privacy", "metadata")]
+    # A skill nobody stated is a skill somebody inferred, and the outcome of
+    # this run becomes that skill's evidence either way. Which of the two it
+    # was belongs in the record, not just on the terminal.
+    skill_guessed = not getattr(arguments, "skill", None)
     """Redo until it is right, within bounds: attempt, verify, and on a
     rejection feed the exact failed items back as corrections and escalate.
     Every attempt is recorded — iteration never erases a failure, it answers
@@ -943,7 +1006,7 @@ def iterate(home: Path, eligible: list, calibration, skill: str, task: str,
         verdict, failed = attempt_run(
             home, worker, model, skill, task, stdin_text, checklist,
             arguments.accepted, arguments.cause, inspection, corrections,
-            privacy=privacy,
+            privacy=privacy, skill_guessed=skill_guessed,
             quoted_micros=candidate["cost"]["expected_accepted_cost_micros"])
         tried.append(worker)
         if verdict == "accepted":
@@ -1054,6 +1117,7 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
                 accepted_flag: str | None, cause_flag: str | None,
                 inspection: dict, corrections: list[str],
                 privacy: str = "private_metadata",
+                skill_guessed: bool = False,
                 quoted_micros: int = 0) -> tuple[str, str]:
     """One attempt: run, verify against the checklist, record. Returns
     (verdict, failed-detail) — the detail feeds the next iteration's
@@ -1069,8 +1133,8 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
     latency_ms = int((time.monotonic() - started) * 1000)
     # Only what the runner reported. A runner that says nothing leaves this
     # unknown rather than zero — an unmeasured cost must never read as free.
-    billed = dict(usage=result.usage, quoted_micros=quoted_micros,
-                  latency_ms=latency_ms)
+    recorded = dict(usage=result.usage, quoted_micros=quoted_micros,
+                    latency_ms=latency_ms, skill_guessed=skill_guessed)
     if result.usage and result.usage.get("cash_micros") and quoted_micros:
         real = result.usage["cash_micros"]
         print(f"  billed ${real / MICROS:.4f} against a quote of "
@@ -1087,7 +1151,7 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
             sys.stderr.write(result.stderr[-1500:])
         print(f"{result.detail} — the plumbing failed, not the model")
         record_outcome(home, worker, skill, False, ENVIRONMENT, task=task,
-                       detail=result.detail, privacy=privacy, **billed)
+                       detail=result.detail, privacy=privacy, **recorded)
         return "rejected", ""
     stdout = result.output
 
@@ -1101,14 +1165,14 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
               f"it — recorded as task_spec, not held against the model")
         print(f"  attach it:  tools/owi-do \"...\" < your-file.txt")
         record_outcome(home, worker, skill, False, "task_spec", task=task,
-                       detail=detail, privacy=privacy, **billed)
+                       detail=detail, privacy=privacy, **recorded)
         return "missing input", ""
 
     if accepted_flag is not None:
         accepted = accepted_flag == "y"
         record_outcome(home, worker, skill, accepted,
                        cause_flag if not accepted else None, task=task,
-                       privacy=privacy, **billed)
+                       privacy=privacy, **recorded)
         return ("accepted" if accepted else "rejected"), ""
 
     if checklist:
@@ -1127,7 +1191,7 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
             record_outcome(home, worker, skill, True, task=task,
                            checklist=report["items"],
                            inspection=inspection["level"], privacy=privacy,
-                           **billed)
+                           **recorded)
             return "accepted", ""
         if report["verdict"] == "rejected":
             detail = "; ".join(f"failed: {entry['item']} ({entry['note']})"
@@ -1137,7 +1201,7 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
             record_outcome(home, worker, skill, False, "worker", task=task,
                            detail=detail, checklist=report["items"],
                            inspection=inspection["level"], privacy=privacy,
-                           **billed)
+                           **recorded)
             return "rejected", detail
         print(f"checklist: could not verify every item{judged} — your call")
 
@@ -1145,7 +1209,7 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
         answer = input("accepted? [y/n] ").strip().lower()
         if answer == "y":
             record_outcome(home, worker, skill, True, task=task,
-                           privacy=privacy, **billed)
+                           privacy=privacy, **recorded)
             return "accepted", ""
         if answer == "n":
             record_outcome(home, worker, skill, False,
@@ -1317,6 +1381,7 @@ def main() -> int:
         return run_split(arguments, stdin_text)
 
     skill = arguments.skill or classify(arguments.task)
+    confident = bool(arguments.skill) or classified_confidently(arguments.task)
     tokens_in = 1500 + (len(arguments.task) + len(stdin_text)) // 4
     tokens_out = 800
 
@@ -1331,6 +1396,13 @@ def main() -> int:
     guessed = "" if arguments.skill else "  (guessed — --skill to change)"
     print(f"task : {arguments.task}")
     print(f"skill: {skill.replace('skill:', '')}{guessed}")
+    if not confident:
+        # Never let a fallback wear the voice of a determination. The outcome
+        # of this run becomes a worker's evidence FOR this skill, so a guess
+        # nobody flagged is how the wrong posterior learns the wrong thing.
+        print("       nothing in the task points clearly at one skill — this "
+              "is the default, not a reading. --skill to set it, or the "
+              "result trains this skill's evidence.")
     rate_note = f" · your hour ${arguments.rate}/hr" if arguments.rate else ""
     print(f"size : ~{tokens_in} in / {tokens_out} out tokens{rate_note}")
     dangling = points_at_missing_material(arguments.task, stdin_text)
