@@ -860,6 +860,7 @@ def run(no_cargo: bool) -> int:
         # A bench that cannot say what it spent cannot be held to a budget,
         # and the zero it reported instead looked exactly like thrift.
         print("\nbench cost (the receipt has to survive the adapter)")
+        import inspect as _inspect
         import subprocess as _subprocess
 
         sys.path.insert(0, str(REPO / "tools"))
@@ -883,6 +884,23 @@ def run(no_cargo: bool) -> int:
                           '"instruction":"i","indent":"    ",'
                           '"qualified_name":"f"}',
                     capture_output=True, text=True)
+
+        if cost.get("anthropic_prefill_carries_the_receipt"):
+            # A fix that only works while a gitignored file happens to say
+            # so is a fix with a half-life of one container.
+            prefill = owi_do.builtin_commands()
+            anthropic = [command for model, command in prefill.items()
+                         if model.startswith(("haiku", "sonnet", "opus"))]
+            suite.check("every Anthropic model is prefilled with the runner "
+                        "that writes a receipt",
+                        anthropic and all(
+                            cost["receipt_runner_basename"] in command
+                            for command in anthropic),
+                        f"got {anthropic[:1]}")
+            suite.check("and the prefill still hangs on the CLI it wraps",
+                        ("shutil.which(\"claude\")"
+                         in _inspect.getsource(owi_do.builtin_commands))
+                        == cost["prefill_needs_claude_on_path"])
 
         receipt = cost["relayed_receipt"]
         done = _through_adapter(receipt)

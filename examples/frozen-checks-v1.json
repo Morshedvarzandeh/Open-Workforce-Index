@@ -847,7 +847,29 @@
       "malformed last line of stderr therefore discarded the entire run's",
       "report and all of its outcome records, after the calls had been",
       "billed. A bench that spends money must not be able to lose the",
-      "evidence over the shape of a receipt."
+      "evidence over the shape of a receipt.",
+      "",
+      "--- 10 Nov: the fix was committed and still stopped working ---",
+      "",
+      "A container recycle took the working directory with it. On the rebuild",
+      "the roster came back quoting prices against bills nobody read, exactly",
+      "as before, and every benchmark outcome would again have recorded",
+      "actual_cash_micros 0.",
+      "",
+      "Nothing had regressed in the repository. The receipt is activated by a",
+      "line in .owi-quick/runners.json, which is gitignored working state and",
+      "is regenerated from the built-in prefill on a fresh bootstrap -- and",
+      "that prefill said `claude --model ... -p`, the one command that does",
+      "not write a receipt. So the fix lived in git and the thing that armed",
+      "it lived on a disk that does not survive, which means it was never one",
+      "machine-recycle away from being undone: it was undone by default.",
+      "",
+      "The prefill now names owi-claude-runner, which is in this repo and so",
+      "is always present. `claude` is still what decides whether these models",
+      "are runnable at all -- the wrapper needs it, and without that check",
+      "every Anthropic worker would look executable on a machine with no CLI",
+      "and the honest 'not installed' would become a run of environment",
+      "failures. A user's own entry in runners.json still wins, as it must."
     ],
     "relayed_receipt": "{\"input_tokens\": 31000, \"cash_micros\": 165500}",
     "relayed": true,
@@ -888,7 +910,10 @@
         "value": 1.9,
         "counted": 1
       }
-    ]
+    ],
+    "anthropic_prefill_carries_the_receipt": true,
+    "receipt_runner_basename": "owi-claude-runner",
+    "prefill_needs_claude_on_path": true
   },
   "splice_integrity_expectations": {
     "_why": [

@@ -162,7 +162,27 @@ def builtin_commands(home: Path | None = None) -> dict[str, str]:
     the machine that hired one it is as runnable as anything else, and a
     router that could quote it but not run it would be back to naming workers
     the caller cannot execute."""
-    commands = {model: f"claude --model {target} -p"
+    # Anthropic models go through owi-claude-runner, not bare `claude`,
+    # because the wrapper writes the receipt and bare `claude` does not.
+    #
+    # This used to prefill `claude --model ... -p`, and the cost of that was
+    # paid twice. runners.json is gitignored working state, so a fresh
+    # container regenerates it from this prefill -- and after one container
+    # recycle the roster was quoting prices against bills nobody was
+    # reading again, silently, with every benchmark outcome recording
+    # actual_cash_micros 0. The fix for that was committed weeks earlier and
+    # had no effect, because the thing that activates it was a line in a
+    # file that does not survive the machine.
+    #
+    # The wrapper is in this repo, so it is always here. `claude` is what
+    # may not be, and that is still what decides whether these models are
+    # runnable -- otherwise every Anthropic worker would look executable on
+    # a machine with no CLI, and the honest "not installed" would become a
+    # string of environment failures.
+    wrapper = REPO / "tools" / "owi-claude-runner"
+    runnable = shutil.which("claude") and wrapper.exists()
+    commands = {model: (f"{wrapper} --model {target}" if runnable
+                        else f"claude --model {target} -p")
                 for model, target in CLAUDE_MODELS.items()}
     commands.update({model: f"llm -m {target}"
                      for model, target in OPENAI_MODELS.items()})
