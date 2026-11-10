@@ -823,6 +823,23 @@ def run(no_cargo: bool) -> int:
                     "re-basing",
                     still_broken != splice["inconsistent_reply_compiles"],
                     "re-basing silently changed what the model wrote")
+        # Nor mangled. min() lets one under-indented line drag every other
+        # line, so re-basing turned 3/8/4 into 4/9/5 -- the same verdict off
+        # worse evidence, with an error line that no longer matched the
+        # model's text. A transformation that cannot make the body parse has
+        # no business touching it.
+        if splice["verbatim_when_rebasing_does_not_parse"]:
+            indents = [len(line) - len(line.lstrip())
+                       for line in rebased.splitlines()]
+            suite.check("and it is handed back exactly as the model wrote it",
+                        indents
+                        == splice["inconsistent_reply_indents_preserved"],
+                        f"indents {indents}, want "
+                        f"{splice['inconsistent_reply_indents_preserved']}")
+            suite.check("a body that parses as a function body is recognised",
+                        bench_chat_adapter.parses_as_body("    return 1")
+                        and not bench_chat_adapter.parses_as_body(
+                            "   if x:\n        return 1\n    return 0"))
 
         import run_bench
         suite.check("an unparseable body is labelled, not left as a test "

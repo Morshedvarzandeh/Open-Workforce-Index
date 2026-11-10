@@ -60,6 +60,21 @@ INSTRUCTION:
 {instruction}"""
 
 
+def parses_as_body(body: str) -> bool:
+    """Whether `body` is a syntactically valid function body.
+
+    Parsed, not executed: undefined names and missing imports are fine, an
+    indentation that cannot belong to a function is not. The dummy header
+    takes any arguments so a body referring to its own parameters still
+    parses.
+    """
+    try:
+        compile(f"def _probe(*args, **kwargs):\n{body}", "<body>", "exec")
+    except (SyntaxError, ValueError):
+        return False
+    return True
+
+
 def extract_body(reply: str, indent: str, name: str = "") -> str:
     # rstrip, never strip: leading whitespace on the first line IS the body's
     # indentation. Removing it made the min-indent shift below see column zero
@@ -119,10 +134,28 @@ def extract_body(reply: str, indent: str, name: str = "") -> str:
     # does not become valid Python at any base, and pretending otherwise
     # would mean guessing at code the model did not write. That case is now
     # caught and labelled by run_bench instead of being scored blind.
+    # Which is why the re-based body is only used if it actually parses.
+    # `min()` is not a robust estimate of the base a reply intended: one
+    # under-indented line drags every other line with it. sonnet-5 returned
+    # this body twice, a week apart, for scalar_or_array:
+    #
+    #        if hasattr(value, "shape") and value.shape == ():   <- 3
+    #            return float(value)                             <- 8
+    #        return value                                        <- 4
+    #
+    # min() reads the base as 3 and pads every line by one, so 3/8/4 became
+    # 4/9/5. Still broken, and now broken in OUR arithmetic rather than the
+    # model's text, with a reported error line that no longer matches what
+    # the model sent. Re-basing earns its place when it produces something
+    # that parses; when it does not, the model's own text is the evidence
+    # and is handed back untouched.
     drop = max(0, current - len(indent))
     pad = " " * max(0, len(indent) - current)
-    return "\n".join((pad + line[drop:]) if line.strip() else ""
-                     for line in body)
+    rebased = "\n".join((pad + line[drop:]) if line.strip() else ""
+                        for line in body)
+    if (drop or pad) and not parses_as_body(rebased):
+        return "\n".join(line if line.strip() else "" for line in body)
+    return rebased
 
 
 def relay_receipt(stderr: str) -> None:

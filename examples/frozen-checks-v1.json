@@ -927,7 +927,28 @@
       "not parse is therefore checked for and labelled before the suite is",
       "ever run: still scored against the worker, never excused, but named",
       "in the report, counted in the run summary, and carried into the",
-      "outcome record so the next occurrence is auditable."
+      "outcome record so the next occurrence is auditable.",
+      "",
+      "--- 4 Nov: the fix above had a flaw of its own ---",
+      "",
+      "The did_not_parse detector fired on its first live run since being",
+      "built, on sonnet-5, and the task was scalar_or_array again -- the same",
+      "worker and the same task as a week earlier, with the same reply shape:",
+      "first line at three spaces, the rest at eight and four.",
+      "",
+      "min() is not a robust estimate of the base a reply intended. One",
+      "under-indented line drags every other line with it, so re-basing",
+      "turned 3/8/4 into 4/9/5: still broken, and now broken in OUR",
+      "arithmetic rather than the model's text, reporting an error on a line",
+      "that no longer matched what the model sent. Before the 27 Oct fix the",
+      "body was at least passed through untouched, so on this one input the",
+      "fix made the evidence worse while the verdict stayed the same.",
+      "",
+      "There is no safe automatic repair for 3/8/4 and there should not be",
+      "one. So re-basing now has to earn its place: the re-based body is used",
+      "only if it parses, and otherwise the model's own text is handed back",
+      "verbatim. Every uniform base still normalises; an inconsistent reply",
+      "is neither repaired nor mangled, which is what the check below pins."
     ],
     "rebased_to_requested_indent": [
       {
@@ -953,7 +974,13 @@
     "inconsistent_reply_compiles": false,
     "did_not_parse_kind": "did_not_parse",
     "did_not_parse_is_scored": true,
-    "did_not_parse_blame": "worker"
+    "did_not_parse_blame": "worker",
+    "verbatim_when_rebasing_does_not_parse": true,
+    "inconsistent_reply_indents_preserved": [
+      3,
+      8,
+      4
+    ]
   },
   "skill_guess_expectations": {
     "_why": [
