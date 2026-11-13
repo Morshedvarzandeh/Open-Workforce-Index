@@ -746,6 +746,44 @@ def run(no_cargo: bool) -> int:
                         and "positionally" in done.stderr,
                         f"exit {done.returncode}: {done.stderr[:120]}")
 
+    record = frozen.get("checklist_record_expectations")
+    if record:
+        # A rejection that cannot say what it was rejected for is a rejection
+        # nobody can audit -- and it still reads as a rejection, so nothing
+        # complains.
+        print("\nchecklist record (a rejection has to name its cause)")
+        suite.check("the cap is what the lesson says it is",
+                    owi_do.CHECKLIST_RECORD_CAP == record["cap"],
+                    f"got {owi_do.CHECKLIST_RECORD_CAP}")
+        passes = record["fixture_passes_before_failure"]
+        late = ([{"item": f"contains:{n}", "pass": True}
+                 for n in range(passes)]
+                + [{"item": "min-words:180", "pass": False}])
+        kept = owi_do.recorded_checklist(late)
+        suite.check(f"a failure behind {passes} passes is still recorded",
+                    any(entry["item"] == "min-words:180" for entry in kept)
+                    == record["late_failure_is_always_recorded"],
+                    f"kept {len(kept)} of {len(late)}, failure dropped")
+        suite.check("and the record stays bounded",
+                    (len(kept) <= record["cap"]) == record["total_is_bounded"],
+                    f"kept {len(kept)}")
+        many = [{"item": f"f{n}", "pass": False} for n in range(40)]
+        suite.check("even an all-failing checklist is bounded",
+                    len(owi_do.recorded_checklist(many)) == record["cap"],
+                    f"kept {len(owi_do.recorded_checklist(many))}")
+        ordered = owi_do.recorded_checklist(
+            [{"item": "a", "pass": True}, {"item": "b", "pass": False},
+             {"item": "c", "pass": True}])
+        suite.check("entries keep the order the run checked them",
+                    [entry["item"] for entry in ordered] == ["a", "b", "c"],
+                    f"got {[entry['item'] for entry in ordered]}")
+        suite.check("an unchecked item counts as notable, not as a pass",
+                    any(entry["item"] == "judged" for entry in
+                        owi_do.recorded_checklist(
+                            [{"item": f"p{n}", "pass": True}
+                             for n in range(30)]
+                            + [{"item": "judged", "pass": None}])))
+
     guess = frozen.get("skill_guess_expectations")
     if guess:
         # Evidence filed under the wrong skill is worse than missing

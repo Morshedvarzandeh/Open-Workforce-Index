@@ -424,6 +424,42 @@ def build_payload(task: str, stdin_text: str, checklist: list[str],
     return "\n\n".join(sections)
 
 
+# How many checklist entries ride along in an outcome record. A bound is
+# right -- a pathological checklist should not put unbounded text in the
+# ledger -- but WHICH entries it keeps is the whole question.
+CHECKLIST_RECORD_CAP = 24
+
+
+def recorded_checklist(checklist: list | None) -> list[dict]:
+    """The checklist entries that go into the record: every item that did not
+    pass, then passes until the cap.
+
+    This was a flat `checklist[:10]`, and it hid the cause of its own
+    rejection. A fourteen-item checklist whose `min-words:180` floor sat at
+    position thirteen recorded ten passes and no failures at all, so the
+    ledger held a rejection it could not account for -- while
+    `record_outcome`'s own docstring promised "every item's labelled result
+    rides along in the event metadata -- pass and fail alike, so no evidence
+    is lost". Three other rejections the same week looked complete only
+    because their failing item happened to fall inside the first ten.
+
+    A pass is the cheap half of the evidence; a failure is the expensive
+    half. So the bound now spends itself on failures first, and the passes
+    fill whatever is left, in the order the run checked them.
+
+    (The prevention memory is not affected: it reads the `detail` string,
+    which names the failing item. This is the structured per-item record,
+    which is what an audit reads.)
+    """
+    entries = [entry for entry in (checklist or []) if isinstance(entry, dict)]
+    notable = [entry for entry in entries
+               if entry.get("pass") is not True][:CHECKLIST_RECORD_CAP]
+    room = max(0, CHECKLIST_RECORD_CAP - len(notable))
+    passed = [entry for entry in entries if entry.get("pass") is True][:room]
+    keep = {id(entry) for entry in notable} | {id(entry) for entry in passed}
+    return [entry for entry in entries if id(entry) in keep]
+
+
 def record_outcome(home: Path, worker: str, skill: str, accepted: bool,
                    cause: str | None = None, task: str = "",
                    detail: str = "", checklist: list | None = None,
@@ -476,7 +512,7 @@ def record_outcome(home: Path, worker: str, skill: str, accepted: bool,
              "pass": entry.get("pass"),
              "note": str(entry.get("note", ""))[:200],
              **({"sampled": True} if entry.get("sampled") else {})}
-            for entry in checklist[:10] if isinstance(entry, dict)]
+            for entry in recorded_checklist(checklist)]
     if not accepted:
         cause = cause or "worker"
         metadata["root_cause"] = cause
