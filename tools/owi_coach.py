@@ -31,6 +31,17 @@ REPORT_SKILLS = [
 ]
 
 
+# Skills the daily benchmark measures directly, bypassing the allocator.
+# This matters for exactly one reason: a worker the gate has retired never
+# gets routed work again, so it never earns the sample that would clear it.
+# For a benched skill the rotation re-measures it anyway and the retirement
+# undoes itself; for every other skill it is permanent.
+BENCHED_SKILLS = ("skill:python-numerical-implementation",)
+
+# The code the engine gives a candidate whose confidence is under the floor.
+BELOW_FLOOR = "skill_confidence_below_minimum"
+
+
 def _counted(accepted: int, metadata: str | None) -> bool:
     """Whether an outcome counts toward a worker's record.
 
@@ -203,6 +214,7 @@ def report(home: Path, owi_do) -> dict:
         "spend": spend(ledger),
         "escalations": escalations(ledger),
         "routes": routes(home, owi_do, ledger),
+        "retired": retired(home, owi_do, ledger),
         "prevention": prevention_count(home),
     }
 
@@ -213,9 +225,73 @@ def report(home: Path, owi_do) -> dict:
 # earns its severity from the ledger rather than from a threshold somebody
 # felt was about right.
 
+def retired(home: Path, owi_do, ledger: Path) -> list[dict]:
+    """Worker-and-skill pairs this loop measured and then gated out.
+
+    A low shipped prior is not interesting; plenty of workers sit under the
+    floor having never been asked to do anything. What is interesting is a
+    pair with real outcomes behind it that the gate has since closed, because
+    that is the loop retiring a worker on its own evidence -- and after a
+    ledger loss that can happen on a single sample. Four pairs went that way
+    in one week: three text workers and one extractor, each 0/1.
+
+    The second column is the one that bites. A retired pair never gets routed
+    work, so it never earns a second sample. For a skill the benchmark covers
+    the rotation measures it regardless and the retirement undoes itself
+    within a day; for any other skill it is permanent, and nothing in the
+    report said so.
+    """
+    out = []
+    for skill, plain, tokens_in, tokens_out in REPORT_SKILLS:
+        result = owi_do.pick(home, "coach probe", skill, tokens_in,
+                             tokens_out, 0)
+        for candidate in result["quote"]["rejected_candidates"]:
+            codes = [reason["code"] for reason in candidate["reasons"]]
+            if BELOW_FLOOR not in codes:
+                continue
+            worker = candidate["worker_id"]
+            accepted, n = record(ledger, worker, skill)
+            if not n:
+                continue        # never measured: a weak prior, not a retirement
+            out.append({
+                "worker": worker.replace("worker:", ""),
+                "skill": skill, "plain": plain,
+                "accepted": accepted, "n": n,
+                "remeasured_by_bench": skill in BENCHED_SKILLS,
+            })
+    return sorted(out, key=lambda row: (row["skill"], row["worker"]))
+
+
 def findings(data: dict) -> list[dict]:
     found = []
     routed = data["routes"]
+
+    gone = data.get("retired") or []
+    if gone:
+        stuck = [row for row in gone if not row["remeasured_by_bench"]]
+        thin = [row for row in gone if row["n"] <= 2]
+        found.append({
+            "severity": "bad" if stuck else "warn",
+            "tag": "retired workers",
+            "headline": f"{len(gone)} worker-and-skill pair(s) measured here "
+                        f"are now gated out below the floor",
+            "detail": "A pair with outcomes behind it that the gate has since "
+                      "closed is this loop retiring a worker on its own "
+                      "evidence."
+                      + (f" {len(thin)} of them on {max(row['n'] for row in thin)} "
+                         f"sample(s) or fewer." if thin else "")
+                      + (f" {len(stuck)} are on skills the benchmark does not "
+                         f"cover, so they will never be routed work again and "
+                         f"never earn the sample that would clear them."
+                         if stuck else
+                         " The daily rotation re-measures all of them, so "
+                         "this undoes itself."),
+            "action": ("Force a measurement with --skill, or widen the "
+                       "benchmark to cover these skills. Nothing else will "
+                       "re-open them." if stuck else
+                       "No action — the rotation will clear these."),
+            "rows": gone,
+        })
 
     untested = [r for r in routed if r["pick_n"] == 0]
     if untested:

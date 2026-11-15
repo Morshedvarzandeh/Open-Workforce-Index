@@ -61,6 +61,15 @@ def print_report(data: dict, found: list[dict]) -> None:
     else:
         print("  billed      nothing reported — no runner returns a receipt")
 
+    if data.get("retired"):
+        print("\nretired by the gate")
+        for row in data["retired"]:
+            path = ("the rotation re-measures it"
+                    if row["remeasured_by_bench"]
+                    else "NO WAY BACK — not covered by the benchmark")
+            print(f"  {row['worker']:24s} {row['plain']:26s} "
+                  f"{row['accepted']}/{row['n']} measured · {path}")
+
     print("\nwhere the work goes")
     for route in data["routes"]:
         evidence = (f"measured {route['pick_accepted']}/{route['pick_n']}"

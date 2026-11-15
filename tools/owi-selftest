@@ -1107,6 +1107,40 @@ def run(no_cargo: bool) -> int:
                             paid[field] == want[field],
                             f"got {paid[field]}, want {want[field]}")
 
+            if coach.get("retired_requires_measurement"):
+                # A worker that was never asked to do anything is not a
+                # worker this loop retired, and conflating the two would
+                # bury the four that matter in forty that do not.
+                suite.check("the floor code is the one the engine emits",
+                            owi_coach.BELOW_FLOOR
+                            == coach["below_floor_code"],
+                            f"got {owi_coach.BELOW_FLOOR}")
+                suite.check("only a benched skill has a way back",
+                            list(owi_coach.BENCHED_SKILLS)
+                            == coach["benched_skills"],
+                            f"got {list(owi_coach.BENCHED_SKILLS)}")
+                shaped = owi_coach.findings({
+                    "routes": [],
+                    "retired": [{"worker": "w/text", "skill": "skill:x",
+                                 "plain": "rewrite a document",
+                                 "accepted": 0, "n": 1,
+                                 "remeasured_by_bench": False}],
+                    "spend": {"calls": 0, "silent": 0, "quoted": 0,
+                              "billed": 0, "ratio": None, "rejected": 0},
+                    "escalations": {"count": 0, "spent": 0, "needed": 0},
+                    "coverage": {"measured": 1, "total": 2, "pairs": []},
+                    "prevention": 0})
+                retirement = [f for f in shaped
+                              if f["tag"] == "retired workers"]
+                suite.check("a retirement with no way back is a hard finding",
+                            retirement
+                            and retirement[0]["severity"] == "bad",
+                            f"got {[f['tag'] for f in shaped]}")
+                suite.check("and it says what would re-open it",
+                            retirement
+                            and "benchmark" in retirement[0]["action"],
+                            f"got {retirement[0]['action'] if retirement else None}")
+
             escalated = owi_coach.escalations(ledger)
             want = fixture["expected_escalations"]
             suite.check("an escalation is a rejection followed by another "

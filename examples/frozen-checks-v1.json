@@ -1355,7 +1355,41 @@
       "It reads two SQLite files on the machine and sends nothing anywhere.",
       "A coach that phoned home would defeat the separation the whole",
       "design rests on -- the ledger holds task text, which is exactly why",
-      "it is gitignored."
+      "it is gitignored.",
+      "",
+      "--- 15 Nov: retirement, and whether there is a way back ---",
+      "",
+      "Four worker-and-skill pairs were gated out below the 0.24 floor on a",
+      "single observation each: three text workers and one extractor, all",
+      "0/1. Each had one worker-caused failure, and against a vendor_reported",
+      "prior capped at eight pseudo-observations that was enough. Before the",
+      "ledger loss it could not have happened -- every pair carried ten to",
+      "fifty samples.",
+      "",
+      "The gating is the gate working. What was not working is that nothing",
+      "said so. It took a hand-written allocate probe and a read of",
+      "rejected_candidates to find, which means in the normal course it would",
+      "not have been found at all; the report would simply have shown text",
+      "work routing to opus-5 at three and a half times haiku's price, with",
+      "no account of why.",
+      "",
+      "And the second column is the one that bites. A retired pair never gets",
+      "routed work, so it never earns a second sample. For a skill the",
+      "benchmark covers the daily rotation measures it regardless and the",
+      "retirement undoes itself -- haiku-4-5/code went under the floor on 11",
+      "Nov and was back above it on the 13th, untouched. For text and",
+      "extraction there is no such path, and the engine has no exploration of",
+      "any kind: no epsilon-greedy, no Thompson sampling, no re-sampling of",
+      "gated workers. One bad sample is permanent.",
+      "",
+      "A pair that was never measured is NOT reported. Plenty of workers sit",
+      "under the floor having never been asked to do anything; that is a weak",
+      "shipped prior, not a retirement, and reporting it would bury the four",
+      "that matter in forty that do not.",
+      "",
+      "Whether one observation should be able to retire a worker is a",
+      "calibration decision about whose money gets spent, and this tool does",
+      "not make it. It reports the condition and names what would re-open it."
     ],
     "severities": [
       "bad",
@@ -1424,6 +1458,11 @@
         "needed": 3000
       }
     },
-    "unreported_cost_is_counted_and_named": true
+    "unreported_cost_is_counted_and_named": true,
+    "retired_requires_measurement": true,
+    "benched_skills": [
+      "skill:python-numerical-implementation"
+    ],
+    "below_floor_code": "skill_confidence_below_minimum"
   }
 }
