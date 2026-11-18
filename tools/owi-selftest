@@ -21,6 +21,7 @@ import argparse
 import importlib.machinery
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -878,6 +879,41 @@ def run(no_cargo: bool) -> int:
                         bench_chat_adapter.parses_as_body("    return 1")
                         and not bench_chat_adapter.parses_as_body(
                             "   if x:\n        return 1\n    return 0"))
+
+        if splice.get("unusable_reply_is_kept"):
+            # Re-running and hoping the model repeats itself has failed
+            # twice. The artifact has to exist at the moment it happens.
+            with tempfile.TemporaryDirectory() as keep:
+                cli = Path(keep) / "cli"
+                cli.write_text(
+                    "#!/usr/bin/env python3\n"
+                    "import sys\n"
+                    "sys.stdin.read()\n"
+                    "sys.stdout.write("
+                    "'   if x:\\n        return 1\\n    return 0\\n')\n")
+                cli.chmod(0o755)
+                where = Path(keep) / "unusable"
+                done = _subprocess.run(
+                    [sys.executable,
+                     str(REPO / "tools/bench_chat_adapter.py"), str(cli)],
+                    input='{"signature":"def f(x):","docstring":"d",'
+                          '"instruction":"i","indent":"    ",'
+                          '"qualified_name":"q","task_id":"task:t"}',
+                    capture_output=True, text=True,
+                    env={**os.environ, "OWI_BENCH_UNUSABLE": str(where)})
+                kept = sorted(where.glob("*.json")) if where.exists() else []
+                suite.check("a reply whose body will not parse is kept",
+                            len(kept) == 1,
+                            f"kept {len(kept)}; stderr {done.stderr[:120]!r}")
+                if kept:
+                    saved = json.loads(kept[0].read_text())
+                    missing = [field
+                               for field in splice["unusable_record_fields"]
+                               if field not in saved]
+                    suite.check("and it records what tells worker from shim",
+                                not missing, f"missing {missing}")
+                    suite.check("a malformed reply is attributed to the worker",
+                                saved["raw_reply_parses"] is False)
 
         import run_bench
         suite.check("an unparseable body is labelled, not left as a test "

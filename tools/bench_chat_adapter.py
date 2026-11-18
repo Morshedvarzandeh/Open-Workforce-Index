@@ -39,10 +39,13 @@ already warns about keeping one of.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
 import tempfile
+import time
+from pathlib import Path
 
 PROMPT = """You are completing exactly one Python function. There are NO files
 and NO repository — everything you need is below. Do not ask questions.
@@ -180,6 +183,49 @@ def relay_receipt(stderr: str) -> None:
         return
 
 
+# Where a reply that will not parse is kept, so the next investigation reads
+# the artifact instead of re-running and hoping.
+UNUSABLE_DIR = Path(os.environ.get("OWI_BENCH_UNUSABLE")
+                    or Path(tempfile.gettempdir()) / "owi-unusable-bodies")
+
+
+def keep_if_unusable(reply: str, body: str, task: dict) -> None:
+    """Save the raw reply when the body extracted from it is not valid Python.
+
+    Every did_not_parse outcome in the ledger belongs to one worker --
+    sonnet-5, two per round across four rounds, none from the other three.
+    That is a strong enough signal to want the actual text, and twice now
+    the only way to look was to re-run the task and hope the model repeated
+    itself. Both times it did not: the reply came back clean and the
+    question stayed open.
+
+    So the artifact is kept at the moment it happens, which costs nothing
+    and needs no second call. It holds the raw reply and the body derived
+    from it, because the interesting question is which of the two is at
+    fault -- a malformed reply is the worker's, a malformed body from a
+    well-formed reply is this shim's.
+    """
+    if parses_as_body(body):
+        return
+    try:
+        UNUSABLE_DIR.mkdir(parents=True, exist_ok=True)
+        stamp = time.strftime("%Y%m%dT%H%M%S", time.gmtime())
+        name = re.sub(r"[^A-Za-z0-9_.-]", "_",
+                      str(task.get("qualified_name") or "body"))
+        path = UNUSABLE_DIR / f"{stamp}-{name}.json"
+        path.write_text(json.dumps({
+            "task_id": task.get("task_id"),
+            "qualified_name": task.get("qualified_name"),
+            "raw_reply": reply,
+            "extracted_body": body,
+            "raw_reply_parses": parses_as_body(reply),
+        }, indent=2), encoding="utf-8")
+        sys.stderr.write(f"adapter: body does not parse; reply kept at {path}\n")
+    except OSError as error:
+        # Never fail a measured call over bookkeeping.
+        sys.stderr.write(f"adapter: could not keep unusable reply: {error}\n")
+
+
 def main() -> int:
     command = sys.argv[1:]
     if not command:
@@ -214,6 +260,7 @@ def main() -> int:
     if not body:
         sys.stderr.write("adapter: reply contained no usable body\n")
         return 1
+    keep_if_unusable(completed.stdout, body, task)
     print(body)
     return 0
 

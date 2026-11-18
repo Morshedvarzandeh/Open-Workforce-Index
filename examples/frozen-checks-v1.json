@@ -973,7 +973,29 @@
       "one. So re-basing now has to earn its place: the re-based body is used",
       "only if it parses, and otherwise the model's own text is handed back",
       "verbatim. Every uniform base still normalises; an inconsistent reply",
-      "is neither repaired nor mangled, which is what the check below pins."
+      "is neither repaired nor mangled, which is what the check below pins.",
+      "",
+      "--- 18 Nov: keep the reply, stop re-running and hoping ---",
+      "",
+      "Every did_not_parse outcome in the ledger belongs to one worker.",
+      "sonnet-5 has produced exactly two per round across four measured",
+      "rounds (27 Oct, 4 Nov, 14 Nov, 18 Nov); the other three workers have",
+      "produced none, ever. That is a reproducible property of its output,",
+      "not noise, and it costs it two of twelve on every round.",
+      "",
+      "Twice the only way to look at a failing reply was to re-run the task",
+      "and hope the model repeated itself. Both times it did not -- the reply",
+      "came back clean, and the question of whether the fault was the",
+      "worker's or the shim's stayed open. On 4 Nov a failing reply WAS",
+      "captured and it was genuinely malformed (3/8/4), but one sample is a",
+      "thin basis for a claim about four rounds.",
+      "",
+      "So the artifact is now kept the moment it happens: raw reply, derived",
+      "body, and whether the RAW reply parses. That last field is the whole",
+      "point. A raw reply that does not parse is the worker's failure. A raw",
+      "reply that parses, turned into a body that does not, is this shim's --",
+      "and there would be no way to tell them apart after the fact without",
+      "keeping both."
     ],
     "rebased_to_requested_indent": [
       {
@@ -1005,6 +1027,14 @@
       3,
       8,
       4
+    ],
+    "unusable_reply_is_kept": true,
+    "unusable_record_fields": [
+      "task_id",
+      "qualified_name",
+      "raw_reply",
+      "extracted_body",
+      "raw_reply_parses"
     ]
   },
   "skill_guess_expectations": {
