@@ -240,13 +240,21 @@ def group_checklist(sweep: Sweep) -> None:
         ('contains:"double"', "a double word", "contains", True),
         ("regex:40\\s*A", "rated 40 A today", "regex", True),
         ("regex:40\\s*A", "rated 12 V today", "regex", False),
-        ("regex:[unclosed", "anything", "regex", None),
+        # A pattern that will not compile, a count that is not a number and
+        # a keyword in the wrong form are all the same thing: an item the
+        # engine cannot check. They are labelled `unusable` so they can be
+        # kept away from the judge -- the note still names which kind it was.
+        ("regex:[unclosed", "anything", "unusable", None),
         ("json", '{"a": 1}', "json", True),
         ("json", 'prose with {"a": 1} inside', "json", True),
         ("json", "no object here", "json", False),
         ("min-words:3", "one two three", "min-words", True),
         ("min-words:5", "one two three", "min-words", False),
-        ("min-words:notanumber", "one two", "min-words", None),
+        ("min-words:notanumber", "one two", "unusable", None),
+        ("python:assert True", "anything", "unusable", None),
+        ("json: keys must be snake_case", '{"a": 1}', "unusable", None),
+        ("min_words:60", "one two", "unusable", None),
+        ("contains everything the brief asked for", "x", "judged", None),
         ("python", "def f():\n    return 1\n", "python", True),
         ("python", "def f(:\n", "python", False),
         ("explains the tradeoff clearly", "anything", "judged", None),
@@ -268,6 +276,14 @@ def group_checklist(sweep: Sweep) -> None:
             ["contains:thermal"], maker_model="none", judge_enabled=False)
         sweep.expect("a failed mechanical item rejects",
                      report["verdict"], "rejected")
+        report = owi_do.run_checklist(
+            Path(scratch), "probe", "the thermal margin held",
+            ["contains:thermal", "python:assert True"], maker_model="none",
+            judge_enabled=False)
+        sweep.expect("an unusable item is not sampled out with judgement items",
+                     report["verdict"], "undecided")
+        sweep.expect("  and no judge is asked to grade broken syntax",
+                     report["judge"], None)
 
 
 def group_privacy(sweep: Sweep) -> None:

@@ -132,6 +132,48 @@
       "expect": null,
       "kind": "judged",
       "provenance": "first live split run, 2026-08-07: haiku asked clarifying questions instead of drafting; only a judged item caught it \u2014 free-form items MUST go to an independent judge, never silently pass"
+    },
+    {
+      "item": "python:assert d['vendors']",
+      "output": "anything at all",
+      "kind": "unusable",
+      "expect": null,
+      "provenance": "2026-11-24: `python` takes no argument, but `python:<code>` fell through to the judge in silence; seven such items were written believing they ran in process, and the run recorded nothing"
+    },
+    {
+      "item": "json: every key must be snake_case",
+      "output": "{\"a\": 1}",
+      "kind": "unusable",
+      "expect": null,
+      "provenance": "`json` takes no argument either \u2014 an item that looks mechanical must not be graded as prose"
+    },
+    {
+      "item": "min_words:60",
+      "output": "one two three",
+      "kind": "unusable",
+      "expect": null,
+      "provenance": "an underscore for a hyphen is the near-miss a person actually makes; it must name the right form, not become an opinion"
+    },
+    {
+      "item": "contains",
+      "output": "thermal",
+      "kind": "unusable",
+      "expect": null,
+      "provenance": "a mechanical keyword with no argument is an author error"
+    },
+    {
+      "item": "regex:[",
+      "output": "abc",
+      "kind": "unusable",
+      "expect": null,
+      "provenance": "a pattern that will not compile was already caught, but was labelled `regex` and still sent to a judge; it is unusable, like the rest"
+    },
+    {
+      "item": "contains the serial number somewhere in the header",
+      "output": "sn 12",
+      "kind": "judged",
+      "expect": null,
+      "provenance": "the guard must key on the bare keyword followed by a colon, never on a sentence that happens to begin with one of these words"
     }
   ],
   "serve_gate_expectations": {
@@ -1494,5 +1536,47 @@
       "skill:python-numerical-implementation"
     ],
     "below_floor_code": "skill_confidence_below_minimum"
+  },
+  "unusable_check_expectations": {
+    "_why": [
+      "A structured-extraction run was given eight checklist items, seven",
+      "of them written as `python:<predicate>` in the belief that they",
+      "would be evaluated against the output in process. `python` takes no",
+      "argument -- it means 'the output contains Python and it compiles' --",
+      "so all seven fell past every mechanical branch and landed on the",
+      "line that says `needs judgement`.",
+      "",
+      "Nothing reported this. The seven were handed to haiku-4-5 as prose",
+      "requirements, which is to say a judge was paid to form an opinion",
+      "about `assert set(d)=={'vendors'}`. Its reply yielded no usable",
+      "verdicts, the verdict came back `undecided`, and the run recorded",
+      "no outcome at all: the worker's money was spent and the roster",
+      "learned nothing.",
+      "",
+      "The silence is the defect, not the misuse. `regex:` with a pattern",
+      "that will not compile says `unusable regex`. `min-words:` with a",
+      "non-number says `unusable min-words`. Every other mechanical kind",
+      "already says when it cannot be used, so a checklist author reads",
+      "silence as 'this item was understood'. An item that names a",
+      "mechanical kind and is written in another form is an author error,",
+      "and an author error must surface as one -- not as a judgement, and",
+      "not as a judge's invoice.",
+      "",
+      "Scope, stated honestly: this adds no new checking power. There is",
+      "still no way to assert a property of parsed JSON mechanically,",
+      "which is exactly what an extraction checklist wants, and that gap",
+      "is what made the wrong form so tempting to write. The fix makes the",
+      "limit visible instead of letting it look like a check that ran."
+    ],
+    "silently_judged_before_fix": [
+      "python:assert d['vendors']",
+      "json: every key must be snake_case",
+      "min_words:60",
+      "contains"
+    ],
+    "unusable_kind": "unusable",
+    "unusable_never_reaches_a_judge": true,
+    "verdict_when_only_unusable": "undecided",
+    "a_sentence_starting_with_a_keyword_is_still_judged": "contains the serial number somewhere in the header"
   }
 }

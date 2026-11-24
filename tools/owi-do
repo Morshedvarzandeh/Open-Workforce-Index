@@ -551,6 +551,20 @@ def find_json(text: str):
     return None
 
 
+# The mechanical kinds and the form each one takes. An item that names one of
+# these but is written in another form is UNUSABLE, not judgeable: `python:`
+# with an argument used to fall through to the judge in silence, so a
+# checklist author who believed they had written seven checks that run in
+# process got seven opinions instead — and paid a judge to have them.
+MECHANICAL_FORMS = {
+    "contains": "contains:TEXT",
+    "regex": "regex:PATTERN",
+    "json": "json",
+    "python": "python",
+    "min-words": "min-words:N",
+}
+
+
 def check_item(item: str, output: str) -> tuple[str, bool | None, str]:
     """One checklist item against one output, labelled by kind. Returns
     (kind, verdict, note): the kind names how the item is checkable, the
@@ -572,7 +586,8 @@ def check_item(item: str, output: str) -> tuple[str, bool | None, str]:
             return ("regex", re.search(pattern, output) is not None,
                     f"matches /{pattern}/")
         except re.error as error:
-            return "regex", None, f"unusable regex ({error})"
+            return ("unusable", None,
+                    f"unusable regex ({error}) — write it as regex:PATTERN")
     if lowered == "json":
         return "json", find_json(output) is not None, "contains valid JSON"
     if lowered == "python":
@@ -587,9 +602,20 @@ def check_item(item: str, output: str) -> tuple[str, bool | None, str]:
         try:
             floor = int(text[len("min-words:"):].strip())
         except ValueError:
-            return "min-words", None, "unusable min-words"
+            return ("unusable", None,
+                    "unusable min-words — write it as min-words:N")
         return ("min-words", len(output.split()) >= floor,
                 f"at least {floor} words")
+    # A mechanical keyword written in the wrong form. Every other mechanical
+    # kind says when it cannot be used; this one said nothing, and silence
+    # here reads exactly like a judgement item that happens to look technical.
+    word = lowered.split(":", 1)[0].strip().replace("_", "-")
+    if word in MECHANICAL_FORMS:
+        form = MECHANICAL_FORMS[word]
+        return ("unusable", None,
+                f"unusable {word} — the item is the bare word {word!r}; it "
+                "takes no argument" if form == word else
+                f"unusable {word} — write it as {form}")
     return "judged", None, "needs judgement"
 
 
@@ -739,7 +765,12 @@ def run_checklist(home: Path, task: str, output: str, items: list[str],
         results.append({"item": item, "kind": kind, "pass": verdict,
                         "note": note})
 
-    pending = [entry for entry in results if entry["pass"] is None]
+    # An unusable item is an author error, not a judgement call. Sending it
+    # to a judge pays for an opinion on broken syntax and can only return
+    # noise, so it stays unchecked and the verdict stays undecided.
+    broken = [entry for entry in results if entry["kind"] == "unusable"]
+    pending = [entry for entry in results
+               if entry["pass"] is None and entry["kind"] != "unusable"]
     if pending and not judge_enabled:
         for entry in pending:
             entry["note"] = "sampled out — reduced inspection"
@@ -1237,7 +1268,8 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
                                privacy=privacy)
         marks = {True: "✓", False: "✗", None: "?"}
         for entry in report["items"]:
-            print(f"  [{marks[entry['pass']]}] {entry['item']} — {entry['note']}")
+            mark = "!" if entry["kind"] == "unusable" else marks[entry["pass"]]
+            print(f"  [{mark}] {entry['item']} — {entry['note']}")
         judged = f" · judge: {report['judge']}" if report["judge"] else ""
         checked = sum(1 for entry in report["items"]
                       if entry["pass"] is not None)
@@ -1259,7 +1291,14 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
                            inspection=inspection["level"], privacy=privacy,
                            **recorded)
             return "rejected", detail
-        print(f"checklist: could not verify every item{judged} — your call")
+        unusable = [entry for entry in report["items"]
+                    if entry["kind"] == "unusable"]
+        if unusable:
+            print(f"checklist: {len(unusable)} item(s) are not written in a "
+                  f"form that can be checked — fix the checklist, not the "
+                  f"output{judged} — your call")
+        else:
+            print(f"checklist: could not verify every item{judged} — your call")
 
     try:
         answer = input("accepted? [y/n] ").strip().lower()

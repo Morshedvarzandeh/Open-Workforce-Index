@@ -785,6 +785,44 @@ def run(no_cargo: bool) -> int:
                              for n in range(30)]
                             + [{"item": "judged", "pass": None}])))
 
+    unusable = frozen.get("unusable_check_expectations")
+    if unusable:
+        # An item that names a mechanical kind and is written in another form
+        # used to become a judgement item in silence -- so the author paid a
+        # judge to opine on broken syntax and the run recorded nothing.
+        print("\nunusable checklist items (an author error says so)")
+        for item in unusable["silently_judged_before_fix"]:
+            kind, verdict, note = owi_do.check_item(item, "anything")
+            suite.check(f"{item[:38]!r} is unusable, not judged",
+                        kind == unusable["unusable_kind"] and verdict is None,
+                        f"got kind {kind!r}, verdict {verdict!r}")
+            suite.check("  and the note names the form to use",
+                        "unusable" in note and len(note) > len("unusable "),
+                        f"note {note!r}")
+        sentence = unusable["a_sentence_starting_with_a_keyword_is_still_judged"]
+        suite.check("a sentence that merely starts with a keyword is judged",
+                    owi_do.check_item(sentence, "sn 12")[0] == "judged",
+                    f"got {owi_do.check_item(sentence, 'sn 12')[0]!r}")
+        only_broken = owi_do.run_checklist(
+            REPO, "task", "some output",
+            ["python:assert 1", "min_words:60"], maker_model="x")
+        suite.check("no judge is called for a checklist of unusable items",
+                    (only_broken["judge"] is None)
+                    == unusable["unusable_never_reaches_a_judge"],
+                    f"judge {only_broken['judge']!r}")
+        suite.check("and the verdict is undecided, not accepted",
+                    only_broken["verdict"] == unusable["verdict_when_only_unusable"],
+                    f"got {only_broken['verdict']!r}")
+        mixed = owi_do.run_checklist(
+            REPO, "task", "thermal runaway and more words here",
+            ["contains:thermal", "python:assert 1"], maker_model="x")
+        suite.check("one unusable item blocks acceptance of a passing one",
+                    mixed["verdict"] == unusable["verdict_when_only_unusable"],
+                    f"got {mixed['verdict']!r}")
+        suite.check("  while the usable item still shows its own result",
+                    mixed["items"][0]["pass"] is True,
+                    f"got {mixed['items'][0]!r}")
+
     guess = frozen.get("skill_guess_expectations")
     if guess:
         # Evidence filed under the wrong skill is worse than missing
