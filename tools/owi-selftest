@@ -785,6 +785,113 @@ def run(no_cargo: bool) -> int:
                              for n in range(30)]
                             + [{"item": "judged", "pass": None}])))
 
+    repair = frozen.get("splice_repair_expectations")
+    if repair:
+        # Eleven paid attempts were thrown away as unparseable; ten of them
+        # were a short first line and nothing else. The repair is allowed to
+        # mend that one shape, and only when the result compiles.
+        print("\nsplice repair (a short first line is not a wrong answer)")
+        bench_loader = importlib.machinery.SourceFileLoader(
+            "run_bench_for_selftest", str(TOOLS / "run_bench.py"))
+        bench = importlib.util.module_from_spec(
+            importlib.util.spec_from_loader("run_bench_for_selftest",
+                                            bench_loader))
+        sys.modules["run_bench_for_selftest"] = bench
+        bench_loader.exec_module(bench)
+
+        def parses(body: str) -> bool:
+            try:
+                compile(f"def _probe(*a, **k):\n{body}", "<selftest>", "exec")
+            except SyntaxError:
+                return False
+            return True
+
+        for shape in repair["repaired_shapes"]:
+            body = shape["body"]
+            first = len(body.split("\n")[0]) - len(body.split("\n")[0].lstrip(" "))
+            suite.check(f"the captured shape still starts at indent {first}",
+                        first == shape["first_indent_before"],
+                        f"got {first}")
+            suite.check("  and it does not parse as it arrived",
+                        not parses(body))
+            mended = bench.repair_first_line_indent(body)
+            got = (len(mended.split("\n")[0])
+                   - len(mended.split("\n")[0].lstrip(" "))) if mended else None
+            suite.check(f"  the first line is put back on indent "
+                        f"{shape['first_indent_after']}",
+                        got == shape["first_indent_after"], f"got {got}")
+            suite.check("  and then it parses", bool(mended) and parses(mended))
+
+        for shape in repair["shapes_left_alone"]:
+            suite.check(f"left alone: {shape['_why'][:46]}",
+                        bench.repair_first_line_indent(shape["body"]) == "",
+                        "a repair was offered where none is warranted")
+
+        prose = repair["prose_reply_is_not_repairable"]
+        mended = bench.repair_first_line_indent(prose + "\n    return 1")
+        suite.check("a prose reply is never rescued by re-indenting",
+                    not (mended and parses(mended)),
+                    "prose was made to look like code")
+
+        suite.check("the repair marker is the frozen one",
+                    "first_line_indent" == repair["repair_marker"])
+
+        if repair["a_repair_must_be_visible_in_the_outcome_record"]:
+            # End to end: a body whose first line is a space short, through
+            # the real bench, must come out as a scored pass that SAYS it was
+            # repaired -- in the report and in the record the ledger reads.
+            with tempfile.TemporaryDirectory() as scratch:
+                area = Path(scratch)
+                repo, out = area / "repo", area / "out"
+                repo.mkdir()
+                (repo / "unit.py").write_text("def f():\n    return 1\n")
+                subprocess.run(["git", "init", "-q", str(repo)], check=True)
+                adapter = area / "short-first-line.py"
+                adapter.write_text(
+                    "import sys\n"
+                    "sys.stdin.read()\n"
+                    "sys.stdout.write('   x = 7\\n    return x\\n')\n")
+                corpus_path = area / "corpus.json"
+                corpus_path.write_text(json.dumps({
+                    "corpus_id": "corpus:selftest-repair", "commit": "HEAD",
+                    "skill_id": "skill:python-numerical-implementation",
+                    "verify_command": ["python3", "-c", "raise SystemExit(0)"],
+                    "tasks": [{
+                        "task_id": "task:selftest:f",
+                        "qualified_name": "f", "source_path": "unit.py",
+                        "instruction": "implement f", "signature": "def f():",
+                        "docstring": "one", "indent": "    ",
+                        "patch": {"file": "unit.py", "start_line": 2,
+                                  "end_line": 2},
+                    }],
+                }))
+                subprocess.run(
+                    [sys.executable, str(TOOLS / "run_bench.py"),
+                     "--corpus", str(corpus_path), "--repo", str(repo),
+                     "--worker-id", "worker:selftest/code",
+                     "--adapter", "command",
+                     "--command", f"{sys.executable} {adapter}",
+                     "--observed-at", "2026-01-01T00:00:00Z",
+                     "--outcome-dir", str(out),
+                     "--report", str(area / "report.json")],
+                    capture_output=True, text=True)
+                report = json.loads((area / "report.json").read_text())
+                suite.check("a short first line is scored, not discarded",
+                            report.get("did_not_parse") == 0
+                            and report.get("accepted") == 1,
+                            f"did_not_parse={report.get('did_not_parse')} "
+                            f"accepted={report.get('accepted')}")
+                suite.check("  and the report counts the repair",
+                            report.get("repaired") == 1,
+                            f"repaired={report.get('repaired')}")
+                records = list(out.glob("*.json")) if out.exists() else []
+                suite.check("  and the outcome record carries it too",
+                            len(records) == 1
+                            and json.loads(records[0].read_text())["event"]
+                            .get("metadata", {}).get("repaired")
+                            == repair["repair_marker"],
+                            "the ledger would not know this pass was mended")
+
     unusable = frozen.get("unusable_check_expectations")
     if unusable:
         # An item that names a mechanical kind and is written in another form

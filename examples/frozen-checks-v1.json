@@ -1578,5 +1578,84 @@
     "unusable_never_reaches_a_judge": true,
     "verdict_when_only_unusable": "undecided",
     "a_sentence_starting_with_a_keyword_is_still_judged": "contains the serial number somewhere in the header"
+  },
+  "splice_repair_expectations": {
+    "_why": [
+      "Between 18 and 25 November the benchmark threw away eleven paid",
+      "attempts as `did_not_parse`. Each one was kept as an artifact, and",
+      "ten of the eleven turn out to have exactly one shape: the FIRST",
+      "line of the body carries less leading whitespace than the lines",
+      "below it, those lines are a consistent ladder from a base of four,",
+      "and nothing else is wrong. Eight lost one space of the four; two",
+      "lost all four. Re-indenting the first line alone makes all ten",
+      "parse.",
+      "",
+      "The eleventh is a different failure wearing the same label: the",
+      "model answered in prose -- 'No repo present, so I will write a",
+      "self-contained...' -- which no re-indenting can rescue. That is why",
+      "the repair is only ever kept when the result compiles, and why the",
+      "compile gate, not the shape test, is what decides.",
+      "",
+      "Three earlier readings of this series were wrong and were",
+      "corrected: that every parse failure belonged to sonnet-5 (opus-5",
+      "produced one on 20 November), that stating the expected indent in",
+      "the prompt would prevent it (tested 21 November, it did not, and",
+      "the change was reverted rather than committed), and that there were",
+      "two mechanisms at 'indent 3 or indent 0' (there is one mechanism,",
+      "the first line, at two magnitudes). The count in this block is the",
+      "measured count of captured artifacts, not an impression.",
+      "",
+      "What is still unknown: WHERE the whitespace goes. The earliest",
+      "point owi can observe a reply is the CLI's `result` field, and the",
+      "first line is already short there, upstream of every line of code",
+      "in this repository. A model that mis-indented its own work would",
+      "not do it on line one only, ten times out of ten, while laying out",
+      "every nested block below correctly -- but that is an inference, not",
+      "an observation. So the repair is recorded on the attempt and in the",
+      "outcome record. A pass that rested on one can be found again and",
+      "taken back out if the inference turns out wrong, which is the whole",
+      "reason it is labelled instead of silent."
+    ],
+    "repair_marker": "first_line_indent",
+    "captured_artifacts": 11,
+    "repairable_artifacts": 10,
+    "repaired_shapes": [
+      {
+        "body": "   arr = np.asarray(value)\n    if arr.ndim == 0:\n        return float(arr)\n    return arr",
+        "first_indent_before": 3,
+        "first_indent_after": 4,
+        "provenance": "the eight-of-ten case: one space of four missing from line one"
+      },
+      {
+        "body": "value_array = np.asarray(value, dtype=float)\n    if np.any(value_array < 0):\n        raise ValueError(\"negative\")\n    return value_array",
+        "first_indent_before": 0,
+        "first_indent_after": 4,
+        "provenance": "the two-of-ten case: the whole indent missing from line one"
+      }
+    ],
+    "shapes_left_alone": [
+      {
+        "body": "    return 1",
+        "_why": "one line; there is no rest of the body to take a base from"
+      },
+      {
+        "body": "x = 1\nreturn x",
+        "_why": "uniformly flush left -- extract_body's own re-basing owns this, not a repair"
+      },
+      {
+        "body": "        x = 1\n    return x",
+        "_why": "first line deeper than the rest; nothing says four is wrong"
+      },
+      {
+        "body": "    x = 1\n    return x",
+        "_why": "already on the base"
+      },
+      {
+        "body": "\n    return 1",
+        "_why": "blank first line"
+      }
+    ],
+    "prose_reply_is_not_repairable": "No repo present, so I will write a self-contained implementation",
+    "a_repair_must_be_visible_in_the_outcome_record": true
   }
 }

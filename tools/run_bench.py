@@ -65,6 +65,16 @@ class Attempt:
     # because the ledger keeps WHETHER a task failed and never WHY. Labelling
     # it is what makes the next occurrence auditable instead of invisible.
     failure_kind: str = ""
+    # WHAT WAS CHANGED before the tests ran, when anything was. Empty means
+    # the body went into the repository exactly as the adapter delivered it,
+    # which is the normal case and the one a pass rate can be read from
+    # without qualification. "first_line_indent" means the first line's
+    # leading whitespace was restored from the base the rest of the body
+    # sets; see repair_first_line_indent. A repaired pass is a measurement of
+    # the model's logic, not of its whitespace, and it must be possible to
+    # ask which passes those were -- so this rides along in the report and in
+    # the outcome record, never silently.
+    repaired: str = ""
 
 
 def read_file_at_commit(repo: Path, commit: str, relative_path: str) -> str:
@@ -82,6 +92,49 @@ def splice(original: str, start_line: int, end_line: int, replacement: str) -> s
     lines = original.splitlines(keepends=True)
     body = replacement if replacement.endswith("\n") else replacement + "\n"
     return "".join(lines[: start_line - 1] + [body] + lines[end_line:])
+
+
+def repair_first_line_indent(body: str) -> str:
+    """Restore a first line's indent from the base the rest of the body sets.
+
+    Of the eleven parse failures captured between 18 and 25 November, across
+    four workers, ten have one shape: the FIRST line carries less leading
+    whitespace than the lines below it, those lines are a consistent ladder
+    from a base of four, and nothing else in the body is wrong -- putting the
+    first line back on that base is enough to make all ten parse. Eight lost
+    exactly one space of the four; two lost all four. The eleventh is not an
+    indentation failure at all: the model answered in prose ("No repo
+    present, so I will write a self-contained...") and no re-indenting can
+    help it, which is why this repair is only ever kept when the result
+    compiles.
+
+    A model mis-indenting its own code would not do it on line one only, ten
+    times out of ten, while laying out every nested block below it correctly;
+    losing exactly one space from exactly the first line is not an authoring
+    mistake, it is a text-handling artifact. Where the whitespace goes is
+    still not visible from here: the earliest point this repository can
+    observe a reply is the CLI's `result` field, and the first line is
+    already short there. So this repairs the shape the evidence describes
+    and does not pretend to explain it -- and every repair is recorded, so a
+    pass that rested on one can be found again if the premise turns out
+    wrong.
+
+    The intended indent is not guessed: it is the minimum indent of the
+    remaining non-blank lines. Returns "" when the shape does not match --
+    fewer than two non-blank lines, or a first line already at or past that
+    minimum, which is what a genuinely mis-indented body looks like.
+    """
+    lines = body.split("\n")
+    if not lines or not lines[0].strip():
+        return ""
+    rest = [line for line in lines[1:] if line.strip()]
+    if not rest:
+        return ""
+    base = min(len(line) - len(line.lstrip(" ")) for line in rest)
+    first = len(lines[0]) - len(lines[0].lstrip(" "))
+    if first >= base:
+        return ""
+    return "\n".join([" " * base + lines[0].lstrip(" ")] + lines[1:])
 
 
 def adapter_oracle(task: dict, repo: Path, commit: str) -> tuple[str, dict]:
@@ -173,6 +226,7 @@ def run_task(
     original = path.read_text()
     started = time.monotonic()
     usage: dict = {}
+    repaired = ""
     try:
         body, usage = produce_body(task)
         elapsed_ms = int((time.monotonic() - started) * 1000)
@@ -188,6 +242,27 @@ def run_task(
             body.rstrip("\n"),
         )
         path.write_text(spliced)
+        try:
+            compile(spliced, str(path), "exec")
+        except SyntaxError:
+            # Before calling this an unusable answer, try the one repair the
+            # evidence supports, and keep it only if it makes the file parse.
+            mended = repair_first_line_indent(body.rstrip("\n"))
+            if mended:
+                candidate = splice(
+                    original,
+                    task["patch"]["start_line"],
+                    task["patch"]["end_line"],
+                    mended,
+                )
+                try:
+                    compile(candidate, str(path), "exec")
+                except SyntaxError:
+                    pass
+                else:
+                    spliced = candidate
+                    path.write_text(spliced)
+                    repaired = "first_line_indent"
         try:
             compile(spliced, str(path), "exec")
         except SyntaxError as error:
@@ -240,6 +315,7 @@ def run_task(
         output_tokens=_counted(usage, "output_tokens"),
         cash_micros=_counted(usage, "cash_micros"),
         failure_detail=detail,
+        repaired=repaired,
     )
 
 
@@ -348,6 +424,10 @@ def main() -> int:
         # pass rate alone cannot.
         "did_not_parse": sum(1 for a in scored
                              if a.failure_kind == "did_not_parse"),
+        # Attempts whose body was mended before the tests ran. These are
+        # real test results, but they are results about a repaired file, so
+        # the count sits next to the pass rate rather than inside it.
+        "repaired": sum(1 for a in scored if a.repaired),
         "total_cash_micros": sum(a.cash_micros for a in attempts),
         "attempts": [asdict(a) for a in attempts],
     }
@@ -381,8 +461,12 @@ def main() -> int:
                     "actual_quota_milliunits": 0,
                     "latency_ms": attempt.latency_ms,
                     "observed_at": arguments.observed_at,
-                    **({"metadata": {"failure_kind": attempt.failure_kind}}
-                       if attempt.failure_kind else {}),
+                    **({"metadata": {
+                        **({"failure_kind": attempt.failure_kind}
+                           if attempt.failure_kind else {}),
+                        **({"repaired": attempt.repaired}
+                           if attempt.repaired else {}),
+                    }} if (attempt.failure_kind or attempt.repaired) else {}),
                 }
             }
             (arguments.outcome_dir / f"{slug}.json").write_text(
@@ -395,6 +479,12 @@ def main() -> int:
         f"({report['pass_rate']:.1%})",
         file=sys.stderr,
     )
+    if report["repaired"]:
+        print(
+            f"{report['repaired']} of these bodies had the first line's "
+            f"indent restored before the tests ran; see `repaired` in the "
+            f"report for which."
+        )
     if report["did_not_parse"]:
         print(
             f"{report['did_not_parse']} of those failures never parsed, so "
