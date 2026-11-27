@@ -785,6 +785,59 @@ def run(no_cargo: bool) -> int:
                              for n in range(30)]
                             + [{"item": "judged", "pass": None}])))
 
+    sight = frozen.get("judge_sight_expectations")
+    if sight:
+        # A judge shown only the instruction and the output cannot check an
+        # item about faithfulness to the input -- and when it said so, the
+        # boolean-only protocol turned that into a rejection charged to the
+        # worker.
+        print("\njudge sight (it cannot check what it was not shown)")
+        captured: dict = {}
+
+        class _Reply:
+            def __init__(self, text: str) -> None:
+                self.output, self.usable = text, True
+                self.usage, self.stderr, self.detail = {}, "", ""
+
+        real_judge_for = owi_do.judge_model_for
+        real_run_worker = owi_do.run_worker
+        try:
+            owi_do.judge_model_for = lambda home, maker, privacy: "judge:test"
+            owi_do.run_worker = lambda home, model, prompt, timeout=300: (
+                captured.__setitem__("prompt", prompt)
+                or _Reply(json.dumps({"results": [
+                    {"item": 1, "pass": None,
+                     "why": "the source does not list the lots"}]})))
+            report = owi_do.run_checklist(
+                Path("/tmp"), "extract the log", "SOME OUTPUT",
+                [sight["unverifiable_item"]], maker_model="worker:test",
+                source="VENDOR LOT NK-0442 appears twice")
+        finally:
+            owi_do.judge_model_for = real_judge_for
+            owi_do.run_worker = real_run_worker
+
+        suite.check("the source material reaches the judge",
+                    (sight["source_prompt_heading"] in captured.get("prompt", ""))
+                    == sight["judge_is_shown_the_source"],
+                    "the judge was asked about input it cannot see")
+        suite.check("  and the prompt offers it a way to abstain",
+                    sight["abstention_token"] in captured.get("prompt", ""),
+                    "a judge told only to judge strictly will pick false")
+        entry = report["items"][0]
+        suite.check("an abstention leaves the item unchecked, not failed",
+                    entry["pass"] is None, f"got pass={entry['pass']!r}")
+        suite.check("  so the verdict is undecided",
+                    report["verdict"] == sight["abstention_verdict"],
+                    f"got {report['verdict']!r}")
+        suite.check("  and the judge's reason is kept, not flattened",
+                    entry["note"].startswith(sight["abstention_note_prefix"])
+                    and "does not list the lots" in entry["note"],
+                    f"note {entry['note']!r}")
+        if sight["an_abstention_is_never_charged_to_the_worker"]:
+            suite.check("  an abstention is not a rejection",
+                        report["verdict"] != "rejected",
+                        "the harness's blindness would be the model's record")
+
     repair = frozen.get("splice_repair_expectations")
     if repair:
         # Eleven paid attempts were thrown away as unparseable; ten of them

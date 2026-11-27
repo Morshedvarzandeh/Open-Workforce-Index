@@ -753,12 +753,25 @@ def run_worker(home: Path, model: str, payload: str,
 
 def run_checklist(home: Path, task: str, output: str, items: list[str],
                   maker_model: str, judge_enabled: bool = True,
-                  privacy: str = "private_metadata") -> dict:
+                  privacy: str = "private_metadata",
+                  source: str = "") -> dict:
     """Verify output against the checklist. Verdict: 'accepted' (every item
     checked and passed), 'rejected' (any item failed), or 'undecided' (an item
-    could not be checked — no independent judge, or the judge was unusable).
+    could not be checked — no independent judge, the judge was unusable, or
+    the judge said it could not tell).
     With judge_enabled False (reduced inspection), judgement items are sampled
-    out: marked, non-blocking, and visible in the record as uninspected."""
+    out: marked, non-blocking, and visible in the record as uninspected.
+
+    `source` is the material the work was made FROM — whatever arrived on
+    stdin. The judge used to be shown only the instruction and the output,
+    which makes any item about faithfulness to the input unverifiable by
+    construction: most of what this harness does is rewriting and extraction,
+    and for those the input IS the standard. Withholding it produced a
+    rejection charged to the worker whose stated reason was "no original
+    release log provided to compare against" — the harness's blindness,
+    written into a model's posterior. The judge must already be cleared for
+    this privacy level to see the output, and the worker was given this same
+    input under that level, so passing it on exposes nothing new."""
     results = []
     for item in items:
         kind, verdict, note = check_item(item, output)
@@ -781,12 +794,25 @@ def run_checklist(home: Path, task: str, output: str, items: list[str],
     if pending and judge:
         numbered = "\n".join(f"{position}. {entry['item']}"
                              for position, entry in enumerate(pending, start=1))
+        given = ""
+        if source:
+            clipped = source[:8000]
+            given = ("\n\nSOURCE MATERIAL THE WORK WAS MADE FROM:\n" + clipped
+                     + ("\n[...truncated; judge only what you can see, and say "
+                        "so if an item needs the rest]"
+                        if len(source) > len(clipped) else ""))
         prompt = ("You are verifying another model's work. Judge strictly; a "
                   "vague or partial answer fails.\n\nTASK:\n" + task[:4000]
+                  + given
                   + "\n\nOUTPUT TO JUDGE:\n" + output[:12000]
                   + "\n\nCHECKLIST:\n" + numbered
                   + '\n\nReply with JSON only, one entry per checklist item: '
-                  '{"results": [{"item": 1, "pass": true, "why": "short reason"}]}')
+                  '{"results": [{"item": 1, "pass": true, "why": "short reason"}]}'
+                  '\nUse "pass": null for an item you CANNOT decide from what '
+                  'you were given, and say what is missing in "why". An '
+                  'honest null is right; a false that means "I could not '
+                  'check this" is wrong, because it is charged to the model '
+                  'that did the work.')
         graded = run_worker(home, judge, prompt, timeout=300)
         data = find_json(graded.output) if graded.usable else None
         rows = (data.get("results") if isinstance(data, dict)
@@ -794,9 +820,20 @@ def run_checklist(home: Path, task: str, output: str, items: list[str],
         verdicts = {row.get("item"): row for row in rows if isinstance(row, dict)}
         for position, entry in enumerate(pending, start=1):
             row = verdicts.get(position)
-            if row is not None and isinstance(row.get("pass"), bool):
+            if row is None:
+                continue
+            if isinstance(row.get("pass"), bool):
                 entry["pass"] = row["pass"]
                 entry["note"] = str(row.get("why", ""))[:200] or "judged"
+            else:
+                # The judge looked and could not tell. That leaves the item
+                # unchecked, exactly as a missing judge does, so the verdict
+                # is undecided and nothing is charged to the worker. Keep its
+                # reason: "the output does not say which lot" is actionable,
+                # "needs judgement" is not.
+                entry["note"] = ("judge could not decide: "
+                                 + (str(row.get("why", ""))[:160]
+                                    or "no reason given"))
 
     if pending and judge is None:
         # Distinguish "nobody is allowed to look at this" from "nobody is
@@ -1265,7 +1302,7 @@ def attempt_run(home: Path, worker: str, model: str, skill: str,
     if checklist:
         report = run_checklist(home, task, stdout, checklist, maker_model=model,
                                judge_enabled=inspection["judge"],
-                               privacy=privacy)
+                               privacy=privacy, source=stdin_text)
         marks = {True: "✓", False: "✗", None: "?"}
         for entry in report["items"]:
             mark = "!" if entry["kind"] == "unusable" else marks[entry["pass"]]
