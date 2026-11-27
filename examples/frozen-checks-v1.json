@@ -1678,10 +1678,13 @@
       "a false is a failure: the run was recorded as rejected with root",
       "cause `worker`, moved that worker's posterior down, and entered the",
       "prevention memory as a lesson about the model. Two outcomes were",
-      "charged that way before this was found. They stay in the ledger --",
-      "the ledger is the lived record and is never edited by hand -- so",
-      "two of sonnet-5/extract's rejections are the harness's blindness,",
-      "not the model's work.",
+      "charged that way before this was found, one to sonnet-5/extract and",
+      "one to sonnet-4-5/extract, which took the escalation and was rejected",
+      "on the same unverifiable item. They stay in the ledger -- the ledger",
+      "is the lived record and is never edited by hand -- so one rejection on",
+      "each of those two pairs is this harness's blindness, not the model's",
+      "work. sonnet-4-5/extract carries it on three samples, where one",
+      "rejection is a third of everything known about it.",
       "",
       "This is the failure mode the runner contract already forbids",
       "everywhere else. Timeouts, empty output, a missing runner and a",
@@ -1706,6 +1709,10 @@
     "abstention_verdict": "undecided",
     "abstention_note_prefix": "judge could not decide: ",
     "unverifiable_item": "every release has a ticket_count equal to the number of tickets listed for it",
-    "an_abstention_is_never_charged_to_the_worker": true
+    "an_abstention_is_never_charged_to_the_worker": true,
+    "charged_to": [
+      "worker:sonnet-5/extract",
+      "worker:sonnet-4-5/extract"
+    ]
   }
 }
