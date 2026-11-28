@@ -785,6 +785,26 @@ def run(no_cargo: bool) -> int:
                              for n in range(30)]
                             + [{"item": "judged", "pass": None}])))
 
+    notes = frozen.get("failed_note_expectations")
+    if notes:
+        # Six rejections are stored as `failed: contains:80 (output contains
+        # "80")`. On screen a glyph tells them apart; in the record nothing
+        # did, and the record is what an audit has.
+        print("\nfailed notes (a failure must not read as a pass)")
+        for case in notes["cases"]:
+            kind, verdict, note = owi_do.check_item(case["item"], case["output"])
+            suite.check(f"{case['item']!r} is {case['pass']}",
+                        verdict is case["pass"], f"got {verdict!r}")
+            suite.check(f"  note says so: {case['note_must_contain']!r}",
+                        case["note_must_contain"] in note, f"note {note!r}")
+        if notes["a_failed_note_never_reads_as_a_pass"]:
+            failed = [owi_do.check_item(c["item"], c["output"])[2]
+                      for c in notes["cases"] if not c["pass"]]
+            suite.check("no failed note is phrased as the passing one",
+                        all(("NOT" in n or "no " in n or "floor is" in n)
+                            for n in failed),
+                        f"{failed}")
+
     sight = frozen.get("judge_sight_expectations")
     if sight:
         # A judge shown only the instruction and the output cannot check an

@@ -578,18 +578,28 @@ def check_item(item: str, output: str) -> tuple[str, bool | None, str]:
         # not part of the requirement. Learned from a wrongly rejected run.
         if len(needle) >= 2 and needle[0] == needle[-1] and needle[0] in "'\"":
             needle = needle[1:-1].strip()
-        return ("contains", needle.lower() in output.lower(),
-                f'output contains "{needle}"')
+        # The note must say what HAPPENED, not what was tested. These notes
+        # are what the outcome record keeps, and a record reading
+        # `failed: contains:80 (output contains "80")` is a contradiction an
+        # auditor has to decode; six rejections are stored in that shape.
+        held = needle.lower() in output.lower()
+        return ("contains", held,
+                f'output contains "{needle}"' if held
+                else f'output does NOT contain "{needle}"')
     if lowered.startswith("regex:"):
         pattern = text[len("regex:"):].strip()
         try:
-            return ("regex", re.search(pattern, output) is not None,
-                    f"matches /{pattern}/")
+            held = re.search(pattern, output) is not None
+            return ("regex", held,
+                    f"matches /{pattern}/" if held
+                    else f"no match for /{pattern}/")
         except re.error as error:
             return ("unusable", None,
                     f"unusable regex ({error}) — write it as regex:PATTERN")
     if lowered == "json":
-        return "json", find_json(output) is not None, "contains valid JSON"
+        held = find_json(output) is not None
+        return ("json", held, "contains valid JSON" if held
+                else "no valid JSON in the output")
     if lowered == "python":
         blocks = re.findall(r"```(?:python)?\s*(.*?)```", output, re.S) or [output]
         for block in blocks:
@@ -604,8 +614,10 @@ def check_item(item: str, output: str) -> tuple[str, bool | None, str]:
         except ValueError:
             return ("unusable", None,
                     "unusable min-words — write it as min-words:N")
-        return ("min-words", len(output.split()) >= floor,
-                f"at least {floor} words")
+        words = len(output.split())
+        return ("min-words", words >= floor,
+                f"at least {floor} words" if words >= floor
+                else f"{words} words, floor is {floor}")
     # A mechanical keyword written in the wrong form. Every other mechanical
     # kind says when it cannot be used; this one said nothing, and silence
     # here reads exactly like a judgement item that happens to look technical.

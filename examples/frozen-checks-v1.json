@@ -1714,5 +1714,58 @@
       "worker:sonnet-5/extract",
       "worker:sonnet-4-5/extract"
     ]
+  },
+  "failed_note_expectations": {
+    "_why": [
+      "An audit of every checklist rejection ever charged to a worker",
+      "found six stored in this shape:",
+      "",
+      "    failed: contains:80 (output contains \"80\")",
+      "",
+      "The note described the predicate, not the result, so a failed",
+      "mechanical item read exactly like a passing one. On screen the",
+      "[x] glyph disambiguates it; in the outcome record and in the",
+      "`detail` string the prevention memory reads, nothing does. That is",
+      "the one place it matters, because the record is what an audit has,",
+      "and an audit of blame was exactly what turned this up.",
+      "",
+      "`python` already said which way it went (\"python code compiles\" or",
+      "\"python does not compile\"). Now all five do, and min-words gives",
+      "the count it actually found, which is the number a person needs in",
+      "order to fix either the output or the floor."
+    ],
+    "cases": [
+      {
+        "item": "contains:80",
+        "output": "the value is 64",
+        "pass": false,
+        "note_must_contain": "does NOT contain"
+      },
+      {
+        "item": "regex:3 Dec",
+        "output": "due in November",
+        "pass": false,
+        "note_must_contain": "no match for"
+      },
+      {
+        "item": "json",
+        "output": "no object here",
+        "pass": false,
+        "note_must_contain": "no valid JSON"
+      },
+      {
+        "item": "min-words:180",
+        "output": "three words only",
+        "pass": false,
+        "note_must_contain": "floor is 180"
+      },
+      {
+        "item": "contains:64",
+        "output": "the value is 64",
+        "pass": true,
+        "note_must_contain": "contains"
+      }
+    ],
+    "a_failed_note_never_reads_as_a_pass": true
   }
 }
